@@ -23,7 +23,6 @@ import { toast } from 'sonner';
 
 // Mocking these for now until Phase 2 (Offline mode)
 const queueCollection = async (data: any) => { console.log('Queued offline', data); };
-const tryGetGeolocation = async () => ({ latitude: 0, longitude: 0 });
 const useOnlineStatus = () => ({ isOnline: navigator.onLine });
 
 export function RecordCollectionPage() {
@@ -37,6 +36,38 @@ export function RecordCollectionPage() {
   
   const { isOnline } = useOnlineStatus();
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleCaptureLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+          toast.success('Location captured');
+        },
+        (error) => toast.error('Failed to capture location: ' + error.message)
+      );
+    } else {
+      toast.error('Geolocation is not supported by this browser.');
+    }
+  };
+
+  const handleCapturePhoto = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoUrl(reader.result as string);
+        toast.success('Photo captured');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const onSubmit = handleSubmit(async (data) => {
     if (!loanId) return;
@@ -46,7 +77,8 @@ export function RecordCollectionPage() {
       amount: data.amount,
       collectionMethod: data.collectionMethod,
       notes: data.notes,
-      ...(await tryGetGeolocation()),
+      ...(location ? { latitude: location.latitude, longitude: location.longitude } : {}),
+      ...(photoUrl ? { photoUrl } : {}),
     };
     
     if (isOnline) {
@@ -127,15 +159,40 @@ export function RecordCollectionPage() {
               />
             </div>
 
-            <div className="flex gap-2 pt-2">
-              <Button type="button" variant="outline" className="flex-1 bg-background/30 border-white/10 hover:bg-white/10">
-                <Camera className="w-4 h-4 mr-2" />
-                Photo
-              </Button>
-              <Button type="button" variant="outline" className="flex-1 bg-background/30 border-white/10 hover:bg-white/10">
-                <MapPin className="w-4 h-4 mr-2" />
-                Location
-              </Button>
+            <div className="flex gap-2 pt-2 flex-col">
+              <div className="flex gap-2">
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  capture="environment" 
+                  className="hidden" 
+                  ref={fileInputRef}
+                  onChange={handleCapturePhoto}
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="flex-1 bg-background/30 border-white/10 hover:bg-white/10"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  {photoUrl ? 'Photo Captured' : 'Photo'}
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="flex-1 bg-background/30 border-white/10 hover:bg-white/10"
+                  onClick={handleCaptureLocation}
+                >
+                  <MapPin className="w-4 h-4 mr-2" />
+                  {location ? 'Location Captured' : 'Location'}
+                </Button>
+              </div>
+              {location && (
+                <div className="text-xs text-muted-foreground text-center">
+                  Coordinates: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                </div>
+              )}
             </div>
 
             <Button type="submit" className="w-full font-semibold" disabled={isSubmitting}>

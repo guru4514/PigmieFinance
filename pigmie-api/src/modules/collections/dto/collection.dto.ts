@@ -37,6 +37,10 @@ export class CreateCollectionDto {
 
   @IsOptional()
   @IsString()
+  photoUrl?: string;
+
+  @IsOptional()
+  @IsString()
   notes?: string;
 }
 

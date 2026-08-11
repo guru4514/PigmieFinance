@@ -100,6 +100,7 @@ export class CollectionsService {
           receiptNumber,
           latitude: dto.latitude,
           longitude: dto.longitude,
+          photoUrl: dto.photoUrl,
           notes: dto.notes,
           status: 'recorded',
         },
