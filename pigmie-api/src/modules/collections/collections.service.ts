@@ -3,6 +3,7 @@ import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateCollectionDto, QueryCollectionDto } from './dto/collection.dto';
 import { Prisma } from '@prisma/client';
+import PDFDocument = require('pdfkit');
 
 @Injectable()
 export class CollectionsService {
@@ -195,6 +196,43 @@ export class CollectionsService {
         data,
         meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
       };
+    });
+  }
+
+  async generateReceipt(organizationId: string, collectionId: string): Promise<Buffer> {
+    return this.tenantPrisma.run(organizationId, async (tx) => {
+      const collection = await tx.collection.findFirst({
+        where: { id: collectionId, organizationId },
+        include: {
+          customer: true,
+          loan: true,
+          collectedBy: true,
+        },
+      });
+
+      if (!collection) {
+        throw new NotFoundException('Collection not found');
+      }
+
+      return new Promise<Buffer>((resolve, reject) => {
+        const doc = new PDFDocument();
+        const buffers: Buffer[] = [];
+
+        doc.on('data', buffers.push.bind(buffers));
+        doc.on('end', () => resolve(Buffer.concat(buffers)));
+        doc.on('error', reject);
+
+        doc.fontSize(20).text('Receipt', { align: 'center' });
+        doc.moveDown();
+        doc.fontSize(12).text(`Organization ID: ${organizationId}`);
+        doc.text(`Receipt ID (Collection ID): ${collection.id}`);
+        doc.text(`Date and Time: ${collection.collectedAt.toISOString()}`);
+        doc.text(`Customer Name: ${collection.customer.fullName}`);
+        doc.text(`Amount Collected: ${collection.amount}`);
+        doc.text(`Agent Name: ${collection.collectedBy.fullName}`);
+
+        doc.end();
+      });
     });
   }
 

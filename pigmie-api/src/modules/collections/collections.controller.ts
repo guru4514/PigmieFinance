@@ -1,6 +1,7 @@
 import {
-  Controller, Get, Post, Param, Query, Body, UseGuards, HttpCode, HttpStatus,
+  Controller, Get, Post, Param, Query, Body, UseGuards, HttpCode, HttpStatus, Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -52,6 +53,23 @@ export class CollectionsController {
     @Body() dto: ReverseCollectionDto,
   ) {
     return this.collectionsService.reverseCollection(user.organizationId, id, user.id, dto.reason);
+  }
+
+  @Get(':id/receipt')
+  @Roles('agent', 'branch_manager', 'org_admin')
+  @AuditAction('collection.receipt')
+  async getReceipt(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.collectionsService.generateReceipt(user.organizationId, id);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'attachment; filename=receipt.pdf',
+      'Content-Length': buffer.length,
+    });
+    res.end(buffer);
   }
 }
 
