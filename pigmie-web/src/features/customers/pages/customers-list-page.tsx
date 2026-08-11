@@ -28,11 +28,18 @@ export const CustomersListPage = () => {
           <h1 className="text-3xl font-bold tracking-tight text-white">Customers</h1>
           <p className="text-muted-foreground mt-1 text-zinc-400">Manage your customer base and view their details.</p>
         </div>
-        <Link to="/app/customers/new">
-          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
-            <Plus className="w-4 h-4" /> Add Customer
-          </Button>
-        </Link>
+          <div className="flex gap-2">
+            <Link to="/app/customers/import">
+              <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
+                Import CSV
+              </Button>
+            </Link>
+            <Link to="/app/customers/new">
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+                <Plus className="w-4 h-4" /> Add Customer
+              </Button>
+            </Link>
+          </div>
       </div>
 
       <div className="flex items-center gap-4 bg-zinc-900/50 p-4 rounded-lg border border-zinc-800">

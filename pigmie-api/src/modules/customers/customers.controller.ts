@@ -5,6 +5,7 @@ import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { QueryCustomerDto } from './dto/query-customer.dto';
 import { PortalAccessDto } from './dto/portal-access.dto';
 import { ImportCustomersDto } from './dto/import-customers.dto';
+import { BulkCreateCustomerDto } from './dto/customer.dto';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -38,6 +39,14 @@ export class CustomersController {
   async importCustomers(@Body() dto: ImportCustomersDto, @CurrentUser() user: AuthenticatedUser) {
     if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
     return this.customersService.importCustomers(user.organizationId, dto);
+  }
+
+  @Post('bulk')
+  @Roles('branch_manager', 'org_admin')
+  @AuditAction('customer.bulk_create')
+  async bulkCreate(@Body() dto: BulkCreateCustomerDto, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.bulkCreate(user.organizationId, dto);
   }
 
   @Get(':id')

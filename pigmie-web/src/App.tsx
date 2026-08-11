@@ -14,6 +14,7 @@ import { DashboardPage } from './features/dashboard/pages/dashboard-page';
 import { CustomersListPage } from './features/customers/pages/customers-list-page';
 import { CustomerDetailPage } from './features/customers/pages/customer-detail-page';
 import { CustomerFormPage } from './features/customers/pages/customer-form-page';
+import { ImportCustomersPage } from './features/customers/pages/import-customers-page';
 import { LoansListPage } from './features/loans/pages/loans-list-page';
 import { LoanDetailPage } from './features/loans/pages/loan-detail-page';
 import { NewLoanPage } from './features/loans/pages/new-loan-page';
@@ -60,6 +61,7 @@ export function App() {
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="customers" element={<CustomersListPage />} />
         <Route path="customers/new" element={<CustomerFormPage />} />
+        <Route path="customers/import" element={<ImportCustomersPage />} />
         <Route path="customers/:id" element={<CustomerDetailPage />} />
         <Route path="customers/:id/edit" element={<CustomerFormPage />} />
         <Route path="loans" element={<LoansListPage />} />

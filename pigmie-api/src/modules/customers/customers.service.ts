@@ -264,5 +264,34 @@ export class CustomersService {
       };
     });
   }
+
+  async bulkCreate(organizationId: string, dto: import('./dto/customer.dto').BulkCreateCustomerDto) {
+    return this.tenantPrisma.run(organizationId, async (tx) => {
+      const customersToCreate = dto.customers.map(cDto => {
+        let idProofNumberEncrypted = null;
+        if (cDto.idProofNumber) {
+          idProofNumberEncrypted = Uint8Array.from(this.encryptionService.encrypt(cDto.idProofNumber));
+        }
+
+        const { idProofNumber, ...dataToSave } = cDto;
+
+        return {
+          ...dataToSave,
+          organizationId,
+          idProofNumberEncrypted,
+          isActive: true,
+          portalAccessEnabled: false
+        };
+      });
+
+      const result = await tx.customer.createMany({
+        data: customersToCreate
+      });
+
+      return {
+        successCount: result.count
+      };
+    });
+  }
 }
 
