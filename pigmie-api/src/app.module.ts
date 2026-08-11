@@ -20,6 +20,7 @@ import { CollectionsModule } from './modules/collections/collections.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { PortalModule } from './modules/portal/portal.module';
+import { CashDepositsModule } from './modules/cash-deposits/cash-deposits.module';
 import { JobsModule } from './jobs/jobs.module';
 
 @Module({
@@ -55,6 +56,7 @@ import { JobsModule } from './jobs/jobs.module';
     ReportsModule,
     NotificationsModule,
     PortalModule,
+    CashDepositsModule,
     JobsModule,
   ],
 })
