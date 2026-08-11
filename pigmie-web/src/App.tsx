@@ -7,7 +7,10 @@ import { AppLayout } from './shared/components/layout/app-layout';
 import { PortalLayout } from './shared/components/layout/portal-layout';
 import { LoginPage } from './features/auth/pages/login-page';
 import { SignupPage } from './features/auth/pages/signup-page';
+import { Setup2FAPage } from './features/auth/pages/setup-2fa-page';
+import { Verify2FAPage } from './features/auth/pages/verify-2fa-page';
 import { DashboardPage } from './features/dashboard/pages/dashboard-page';
+
 import { CustomersListPage } from './features/customers/pages/customers-list-page';
 import { CustomerDetailPage } from './features/customers/pages/customer-detail-page';
 import { CustomerFormPage } from './features/customers/pages/customer-form-page';
@@ -44,6 +47,8 @@ export function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/onboarding" element={<SignupPage />} />
+      <Route path="/setup-2fa" element={<Setup2FAPage />} />
+      <Route path="/verify-2fa" element={<Verify2FAPage />} />
       
       {/* Staff Routes */}
       <Route path="/app" element={

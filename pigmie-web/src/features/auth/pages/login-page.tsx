@@ -17,7 +17,7 @@ export function LoginPage() {
     setLoading(true);
     setError('');
     
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
     });
@@ -26,7 +26,12 @@ export function LoginPage() {
       setError(error.message);
       setLoading(false);
     } else {
-      navigate('/app/dashboard');
+      const verifiedFactors = data.user?.factors?.filter((f) => f.status === 'verified') || [];
+      if (verifiedFactors.length > 0) {
+        navigate(`/verify-2fa?factorId=${verifiedFactors[0].id}`);
+      } else {
+        navigate('/app/dashboard');
+      }
     }
   };
 
