@@ -22,6 +22,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { PortalModule } from './modules/portal/portal.module';
 import { CashDepositsModule } from './modules/cash-deposits/cash-deposits.module';
 import { JobsModule } from './jobs/jobs.module';
+import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { JobsModule } from './jobs/jobs.module';
     PortalModule,
     CashDepositsModule,
     JobsModule,
+    AuditLogsModule,
   ],
 })
 export class AppModule {}

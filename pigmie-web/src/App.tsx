@@ -24,6 +24,7 @@ import { LoanProductsPage } from './features/loan-products/pages/loan-products-p
 import { NewLoanProductPage } from './features/loan-products/pages/new-loan-product-page';
 import { StaffPage } from './features/staff/pages/staff-page';
 import { StaffFormPage } from './features/staff/pages/staff-form-page';
+import { AuditLogsPage } from './features/audit-logs/pages/audit-logs-page';
 import { ReportsPage } from './features/reports/pages/reports-page';
 import { SettingsPage } from './features/settings/pages/settings-page';
 import { PortalDashboardPage } from './features/portal/pages/portal-dashboard-page';
@@ -74,6 +75,7 @@ export function App() {
         <Route path="reports" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager']}><ReportsPage /></ProtectedRoute>} />
         <Route path="staff" element={<ProtectedRoute allowedRoles={['org_admin']}><StaffPage /></ProtectedRoute>} />
         <Route path="staff/new" element={<ProtectedRoute allowedRoles={['org_admin']}><StaffFormPage /></ProtectedRoute>} />
+        <Route path="audit-logs" element={<ProtectedRoute allowedRoles={['org_admin']}><AuditLogsPage /></ProtectedRoute>} />
         <Route path="settings" element={<ProtectedRoute allowedRoles={['org_admin']}><SettingsPage /></ProtectedRoute>} />
       </Route>
       

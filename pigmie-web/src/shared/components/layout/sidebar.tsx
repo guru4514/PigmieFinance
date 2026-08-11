@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, CreditCard, Banknote, FileText, Settings, UserCog, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, Banknote, FileText, Settings, UserCog, LogOut, Menu, X, ShieldAlert } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { useAuth } from '@/shared/hooks/use-auth';
 import { useUIStore } from '@/shared/stores/app-store';
@@ -20,6 +20,7 @@ const navItems: NavItem[] = [
   { title: 'Collections', href: '/app/collections/today', icon: Banknote, roles: ['org_admin', 'branch_manager', 'agent'] },
   { title: 'Reports', href: '/app/reports', icon: FileText, roles: ['org_admin', 'branch_manager'] },
   { title: 'Staff', href: '/app/staff', icon: UserCog, roles: ['org_admin'] },
+  { title: 'Audit Logs', href: '/app/audit-logs', icon: ShieldAlert, roles: ['org_admin'] },
   { title: 'Settings', href: '/app/settings', icon: Settings, roles: ['org_admin'] },
 ];
 
