@@ -1,0 +1,458 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+enum UserRole {
+  org_admin
+  branch_manager
+  agent
+  accountant
+
+  @@map("user_role")
+}
+
+enum IdProofType {
+  aadhaar
+  pan
+  voter_id
+  passport
+  driving_license
+  other
+
+  @@map("id_proof_type")
+}
+
+enum InterestType {
+  flat
+  reducing_balance
+
+  @@map("interest_type")
+}
+
+enum CollectionFrequency {
+  daily
+  weekly
+  biweekly
+  monthly
+
+  @@map("collection_frequency")
+}
+
+enum LateFeeType {
+  flat
+  percentage
+
+  @@map("late_fee_type")
+}
+
+enum LoanStatus {
+  pending_approval
+  approved
+  rejected
+  active
+  closed
+  defaulted
+  written_off
+
+  @@map("loan_status")
+}
+
+enum ScheduleStatus {
+  pending
+  partially_paid
+  paid
+  overdue
+  waived
+
+  @@map("schedule_status")
+}
+
+enum CollectionMethod {
+  cash
+  cheque
+  other
+
+  @@map("collection_method")
+}
+
+enum CollectionStatus {
+  recorded
+  verified
+  disputed
+  reversed
+
+  @@map("collection_status")
+}
+
+enum DepositStatus {
+  pending
+  verified
+  discrepancy
+
+  @@map("deposit_status")
+}
+
+enum DocumentRelatedType {
+  customer
+  loan
+  collection
+
+  @@map("document_related_type")
+}
+
+enum NotificationRecipientType {
+  staff
+  customer
+
+  @@map("notification_recipient_type")
+}
+
+model Organization {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String
+  operatorType String   @default("organization") @map("operator_type")
+  currency     String   @default("INR") @db.Char(3)
+  timezone     String   @default("Asia/Kolkata")
+  contactEmail String?  @map("contact_email")
+  contactPhone String?  @map("contact_phone")
+  address      String?
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  branches      Branch[]
+  staff         Staff[]
+  customers     Customer[]
+  loanProducts  LoanProduct[]
+  loans         Loan[]
+  collections   Collection[]
+  cashDeposits  CashDeposit[]
+  documents     Document[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+
+  @@map("organizations")
+}
+
+model Branch {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String
+  address        String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  staff        Staff[]
+  customers    Customer[]
+
+  @@index([organizationId])
+  @@map("branches")
+}
+
+model Staff {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String    @map("organization_id") @db.Uuid
+  branchId         String?   @map("branch_id") @db.Uuid
+  authUserId       String    @unique @map("auth_user_id") @db.Uuid
+  employeeCode     String?   @map("employee_code")
+  fullName         String    @map("full_name")
+  email            String
+  phone            String?
+  role             UserRole
+  isActive         Boolean   @default(true) @map("is_active")
+  twoFactorEnabled Boolean   @default(false) @map("two_factor_enabled")
+  lastLoginAt      DateTime? @map("last_login_at") @db.Timestamptz
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch       Branch?      @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  assignedCustomers     Customer[]     @relation("CustomerAgent")
+  appliedLoans          Loan[]         @relation("LoanAppliedBy")
+  approvedLoans         Loan[]         @relation("LoanApprovedBy")
+  disbursedLoans        Loan[]         @relation("LoanDisbursedBy")
+  assignedLoans         Loan[]         @relation("LoanAssignedAgent")
+  collections           Collection[]   @relation("CollectionAgent")
+  reversedCollections   Collection[]   @relation("CollectionReverser")
+  cashDeposits          CashDeposit[]  @relation("DepositAgent")
+  verifiedDeposits      CashDeposit[]  @relation("DepositVerifier")
+  uploadedDocuments     Document[]     @relation("DocumentUploader")
+  receivedNotifications Notification[] @relation("NotificationStaffRecipient")
+  auditLogs             AuditLog[]     @relation("AuditLogActor")
+
+  @@unique([organizationId, employeeCode])
+  @@index([organizationId])
+  @@index([authUserId])
+  @@index([branchId])
+  @@map("staff")
+}
+
+model Customer {
+  id                     String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId         String       @map("organization_id") @db.Uuid
+  branchId               String?      @map("branch_id") @db.Uuid
+  authUserId             String?      @unique @map("auth_user_id") @db.Uuid
+  customerCode           String?      @map("customer_code")
+  fullName               String       @map("full_name")
+  phone                  String
+  email                  String?
+  address                String?
+  idProofType            IdProofType? @map("id_proof_type")
+  idProofNumberEncrypted Bytes?       @map("id_proof_number_encrypted")
+  dateOfBirth            DateTime?    @map("date_of_birth") @db.Date
+  gender                 String?
+  photoUrl               String?      @map("photo_url")
+  guarantorName          String?      @map("guarantor_name")
+  guarantorPhone         String?      @map("guarantor_phone")
+  assignedAgentId        String?      @map("assigned_agent_id") @db.Uuid
+  portalAccessEnabled    Boolean      @default(false) @map("portal_access_enabled")
+  isActive               Boolean      @default(true) @map("is_active")
+  createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime     @default(now()) @map("updated_at") @db.Timestamptz
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch        Branch?      @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  assignedAgent Staff?       @relation("CustomerAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+
+  loans                 Loan[]
+  collections           Collection[]
+  receivedNotifications Notification[] @relation("NotificationCustomerRecipient")
+
+  @@unique([organizationId, customerCode])
+  @@unique([organizationId, phone])
+  @@index([organizationId])
+  @@index([assignedAgentId])
+  @@index([authUserId])
+  @@map("customers")
+}
+
+model LoanProduct {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId      String              @map("organization_id") @db.Uuid
+  name                String
+  interestType        InterestType        @map("interest_type")
+  interestRateAnnual  Decimal             @map("interest_rate_annual") @db.Decimal(6, 3)
+  collectionFrequency CollectionFrequency @map("collection_frequency")
+  minAmount           Decimal             @map("min_amount") @db.Decimal(12, 2)
+  maxAmount           Decimal             @map("max_amount") @db.Decimal(12, 2)
+  minTenure           Int                 @map("min_tenure")
+  maxTenure           Int                 @map("max_tenure")
+  lateFeeType         LateFeeType         @default(flat) @map("late_fee_type")
+  lateFeeValue        Decimal             @default(0) @map("late_fee_value") @db.Decimal(12, 2)
+  processingFee       Decimal             @default(0) @map("processing_fee") @db.Decimal(12, 2)
+  isActive            Boolean             @default(true) @map("is_active")
+  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime            @default(now()) @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  loans        Loan[]
+
+  @@index([organizationId])
+  @@map("loan_products")
+}
+
+model Loan {
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  customerId     String @map("customer_id") @db.Uuid
+  loanProductId  String @map("loan_product_id") @db.Uuid
+  loanCode       String @map("loan_code")
+
+  principalAmount     Decimal             @map("principal_amount") @db.Decimal(12, 2)
+  interestType        InterestType        @map("interest_type")
+  interestRateAnnual  Decimal             @map("interest_rate_annual") @db.Decimal(6, 3)
+  collectionFrequency CollectionFrequency @map("collection_frequency")
+  tenure              Int
+
+  installmentAmount  Decimal @map("installment_amount") @db.Decimal(12, 2)
+  totalPayable       Decimal @map("total_payable") @db.Decimal(12, 2)
+  totalCollected     Decimal @default(0) @map("total_collected") @db.Decimal(12, 2)
+  outstandingBalance Decimal @map("outstanding_balance") @db.Decimal(12, 2)
+
+  status          LoanStatus @default(pending_approval)
+  assignedAgentId String?    @map("assigned_agent_id") @db.Uuid
+  appliedById     String?    @map("applied_by") @db.Uuid
+  approvedById    String?    @map("approved_by") @db.Uuid
+  approvedAt      DateTime?  @map("approved_at") @db.Timestamptz
+  rejectedReason  String?    @map("rejected_reason")
+  disbursedById   String?    @map("disbursed_by") @db.Uuid
+  disbursedAt     DateTime?  @map("disbursed_at") @db.Timestamptz
+  startDate       DateTime?  @map("start_date") @db.Date
+  expectedEndDate DateTime?  @map("expected_end_date") @db.Date
+  closedAt        DateTime?  @map("closed_at") @db.Timestamptz
+  notes           String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  loanProduct   LoanProduct  @relation(fields: [loanProductId], references: [id], onDelete: Restrict)
+  assignedAgent Staff?       @relation("LoanAssignedAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  appliedBy     Staff?       @relation("LoanAppliedBy", fields: [appliedById], references: [id], onDelete: SetNull)
+  approvedBy    Staff?       @relation("LoanApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  disbursedBy   Staff?       @relation("LoanDisbursedBy", fields: [disbursedById], references: [id], onDelete: SetNull)
+
+  schedule    LoanSchedule[]
+  collections Collection[]
+
+  @@unique([organizationId, loanCode])
+  @@index([organizationId, status])
+  @@index([customerId])
+  @@index([assignedAgentId])
+  @@map("loans")
+}
+
+model LoanSchedule {
+  id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  loanId             String         @map("loan_id") @db.Uuid
+  installmentNumber  Int            @map("installment_number")
+  dueDate            DateTime       @map("due_date") @db.Date
+  principalComponent Decimal        @map("principal_component") @db.Decimal(12, 2)
+  interestComponent  Decimal        @map("interest_component") @db.Decimal(12, 2)
+  dueAmount          Decimal        @map("due_amount") @db.Decimal(12, 2)
+  paidAmount         Decimal        @default(0) @map("paid_amount") @db.Decimal(12, 2)
+  status             ScheduleStatus @default(pending)
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime       @default(now()) @map("updated_at") @db.Timestamptz
+
+  loan Loan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@unique([loanId, installmentNumber])
+  @@index([loanId])
+  @@index([dueDate, status])
+  @@map("loan_schedule")
+}
+
+model Collection {
+  id                String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientGeneratedId String @unique @map("client_generated_id") @db.Uuid
+  organizationId    String @map("organization_id") @db.Uuid
+  loanId            String @map("loan_id") @db.Uuid
+  customerId        String @map("customer_id") @db.Uuid
+  collectedById     String @map("collected_by") @db.Uuid
+
+  amount           Decimal          @db.Decimal(12, 2)
+  collectionDate   DateTime         @map("collection_date") @db.Date
+  collectedAt      DateTime         @map("collected_at") @db.Timestamptz
+  recordedAt       DateTime         @default(now()) @map("recorded_at") @db.Timestamptz
+  collectionMethod CollectionMethod @default(cash) @map("collection_method")
+  receiptNumber    String?          @map("receipt_number")
+
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
+  photoUrl  String?  @map("photo_url")
+  notes     String?
+
+  status         CollectionStatus @default(recorded)
+  reversedReason String?          @map("reversed_reason")
+  reversedById   String?          @map("reversed_by") @db.Uuid
+  reversedAt     DateTime?        @map("reversed_at") @db.Timestamptz
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  loan         Loan         @relation(fields: [loanId], references: [id], onDelete: Restrict)
+  customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  collectedBy  Staff        @relation("CollectionAgent", fields: [collectedById], references: [id], onDelete: Restrict)
+  reversedBy   Staff?       @relation("CollectionReverser", fields: [reversedById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, receiptNumber])
+  @@index([loanId])
+  @@index([organizationId, collectionDate])
+  @@index([collectedById, collectionDate])
+  @@map("collections")
+}
+
+model CashDeposit {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String        @map("organization_id") @db.Uuid
+  agentId        String        @map("agent_id") @db.Uuid
+  amount         Decimal       @db.Decimal(12, 2)
+  depositDate    DateTime      @map("deposit_date") @db.Date
+  verifiedById   String?       @map("verified_by") @db.Uuid
+  verifiedAt     DateTime?     @map("verified_at") @db.Timestamptz
+  status         DepositStatus @default(pending)
+  notes          String?
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime      @default(now()) @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  agent        Staff        @relation("DepositAgent", fields: [agentId], references: [id], onDelete: Restrict)
+  verifiedBy   Staff?       @relation("DepositVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, depositDate])
+  @@index([agentId])
+  @@map("cash_deposits")
+}
+
+model Document {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId    String              @map("organization_id") @db.Uuid
+  relatedEntityType DocumentRelatedType @map("related_entity_type")
+  relatedEntityId   String              @map("related_entity_id") @db.Uuid
+  documentType      String              @map("document_type")
+  filePath          String              @map("file_path")
+  fileSizeBytes     BigInt?             @map("file_size_bytes")
+  mimeType          String?             @map("mime_type")
+  uploadedById      String?             @map("uploaded_by") @db.Uuid
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploadedBy   Staff?       @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([relatedEntityType, relatedEntityId])
+  @@map("documents")
+}
+
+model Notification {
+  id                  String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId      String                    @map("organization_id") @db.Uuid
+  recipientType       NotificationRecipientType @map("recipient_type")
+  recipientStaffId    String?                   @map("recipient_staff_id") @db.Uuid
+  recipientCustomerId String?                   @map("recipient_customer_id") @db.Uuid
+  type                String
+  title               String
+  message             String
+  relatedEntityType   String?                   @map("related_entity_type")
+  relatedEntityId     String?                   @map("related_entity_id") @db.Uuid
+  isRead              Boolean                   @default(false) @map("is_read")
+  createdAt           DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  recipientStaff    Staff?       @relation("NotificationStaffRecipient", fields: [recipientStaffId], references: [id], onDelete: Cascade)
+  recipientCustomer Customer?    @relation("NotificationCustomerRecipient", fields: [recipientCustomerId], references: [id], onDelete: Cascade)
+
+  @@index([recipientStaffId, isRead])
+  @@index([recipientCustomerId, isRead])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  actorStaffId   String?  @map("actor_staff_id") @db.Uuid
+  action         String
+  entityType     String   @map("entity_type")
+  entityId       String   @map("entity_id") @db.Uuid
+  oldValue       Json?    @map("old_value")
+  newValue       Json?    @map("new_value")
+  ipAddress      String?  @map("ip_address") @db.Inet
+  userAgent      String?  @map("user_agent")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actorStaff   Staff?       @relation("AuditLogActor", fields: [actorStaffId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

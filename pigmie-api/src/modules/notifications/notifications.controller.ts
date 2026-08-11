@@ -1,0 +1,35 @@
+import { Controller, Get, Patch, Param, UseGuards, Query } from '@nestjs/common';
+import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../../common/types/request-user.type';
+import { NotificationsService } from './notifications.service';
+import { IsOptional, IsInt, Min, Max } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class NotificationQueryDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number = 1;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit?: number = 20;
+}
+
+@Controller('notifications')
+@UseGuards(SupabaseAuthGuard)
+export class NotificationsController {
+  constructor(private readonly notificationsService: NotificationsService) {}
+
+  @Get()
+  async getNotifications(@Query() query: NotificationQueryDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.notificationsService.getNotifications(user.organizationId, user.type, user.id, query);
+  }
+
+  @Patch(':id/read')
+  async markAsRead(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.notificationsService.markAsRead(user.organizationId, id);
+  }
+
+  @Patch('read-all')
+  async markAllAsRead(@CurrentUser() user: AuthenticatedUser) {
+    return this.notificationsService.markAllAsRead(user.organizationId, user.type, user.id);
+  }
+}
+
+
