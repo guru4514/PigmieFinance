@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { processSyncQueue } from './lib/offline-sync';
 import { Toaster } from './shared/components/ui/sonner';
 import { ProtectedRoute } from './shared/components/auth/protected-route';
 import { AppLayout } from './shared/components/layout/app-layout';
@@ -24,6 +26,16 @@ import { PortalDashboardPage } from './features/portal/pages/portal-dashboard-pa
 import { PortalLoanDetailPage } from './features/portal/pages/portal-loan-detail-page';
 
 export function App() {
+  useEffect(() => {
+    const handleOnline = () => {
+      processSyncQueue();
+    };
+    window.addEventListener('online', handleOnline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+    };
+  }, []);
+
   return (
     <>
     <Routes>
