@@ -2,36 +2,34 @@ import React from 'react';
 import { useCollectionsToday } from '../hooks/use-collections';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
-import { MapPin, Phone, User, IndianRupee } from 'lucide-react';
+import { MapPin, Phone, User, IndianRupee, ListX } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
+import { EmptyState } from '@/shared/components/ui/empty-state';
 
 export function CollectionsTodayPage() {
   const { data: collectionsResponse, isLoading } = useCollectionsToday();
   const collections = collectionsResponse?.data || [];
 
-  // Mock data if API is empty
-  const mockCollections = collections?.length ? collections : [
-    {
-      id: '1',
-      customerName: 'Rahul Sharma',
-      amountDue: 500,
-      status: 'pending',
-      location: 'Connaught Place, Block A',
-      phone: '+91 98765 43210'
-    },
-    {
-      id: '2',
-      customerName: 'Priya Patel',
-      amountDue: 1200,
-      status: 'collected',
-      location: 'Karol Bagh Market',
-      phone: '+91 98765 43211'
-    }
-  ];
-
   if (isLoading) {
     return <div className="p-8 text-center text-muted-foreground">Loading route...</div>;
   }
+
+  if (collections.length === 0) {
+    return (
+      <div className="container mx-auto p-4 max-w-2xl">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground mb-6">Today's Route</h1>
+        <EmptyState
+          icon={ListX}
+          title="No collections today"
+          description="You don't have any collections assigned for today."
+        />
+      </div>
+    );
+  }
+
+  const collectedCount = collections.filter((c: any) => c.status === 'collected').length;
+  const totalCount = collections.length;
+  const progressPercent = totalCount > 0 ? Math.round((collectedCount / totalCount) * 100) : 0;
 
   return (
     <div className="container mx-auto p-4 max-w-2xl">
@@ -39,16 +37,16 @@ export function CollectionsTodayPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Today's Route</h1>
           <p className="text-muted-foreground mt-1">
-            {mockCollections.filter(c => c.status === 'collected').length} of {mockCollections.length} collected
+            {collectedCount} of {totalCount} collected
           </p>
         </div>
         <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
-          {Math.round((mockCollections.filter(c => c.status === 'collected').length / mockCollections.length) * 100)}%
+          {progressPercent}%
         </div>
       </div>
 
       <div className="space-y-4">
-        {mockCollections.map((item) => (
+        {collections.map((item: any) => (
           <Card key={item.id} className="glassmorphism bg-card/40 border-white/10 overflow-hidden hover:bg-card/60 transition-colors">
             <div className={`h-1 w-full ${item.status === 'collected' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
             <CardContent className="p-5">

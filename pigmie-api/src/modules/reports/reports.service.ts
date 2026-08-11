@@ -35,10 +35,10 @@ export class ReportsService {
       const parStats: any[] = await tx.$queryRaw`
         select
           sum(case when overdue_days > 30 then l.outstanding_balance else 0 end) / nullif(sum(l.outstanding_balance), 0) as par_30
-        from "Loan" l
+        from "loans" l
         join lateral (
           select coalesce(max(current_date - s.due_date), 0) as overdue_days
-          from "LoanSchedule" s
+          from "loan_schedule" s
           where s.loan_id = l.id and s.status in ('pending', 'partially_paid', 'overdue')
         ) x on true
         where l.status = 'active' and l.organization_id = ${organizationId}::uuid
@@ -97,10 +97,10 @@ export class ReportsService {
           sum(case when overdue_days > 1 then l.outstanding_balance else 0 end) / nullif(sum(l.outstanding_balance), 0) as par_1,
           sum(case when overdue_days > 30 then l.outstanding_balance else 0 end) / nullif(sum(l.outstanding_balance), 0) as par_30,
           sum(case when overdue_days > 90 then l.outstanding_balance else 0 end) / nullif(sum(l.outstanding_balance), 0) as par_90
-        from "Loan" l
+        from "loans" l
         join lateral (
           select coalesce(max(current_date - s.due_date), 0) as overdue_days
-          from "LoanSchedule" s
+          from "loan_schedule" s
           where s.loan_id = l.id and s.status in ('pending', 'partially_paid', 'overdue')
         ) x on true
         where l.status = 'active' and l.organization_id = ${organizationId}::uuid
@@ -116,23 +116,52 @@ export class ReportsService {
 
   async getCollectionEfficiency(organizationId: string, query: CollectionEfficiencyQueryDto) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      return { efficiency: 0.95 }; // Stub for now
+      const result = await tx.$queryRaw<any[]>`
+        SELECT
+          s.id as staff_id,
+          s.full_name as agent_name,
+          COALESCE(SUM(ls.due_amount), 0)::float as total_due,
+          COALESCE(SUM(ls.paid_amount), 0)::float as total_collected,
+          CASE
+            WHEN COALESCE(SUM(ls.due_amount), 0) = 0 THEN 0
+            ELSE ROUND((COALESCE(SUM(ls.paid_amount), 0) / COALESCE(SUM(ls.due_amount), 0)) * 100, 2)::float
+          END as efficiency_percent
+        FROM "staff" s
+        LEFT JOIN "customers" c ON c.assigned_agent_id = s.id AND c.organization_id = s.organization_id
+        LEFT JOIN "loans" l ON l.customer_id = c.id AND l.organization_id = s.organization_id AND l.status = 'active'
+        LEFT JOIN "loan_schedule" ls ON ls.loan_id = l.id
+          AND ls.due_date <= CURRENT_DATE
+        WHERE s.organization_id = ${organizationId}::uuid
+          AND s.role = 'collection_agent'
+          AND s.is_active = true
+        GROUP BY s.id, s.full_name
+        ORDER BY efficiency_percent DESC
+      `;
+      return { data: result };
     });
   }
 
   async getAgentPerformance(organizationId: string) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      const agents = await tx.staff.findMany({
-        where: { organizationId, role: 'agent' },
-        include: { assignedCustomers: true }
-      });
-      return agents.map(agent => ({
-        agentId: agent.id,
-        fullName: agent.fullName,
-        customersAssigned: agent.assignedCustomers.length,
-        collectionsMade: 0,
-        collectionEfficiency: 0.95
-      }));
+      const result = await tx.$queryRaw<any[]>`
+        SELECT
+          s.id as staff_id,
+          s.full_name as agent_name,
+          COUNT(DISTINCT c2.id)::int as collections_made,
+          COALESCE(SUM(c2.amount), 0)::float as total_collected,
+          COUNT(DISTINCT c.id)::int as customers_assigned
+        FROM "staff" s
+        LEFT JOIN "customers" c ON c.assigned_agent_id = s.id AND c.organization_id = s.organization_id
+        LEFT JOIN "collections" c2 ON c2.collected_by_id = s.id
+          AND c2.organization_id = s.organization_id
+          AND c2.status IN ('recorded', 'verified')
+        WHERE s.organization_id = ${organizationId}::uuid
+          AND s.role = 'collection_agent'
+          AND s.is_active = true
+        GROUP BY s.id, s.full_name
+        ORDER BY total_collected DESC
+      `;
+      return { data: result };
     });
   }
 

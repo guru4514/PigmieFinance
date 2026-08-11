@@ -10,17 +10,10 @@ import {
 import { Badge } from '@/shared/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/shared/components/ui/avatar';
 import { Button } from '@/shared/components/ui/button';
-import { MoreHorizontal, ArrowRight } from 'lucide-react';
+import { MoreHorizontal, ArrowRight, ListX } from 'lucide-react';
+import { EmptyState } from '@/shared/components/ui/empty-state';
 
-export function DueTodayTable() {
-  const mockDueList = [
-    { id: '1', customer: 'Rahul Sharma', loanId: 'LN-001', amount: 500, agent: 'Amit K.', status: 'pending', time: '10:00 AM' },
-    { id: '2', customer: 'Priya Patel', loanId: 'LN-008', amount: 1200, agent: 'Amit K.', status: 'collected', time: '11:30 AM' },
-    { id: '3', customer: 'Suresh Kumar', loanId: 'LN-012', amount: 300, agent: 'Vikram S.', status: 'overdue', time: '09:00 AM' },
-    { id: '4', customer: 'Anita Desai', loanId: 'LN-045', amount: 2000, agent: 'Vikram S.', status: 'pending', time: '02:00 PM' },
-    { id: '5', customer: 'Mohammed Ali', loanId: 'LN-051', amount: 1500, agent: 'Rajesh P.', status: 'collected', time: '01:15 PM' },
-  ];
-
+export function DueTodayTable({ data = [] }: { data?: any[] }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -42,7 +35,14 @@ export function DueTodayTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {mockDueList.map((item) => (
+            {data.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="py-8">
+                  <EmptyState icon={ListX} title="No dues today" description="There are no collections due today." />
+                </TableCell>
+              </TableRow>
+            ) : (
+            data.map((item) => (
               <TableRow key={item.id} className="border-white/5 hover:bg-white/5 transition-colors">
                 <TableCell className="font-medium">
                   <div className="flex items-center gap-3">
@@ -80,7 +80,7 @@ export function DueTodayTable() {
                   </Button>
                 </TableCell>
               </TableRow>
-            ))}
+            )))}
           </TableBody>
         </Table>
       </div>
