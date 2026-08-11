@@ -33,7 +33,12 @@ export const ImportCustomersPage = () => {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const validRows = results.data.filter(row => row.fullName && row.phone);
+        const sanitizedRows = results.data.map(row => ({
+          ...row,
+          email: row.email === "" ? undefined : row.email,
+          address: row.address === "" ? undefined : row.address
+        }));
+        const validRows = sanitizedRows.filter(row => row.fullName && row.phone);
         if (validRows.length !== results.data.length) {
           toast.warning(`Skipped ${results.data.length - validRows.length} rows with missing required fields (fullName, phone).`);
         }
