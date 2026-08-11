@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ShieldAlert, Search } from 'lucide-react';
-import { api } from '@/shared/lib/api';
+import { apiClient as api } from '@/shared/lib/api-client';
 
 export function AuditLogsPage() {
   const [logs, setLogs] = useState<any[]>([]);

@@ -4,7 +4,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
 import { Upload, X, Check, Loader2 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import { apiClient as api } from '@/shared/lib/api-client';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
