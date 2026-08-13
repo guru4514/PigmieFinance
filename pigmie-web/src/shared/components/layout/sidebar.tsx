@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { LayoutDashboard, Users, CreditCard, Banknote, FileText, Settings, UserCog, LogOut, X, ShieldAlert } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { useAuth } from '@/shared/hooks/use-auth';
@@ -11,20 +12,22 @@ interface NavItem {
   href: string;
   icon: React.ElementType;
   roles: StaffRole[];
+  translationKey: string;
 }
 
 const navItems: NavItem[] = [
-  { title: 'Dashboard', href: '/app/dashboard', icon: LayoutDashboard, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'] },
-  { title: 'Customers', href: '/app/customers', icon: Users, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'] },
-  { title: 'Loans', href: '/app/loans', icon: CreditCard, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'] },
-  { title: 'Collections', href: '/app/collections/today', icon: Banknote, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'] },
-  { title: 'Reports', href: '/app/reports', icon: FileText, roles: ['org_admin', 'branch_manager', 'accountant'] },
-  { title: 'Staff', href: '/app/staff', icon: UserCog, roles: ['org_admin'] },
-  { title: 'Audit Logs', href: '/app/audit-logs', icon: ShieldAlert, roles: ['org_admin', 'accountant'] },
-  { title: 'Settings', href: '/app/settings', icon: Settings, roles: ['org_admin'] },
+  { title: 'Dashboard', href: '/app/dashboard', icon: LayoutDashboard, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.dashboard' },
+  { title: 'Customers', href: '/app/customers', icon: Users, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.customers' },
+  { title: 'Loans', href: '/app/loans', icon: CreditCard, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.loans' },
+  { title: 'Collections', href: '/app/collections/today', icon: Banknote, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.collections' },
+  { title: 'Reports', href: '/app/reports', icon: FileText, roles: ['org_admin', 'branch_manager', 'accountant'], translationKey: 'nav.reports' },
+  { title: 'Staff', href: '/app/staff', icon: UserCog, roles: ['org_admin'], translationKey: 'nav.staff' },
+  { title: 'Audit Logs', href: '/app/audit-logs', icon: ShieldAlert, roles: ['org_admin', 'accountant'], translationKey: 'nav.auditLogs' },
+  { title: 'Settings', href: '/app/settings', icon: Settings, roles: ['org_admin'], translationKey: 'nav.settings' },
 ];
 
 export function Sidebar() {
+  const { t } = useTranslation('common');
   const { user } = useAuth();
   const { sidebarOpen, setSidebarOpen } = useUIStore();
   
@@ -75,7 +78,7 @@ export function Sidebar() {
               )}
             >
               <item.icon className="w-5 h-5" />
-              {item.title}
+              {t(item.translationKey)}
             </NavLink>
           ))}
         </div>

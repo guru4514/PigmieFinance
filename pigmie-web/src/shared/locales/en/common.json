@@ -1,0 +1,13 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "customers": "Customers",
+    "loans": "Loans",
+    "collections": "Collections",
+    "reports": "Reports",
+    "staff": "Staff",
+    "auditLogs": "Audit Logs",
+    "settings": "Settings",
+    "portal": "Customer Portal"
+  }
+}
