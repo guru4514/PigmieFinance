@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
 import { CreateLoanDto } from './dto/create-loan.dto';
 import { QueryLoanDto } from './dto/query-loan.dto';
+import { RestructureLoanDto } from './dto/restructure-loan.dto';
 import { generateSchedule } from './utils/schedule-generator.util';
 import { Prisma } from '@prisma/client';
 
@@ -248,6 +249,121 @@ export class LoansService {
         where: { loanId: id },
         orderBy: { installmentNumber: 'asc' },
       });
+    });
+  }
+
+  async restructure(organizationId: string, id: string, staffId: string, dto: RestructureLoanDto) {
+    return this.tenantPrisma.run(organizationId, async (tx) => {
+      const loan = await tx.loan.findFirstOrThrow({
+        where: { id, organizationId },
+      });
+
+      if (loan.status !== 'active') {
+        throw new BadRequestException('Can only restructure active loans');
+      }
+
+      const targetRow = await tx.loanSchedule.findFirst({
+        where: { loanId: id, installmentNumber: dto.fromInstallmentNumber }
+      });
+
+      if (!targetRow) {
+        throw new BadRequestException('Invalid installment number');
+      }
+
+      if (targetRow.status === 'paid' || targetRow.status === 'partially_paid') {
+        throw new BadRequestException('Cannot restructure from an already paid or partially paid installment');
+      }
+
+      const rowsToDelete = await tx.loanSchedule.findMany({
+        where: {
+          loanId: id,
+          installmentNumber: { gte: dto.fromInstallmentNumber },
+          status: 'pending'
+        }
+      });
+
+      if (rowsToDelete.length === 0) {
+        throw new BadRequestException('No pending installments found to restructure');
+      }
+
+      const remainingPrincipal = rowsToDelete.reduce((sum, r) => sum + r.principalComponent.toNumber(), 0);
+      const deletedDueAmountSum = rowsToDelete.reduce((sum, r) => sum + r.dueAmount.toNumber(), 0);
+
+      await tx.loanSchedule.deleteMany({
+        where: {
+          loanId: id,
+          installmentNumber: { gte: dto.fromInstallmentNumber },
+          status: 'pending'
+        }
+      });
+
+      let prevDueDate = loan.startDate;
+      if (dto.fromInstallmentNumber > 1) {
+        const prevRow = await tx.loanSchedule.findFirst({
+          where: { loanId: id, installmentNumber: dto.fromInstallmentNumber - 1 }
+        });
+        if (prevRow) {
+          prevDueDate = prevRow.dueDate;
+        }
+      }
+      const startDateStr = prevDueDate ? prevDueDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+
+      const newRows = generateSchedule({
+        principal: remainingPrincipal,
+        interestType: loan.interestType as 'flat' | 'reducing_balance',
+        annualRate: loan.interestRateAnnual.toNumber(),
+        tenure: dto.newTenure,
+        frequency: loan.collectionFrequency as 'daily' | 'weekly' | 'biweekly' | 'monthly',
+        startDate: startDateStr,
+      });
+
+      const scheduleData = newRows.map((r, i) => ({
+        loanId: id,
+        installmentNumber: dto.fromInstallmentNumber + i,
+        dueDate: new Date(r.dueDate),
+        principalComponent: new Prisma.Decimal(r.principalComponent),
+        interestComponent: new Prisma.Decimal(r.interestComponent),
+        dueAmount: new Prisma.Decimal(r.dueAmount),
+        status: 'pending' as const,
+      }));
+
+      await tx.loanSchedule.createMany({ data: scheduleData });
+
+      const newDueAmountSum = newRows.reduce((sum, r) => sum + r.dueAmount, 0);
+      const newTotalPayable = loan.totalPayable.toNumber() - deletedDueAmountSum + newDueAmountSum;
+      const newOutstandingBalance = loan.outstandingBalance.toNumber() - deletedDueAmountSum + newDueAmountSum;
+      const newExpectedEndDate = new Date(newRows[newRows.length - 1].dueDate);
+      const newTenureTotal = dto.fromInstallmentNumber - 1 + dto.newTenure;
+
+      const updated = await tx.loan.update({
+        where: { id },
+        data: {
+          tenure: newTenureTotal,
+          totalPayable: new Prisma.Decimal(newTotalPayable),
+          outstandingBalance: new Prisma.Decimal(newOutstandingBalance),
+          expectedEndDate: newExpectedEndDate,
+          notes: dto.reason ? `${loan.notes ? loan.notes + '\n' : ''}Restructured: ${dto.reason}` : loan.notes,
+        }
+      });
+
+      await tx.auditLog.create({
+        data: {
+          organizationId,
+          actorStaffId: staffId,
+          action: 'loan.restructured',
+          entityType: 'loan',
+          entityId: id,
+          newValue: {
+            fromInstallmentNumber: dto.fromInstallmentNumber,
+            newTenure: dto.newTenure,
+            reason: dto.reason,
+            remainingPrincipal,
+            newTotalPayable
+          }
+        }
+      });
+
+      return { loan: updated, newSchedule: scheduleData };
     });
   }
 }

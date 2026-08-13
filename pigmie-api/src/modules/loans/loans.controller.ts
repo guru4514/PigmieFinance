@@ -13,6 +13,7 @@ import { DisburseLoanDto } from './dto/disburse-loan.dto';
 import { RejectLoanDto } from './dto/reject-loan.dto';
 import { WriteOffLoanDto } from './dto/write-off-loan.dto';
 import { QueryLoanDto } from './dto/query-loan.dto';
+import { RestructureLoanDto } from './dto/restructure-loan.dto';
 
 @Controller('loans')
 @UseGuards(SupabaseAuthGuard, RolesGuard)
@@ -94,6 +95,18 @@ export class LoansController {
   @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
   async getSchedule(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.loansService.getSchedule(user.organizationId, id);
+  }
+
+  @Post(':id/restructure')
+  @HttpCode(HttpStatus.OK)
+  @Roles('org_admin', 'branch_manager')
+  @AuditAction('loan.restructured')
+  async restructure(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: RestructureLoanDto,
+  ) {
+    return this.loansService.restructure(user.organizationId, id, user.id, dto);
   }
 }
 
