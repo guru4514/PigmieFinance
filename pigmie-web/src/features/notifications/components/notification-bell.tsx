@@ -11,20 +11,7 @@ import {
 import { Button } from '@/shared/components/ui/button';
 import { apiClient } from '@/shared/lib/api-client';
 
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding)
-    .replace(/\-/g, '+')
-    .replace(/_/g, '/');
-
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
+import { urlBase64ToUint8Array } from '@/shared/lib/utils';
 
 export function NotificationBell() {
   const queryClient = useQueryClient();
@@ -45,32 +32,39 @@ export function NotificationBell() {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  const [permissionState, setPermissionState] = useState<NotificationPermission>('default');
+
   useEffect(() => {
-    async function registerPush() {
-      if ('serviceWorker' in navigator && 'PushManager' in window) {
-        try {
-          const permission = await Notification.requestPermission();
-          if (permission === 'granted') {
-            const registration = await navigator.serviceWorker.ready;
-            const { publicKey } = await apiClient.notifications.getVapidPublicKey();
-            
-            const existingSubscription = await registration.pushManager.getSubscription();
-            if (!existingSubscription) {
-              const subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(publicKey),
-              });
-              await apiClient.notifications.subscribe(subscription.toJSON());
-            }
+    if ('Notification' in window) {
+      setPermissionState(Notification.permission);
+    }
+  }, []);
+
+  const handleEnablePush = async () => {
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      try {
+        const permission = await Notification.requestPermission();
+        setPermissionState(permission);
+        if (permission === 'granted') {
+          // Register service worker explicitly first to avoid hanging ready promise
+          const swRegistration = await navigator.serviceWorker.register('/service-worker.js');
+          const registration = await navigator.serviceWorker.ready;
+          const { publicKey } = await apiClient.notifications.getVapidPublicKey();
+          
+          const existingSubscription = await registration.pushManager.getSubscription();
+          if (!existingSubscription) {
+            const subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(publicKey),
+            });
+            await apiClient.notifications.subscribe(subscription.toJSON());
           }
-        } catch (err) {
-          console.error('Push registration failed:', err);
         }
+      } catch (err) {
+        console.error('Push registration failed:', err);
       }
     }
-    
-    registerPush();
-  }, []);
+  };
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -127,6 +121,13 @@ export function NotificationBell() {
           )}
         </div>
       </DropdownMenuContent>
+      {permissionState === 'default' && (
+        <DropdownMenuContent align="end" className="w-80 p-3 mt-2 border-white/10 bg-zinc-950 text-white">
+          <Button onClick={handleEnablePush} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white">
+            Enable Push Notifications
+          </Button>
+        </DropdownMenuContent>
+      )}
     </DropdownMenu>
   );
 }
