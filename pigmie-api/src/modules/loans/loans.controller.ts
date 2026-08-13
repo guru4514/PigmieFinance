@@ -1,6 +1,7 @@
 import {
-  Controller, Get, Post, Param, Query, Body, UseGuards, HttpCode, HttpStatus,
+  Controller, Get, Post, Param, Query, Body, UseGuards, HttpCode, HttpStatus, Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -8,6 +9,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { AuthenticatedUser } from '../../common/types/request-user.type';
 import { LoansService } from './loans.service';
+import { PdfService } from './pdf.service';
 import { CreateLoanDto } from './dto/create-loan.dto';
 import { DisburseLoanDto } from './dto/disburse-loan.dto';
 import { RejectLoanDto } from './dto/reject-loan.dto';
@@ -18,7 +20,10 @@ import { RestructureLoanDto } from './dto/restructure-loan.dto';
 @Controller('loans')
 @UseGuards(SupabaseAuthGuard, RolesGuard)
 export class LoansController {
-  constructor(private readonly loansService: LoansService) {}
+  constructor(
+    private readonly loansService: LoansService,
+    private readonly pdfService: PdfService,
+  ) {}
 
   @Get()
   @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
@@ -107,6 +112,22 @@ export class LoansController {
     @Body() dto: RestructureLoanDto,
   ) {
     return this.loansService.restructure(user.organizationId, id, user.id, dto);
+  }
+
+  @Get(':id/statement')
+  @Roles('org_admin', 'branch_manager', 'accountant', 'agent')
+  async getStatement(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.pdfService.generateLoanStatement(id, user.organizationId);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="loan-statement-${id}.pdf"`,
+      'Content-Length': buffer.length,
+    });
+    res.end(buffer);
   }
 }
 
