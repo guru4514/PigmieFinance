@@ -2,10 +2,12 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
+import { APP_GUARD } from '@nestjs/core';
 
 // Core
 import { PrismaModule } from './prisma/prisma.module';
 import { validate } from './config/env.validation';
+import { OrgThrottlerGuard } from './common/guards/org-throttler.guard';
 
 // Feature modules
 import { HealthModule } from './modules/health/health.module';
@@ -32,7 +34,7 @@ import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
       validate,
     }),
 
-    // Rate limiting — 300 requests per 60 seconds per IP
+    // Rate limiting — 300 requests per 60 seconds per IP/org
     ThrottlerModule.forRoot([{
       ttl: 60000,
       limit: 300,
@@ -60,6 +62,12 @@ import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
     CashDepositsModule,
     JobsModule,
     AuditLogsModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: OrgThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}
