@@ -7,6 +7,7 @@ import { Badge } from '@/shared/components/ui/badge';
 import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
 import { ArrowLeft, User, FileText, CreditCard, Mail, Phone, Calendar, MapPin } from 'lucide-react';
 import { CustomerDocuments } from '../components/customer-documents';
+import { RoleGate } from '@/shared/components/auth/role-gate';
 
 export const CustomerDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -42,9 +43,13 @@ export const CustomerDetailPage = () => {
           </h1>
           <p className="text-muted-foreground mt-1 text-zinc-400">Customer ID: {customer.id}</p>
         </div>
-        <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
-          Edit Profile
-        </Button>
+        <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+          <Link to={`/app/customers/${customer.id}/edit`}>
+            <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
+              Edit Profile
+            </Button>
+          </Link>
+        </RoleGate>
       </div>
 
       <div className="flex border-b border-zinc-800">
@@ -130,9 +135,11 @@ export const CustomerDetailPage = () => {
             <CardContent className="p-12 text-center text-zinc-500">
               <CreditCard className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>No active loans found for this customer.</p>
-              <Link to="/app/loans/new">
-                <Button variant="outline" className="mt-4 border-zinc-700 text-zinc-300">Issue New Loan</Button>
-              </Link>
+              <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+                <Link to="/app/loans/new">
+                  <Button variant="outline" className="mt-4 border-zinc-700 text-zinc-300">Issue New Loan</Button>
+                </Link>
+              </RoleGate>
             </CardContent>
           </Card>
         )}

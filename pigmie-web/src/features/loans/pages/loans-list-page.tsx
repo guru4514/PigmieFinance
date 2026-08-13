@@ -8,8 +8,11 @@ import { Plus, Search, Filter, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { RoleGate } from '@/shared/components/auth/role-gate';
 import { EmptyState } from '@/shared/components/ui/empty-state';
+import { useAuth } from '@/shared/hooks/use-auth';
 
 export const LoansListPage: React.FC = () => {
+  const { user } = useAuth();
+  const isAccountant = user?.userType === 'staff' && user.role === 'accountant';
   const { data: loansResponse, isLoading: loading } = useLoans();
   const loans = loansResponse?.data || [];
 
@@ -20,7 +23,7 @@ export const LoansListPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-white tracking-tight">Loans</h1>
           <p className="text-sm text-gray-400 mt-1">Manage and track all loan accounts</p>
         </div>
-        <RoleGate allowedRoles={['ADMIN', 'MANAGER', 'AGENT']}>
+        <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
           <Link to="/app/loans/new">
             <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
               <Plus className="h-4 w-4" />
@@ -59,8 +62,8 @@ export const LoansListPage: React.FC = () => {
                 icon={FileText}
                 title="No active loans"
                 description="There are no loans in the system. Create a new loan to get started."
-                actionLabel="New Loan"
-                actionHref="/app/loans/new"
+                actionLabel={isAccountant ? undefined : "New Loan"}
+                actionHref={isAccountant ? undefined : "/app/loans/new"}
               />
             </div>
           ) : (

@@ -5,7 +5,7 @@ import { LoanStatusBadge } from '../components/loan-status-badge';
 import { LoanScheduleTable } from '../components/loan-schedule-table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
-import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, FileText, Download, User, Play } from 'lucide-react';
+import { ArrowLeft, CheckCircle, AlertTriangle, FileText, Download, User, Play } from 'lucide-react';
 import { RoleGate } from '@/shared/components/auth/role-gate';
 import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
 
@@ -52,7 +52,7 @@ export const LoanDetailPage: React.FC = () => {
         </div>
 
         <div className="flex gap-2">
-          <RoleGate allowedRoles={['ADMIN', 'MANAGER']}>
+          <RoleGate allowedRoles={['org_admin', 'branch_manager']}>
             {loan.status === 'PENDING' && (
               <Button 
                 onClick={() => approveLoan.mutate(loan.id)}
@@ -149,7 +149,7 @@ export const LoanDetailPage: React.FC = () => {
                       <p className="text-sm text-gray-400 mb-1">Amount</p>
                       <p className="text-2xl font-bold text-primary">₹{loan.nextPaymentAmount?.toLocaleString()}</p>
                     </div>
-                    <RoleGate allowedRoles={['ADMIN', 'MANAGER', 'AGENT']}>
+                    <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
                       <Link to={`/app/collections/record/${loan.id}`}>
                         <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
                           Record Payment

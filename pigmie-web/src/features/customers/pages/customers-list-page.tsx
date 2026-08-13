@@ -8,8 +8,11 @@ import { Plus, Search, MoreHorizontal, Users } from 'lucide-react';
 import { Input } from '@/shared/components/ui/input';
 import { Link } from 'react-router-dom';
 import { EmptyState } from '@/shared/components/ui/empty-state';
+import { useAuth } from '@/shared/hooks/use-auth';
 
 export const CustomersListPage = () => {
+  const { user } = useAuth();
+  const isAccountant = user?.userType === 'staff' && user.role === 'accountant';
   const { data: customersResponse, isLoading } = useCustomers();
   const customers = customersResponse?.data || [];
 
@@ -28,6 +31,7 @@ export const CustomersListPage = () => {
           <h1 className="text-3xl font-bold tracking-tight text-white">Customers</h1>
           <p className="text-muted-foreground mt-1 text-zinc-400">Manage your customer base and view their details.</p>
         </div>
+        {!isAccountant && (
           <div className="flex gap-2">
             <Link to="/app/customers/import">
               <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
@@ -40,6 +44,7 @@ export const CustomersListPage = () => {
               </Button>
             </Link>
           </div>
+        )}
       </div>
 
       <div className="flex items-center gap-4 bg-zinc-900/50 p-4 rounded-lg border border-zinc-800">
@@ -60,8 +65,8 @@ export const CustomersListPage = () => {
             icon={Users} 
             title="No customers yet" 
             description="Get started by adding your first customer to the system." 
-            actionLabel="Add Customer" 
-            actionHref="/app/customers/new" 
+            actionLabel={isAccountant ? undefined : "Add Customer"} 
+            actionHref={isAccountant ? undefined : "/app/customers/new"} 
           />
         ) : (
           <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900/50">

@@ -60,22 +60,22 @@ export function App() {
       }>
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="customers" element={<CustomersListPage />} />
-        <Route path="customers/new" element={<CustomerFormPage />} />
-        <Route path="customers/import" element={<ImportCustomersPage />} />
-        <Route path="customers/:id" element={<CustomerDetailPage />} />
-        <Route path="customers/:id/edit" element={<CustomerFormPage />} />
-        <Route path="loans" element={<LoansListPage />} />
-        <Route path="loans/new" element={<NewLoanPage />} />
-        <Route path="loans/:id" element={<LoanDetailPage />} />
-        <Route path="collections/today" element={<CollectionsTodayPage />} />
-        <Route path="collections/record/:loanId" element={<RecordCollectionPage />} />
+        <Route path="customers" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent', 'accountant']}><CustomersListPage /></ProtectedRoute>} />
+        <Route path="customers/new" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent']}><CustomerFormPage /></ProtectedRoute>} />
+        <Route path="customers/import" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent']}><ImportCustomersPage /></ProtectedRoute>} />
+        <Route path="customers/:id" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent', 'accountant']}><CustomerDetailPage /></ProtectedRoute>} />
+        <Route path="customers/:id/edit" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent']}><CustomerFormPage /></ProtectedRoute>} />
+        <Route path="loans" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent', 'accountant']}><LoansListPage /></ProtectedRoute>} />
+        <Route path="loans/new" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent']}><NewLoanPage /></ProtectedRoute>} />
+        <Route path="loans/:id" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent', 'accountant']}><LoanDetailPage /></ProtectedRoute>} />
+        <Route path="collections/today" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent', 'accountant']}><CollectionsTodayPage /></ProtectedRoute>} />
+        <Route path="collections/record/:loanId" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent']}><RecordCollectionPage /></ProtectedRoute>} />
         <Route path="loan-products/new" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager']}><NewLoanProductPage /></ProtectedRoute>} />
         <Route path="loan-products" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager']}><LoanProductsPage /></ProtectedRoute>} />
-        <Route path="reports" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager']}><ReportsPage /></ProtectedRoute>} />
+        <Route path="reports" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'accountant']}><ReportsPage /></ProtectedRoute>} />
         <Route path="staff" element={<ProtectedRoute allowedRoles={['org_admin']}><StaffPage /></ProtectedRoute>} />
         <Route path="staff/new" element={<ProtectedRoute allowedRoles={['org_admin']}><StaffFormPage /></ProtectedRoute>} />
-        <Route path="audit-logs" element={<ProtectedRoute allowedRoles={['org_admin']}><AuditLogsPage /></ProtectedRoute>} />
+        <Route path="audit-logs" element={<ProtectedRoute allowedRoles={['org_admin', 'accountant']}><AuditLogsPage /></ProtectedRoute>} />
         <Route path="settings" element={<ProtectedRoute allowedRoles={['org_admin']}><SettingsPage /></ProtectedRoute>} />
       </Route>
       

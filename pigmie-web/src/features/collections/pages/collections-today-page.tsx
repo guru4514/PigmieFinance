@@ -1,12 +1,15 @@
 import React from 'react';
 import { useCollectionsToday } from '../hooks/use-collections';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Card, CardContent } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
 import { MapPin, Phone, User, IndianRupee, ListX } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { EmptyState } from '@/shared/components/ui/empty-state';
+import { useAuth } from '@/shared/hooks/use-auth';
 
 export function CollectionsTodayPage() {
+  const { user } = useAuth();
+  const isAccountant = user?.userType === 'staff' && user.role === 'accountant';
   const { data: collectionsResponse, isLoading } = useCollectionsToday();
   const collections = collectionsResponse?.data || [];
 
@@ -81,7 +84,7 @@ export function CollectionsTodayPage() {
                   {item.location}
                 </div>
                 
-                {item.status !== 'collected' && (
+                {!isAccountant && item.status !== 'collected' && (
                   <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">
                     Record
                   </Button>
