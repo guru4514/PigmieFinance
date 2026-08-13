@@ -456,3 +456,15 @@ model AuditLog {
   @@index([createdAt])
   @@map("audit_logs")
 }
+
+model PushSubscription {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authUserId     String   @map("auth_user_id") @db.Uuid
+  endpoint       String
+  p256dh         String
+  auth           String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([authUserId])
+  @@map("push_subscriptions")
+}

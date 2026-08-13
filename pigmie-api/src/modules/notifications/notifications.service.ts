@@ -1,17 +1,50 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
 import { NotificationRecipientType, Prisma } from '@prisma/client';
+import * as webpush from 'web-push';
 
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantPrisma: TenantPrismaService
-  ) {}
+  ) {
+    const publicKey = process.env.VAPID_PUBLIC_KEY;
+    const privateKey = process.env.VAPID_PRIVATE_KEY;
+    const subject = process.env.VAPID_SUBJECT || 'mailto:admin@example.com';
+
+    if (publicKey && privateKey) {
+      webpush.setVapidDetails(subject, publicKey, privateKey);
+    } else {
+      this.logger.warn('VAPID keys not configured, generating dynamic keys for testing');
+      const keys = webpush.generateVAPIDKeys();
+      process.env.VAPID_PUBLIC_KEY = keys.publicKey;
+      process.env.VAPID_PRIVATE_KEY = keys.privateKey;
+      webpush.setVapidDetails(subject, keys.publicKey, keys.privateKey);
+    }
+  }
+
+  getVapidPublicKey() {
+    return process.env.VAPID_PUBLIC_KEY;
+  }
+
+  async subscribe(authUserId: string, subscriptionData: { endpoint: string; keys: { p256dh: string; auth: string } }) {
+    await this.prisma.pushSubscription.create({
+      data: {
+        authUserId,
+        endpoint: subscriptionData.endpoint,
+        p256dh: subscriptionData.keys.p256dh,
+        auth: subscriptionData.keys.auth,
+      },
+    });
+    return { success: true };
+  }
 
   async notify(organizationId: string, recipientType: 'staff' | 'customer', recipientId: string, type: string, title: string, message: string, relatedEntityType?: string, relatedEntityId?: string) {
-    await this.prisma.notification.create({
+    const notification = await this.prisma.notification.create({
       data: { 
         organizationId, 
         recipientType: recipientType as NotificationRecipientType, 
@@ -24,6 +57,46 @@ export class NotificationsService {
         relatedEntityId 
       },
     });
+
+    let authUserId: string | null = null;
+    if (recipientType === 'staff') {
+      const staff = await this.prisma.staff.findUnique({ where: { id: recipientId } });
+      authUserId = staff?.authUserId || null;
+    } else {
+      const customer = await this.prisma.customer.findUnique({ where: { id: recipientId } });
+      authUserId = customer?.authUserId || null;
+    }
+
+    if (authUserId) {
+      const subscriptions = await this.prisma.pushSubscription.findMany({
+        where: { authUserId },
+      });
+
+      const payload = JSON.stringify({ title, body: message, type });
+
+      for (const sub of subscriptions) {
+        try {
+          await webpush.sendNotification(
+            {
+              endpoint: sub.endpoint,
+              keys: {
+                p256dh: sub.p256dh,
+                auth: sub.auth,
+              },
+            },
+            payload
+          );
+        } catch (error: any) {
+          if (error.statusCode === 410) {
+            await this.prisma.pushSubscription.delete({ where: { id: sub.id } });
+          } else {
+            this.logger.error(`Failed to send push notification: ${error.message}`);
+          }
+        }
+      }
+    }
+
+    return notification;
   }
 
   async getNotifications(organizationId: string, recipientType: 'staff' | 'customer', recipientId: string, query: { page?: number, limit?: number }) {
@@ -79,4 +152,3 @@ export class NotificationsService {
     });
   }
 }
-

@@ -1,0 +1,336 @@
+﻿diff --git a/.superpowers/sdd/implementation_plan/task-3-phase3-review.diff b/.superpowers/sdd/implementation_plan/task-3-phase3-review.diff
+new file mode 100644
+index 0000000..f5720b0
+Binary files /dev/null and b/.superpowers/sdd/implementation_plan/task-3-phase3-review.diff differ
+diff --git a/.superpowers/sdd/implementation_plan/task-4-phase3-brief.md b/.superpowers/sdd/implementation_plan/task-4-phase3-brief.md
+new file mode 100644
+index 0000000..2cc4c2f
+--- /dev/null
++++ b/.superpowers/sdd/implementation_plan/task-4-phase3-brief.md
+@@ -0,0 +1,29 @@
++# Task 4: Collection Reversal UI
++
++**Files:**
++- Create: `pigmie-web/src/features/collections/components/collection-reversal-dialog.tsx`
++- Modify: `pigmie-web/src/features/collections/components/collections-table.tsx`
++- Modify: `pigmie-web/src/shared/lib/api-client.ts`
++
++**Interfaces:**
++- Consumes: React Query, shadcn/ui components (`Dialog`, `Button`, `DropdownMenu`)
++- Produces: API integrations for `POST /api/v1/collections/:id/reverse`.
++
++**Implementation Details:**
++- **Step 1: API Client Updates**
++  - Add `reverseCollection(id, data: { reason: string })` to `apiClient.collections`.
++
++- **Step 2: Collection Reversal Dialog (`collection-reversal-dialog.tsx`)**
++  - Create a modal dialog with a form.
++  - Form Fields:
++    - `reason`: Textarea (required, min 10 chars)
++  - On submit: Call `reverseCollection` via a mutation. Show a toast on success, invalidate `collections` and `loans` queries, and close the dialog.
++
++- **Step 3: Update `collections-table.tsx`**
++  - In the actions column for each row (using `DropdownMenu`), add a "Reverse Collection" option.
++  - This option should only be visible for `org_admin` or `branch_manager` roles, and only if the collection status is `COMPLETED` (or whatever the successful status is).
++  - Hook up the `CollectionReversalDialog` to this action.
++
++**Execution Constraints:**
++- The backend reversal logic `reverse()` in `collections.service.ts` was supposedly already implemented in Phase 2 or Tech Debt, but if it wasn't, you do NOT need to implement it. This task is purely for the UI.
++- Verify with `npx tsc --noEmit`.
+diff --git a/.superpowers/sdd/implementation_plan/task-4-phase3-report.md b/.superpowers/sdd/implementation_plan/task-4-phase3-report.md
+new file mode 100644
+index 0000000..7534fc0
+--- /dev/null
++++ b/.superpowers/sdd/implementation_plan/task-4-phase3-report.md
+@@ -0,0 +1,24 @@
++# Task 4 Phase 3 Report
++
++## Status
++DONE
++
++## What was implemented
++- Updated `pigmie-web/src/shared/lib/api-client.ts` to include the `apiClient.collections.reverseCollection(id, data: { reason: string })` method.
++- Created `pigmie-web/src/features/collections/components/collection-reversal-dialog.tsx` to handle the reversal logic (min 10 characters reason, triggers mutation, invalidates queries).
++- Created `pigmie-web/src/features/collections/components/collections-table.tsx` from scratch (as it was missing in the project). Implemented the "Reverse Collection" dropdown action in the table, gated behind `org_admin` and `branch_manager` roles, and visible only for completed collections.
++
++## Files changed
++- `pigmie-web/src/shared/lib/api-client.ts`
++- `pigmie-web/src/features/collections/components/collection-reversal-dialog.tsx` (created)
++- `pigmie-web/src/features/collections/components/collections-table.tsx` (created)
++
++## Test Results
++- `npx tsc --noEmit` is passing with 0 errors.
++
++## Self-review findings
++- The codebase did not contain a `collections-table.tsx` component or the `components` sub-directory under `collections`. Therefore, both the folder and file were created from scratch based on user confirmation.
++- The UI handles loading states properly during mutations, validates reason length locally, and displays toasts correctly using Sonner.
++
++## Concerns
++- Since `collections-table.tsx` was created from scratch and not mentioned anywhere else in the code, it is currently not being mounted in any specific page (such as `collections-today-page.tsx`). Integration of this table into the app views needs to be handled in a subsequent task.
+diff --git a/pigmie-web/src/features/collections/components/collection-reversal-dialog.tsx b/pigmie-web/src/features/collections/components/collection-reversal-dialog.tsx
+new file mode 100644
+index 0000000..c6a2186
+--- /dev/null
++++ b/pigmie-web/src/features/collections/components/collection-reversal-dialog.tsx
+@@ -0,0 +1,97 @@
++import React, { useState } from 'react';
++import {
++  Dialog,
++  DialogContent,
++  DialogHeader,
++  DialogTitle,
++  DialogDescription,
++  DialogFooter,
++} from '@/shared/components/ui/dialog';
++import { Button } from '@/shared/components/ui/button';
++import { Label } from '@/shared/components/ui/label';
++import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
++import { useMutation, useQueryClient } from '@tanstack/react-query';
++import { apiClient } from '@/shared/lib/api-client';
++import { toast } from 'sonner';
++
++interface CollectionReversalDialogProps {
++  collectionId: string;
++  open: boolean;
++  onOpenChange: (open: boolean) => void;
++}
++
++export function CollectionReversalDialog({
++  collectionId,
++  open,
++  onOpenChange,
++}: CollectionReversalDialogProps) {
++  const [reason, setReason] = useState('');
++  const queryClient = useQueryClient();
++
++  const reverseMutation = useMutation({
++    mutationFn: async (data: { reason: string }) => {
++      return apiClient.collections.reverseCollection(collectionId, data);
++    },
++    onSuccess: () => {
++      toast.success('Collection reversed successfully');
++      queryClient.invalidateQueries({ queryKey: ['collections'] });
++      queryClient.invalidateQueries({ queryKey: ['loans'] });
++      onOpenChange(false);
++      setReason('');
++    },
++    onError: (error: any) => {
++      console.error('Failed to reverse collection', error);
++      toast.error(error?.response?.data?.message || 'Failed to reverse collection');
++    },
++  });
++
++  const handleSubmit = (e: React.FormEvent) => {
++    e.preventDefault();
++    if (reason.length < 10) {
++      toast.error('Reason must be at least 10 characters long');
++      return;
++    }
++    reverseMutation.mutate({ reason });
++  };
++
++  return (
++    <Dialog open={open} onOpenChange={onOpenChange}>
++      <DialogContent className="sm:max-w-[425px]">
++        <DialogHeader>
++          <DialogTitle>Reverse Collection</DialogTitle>
++          <DialogDescription>
++            Provide a reason for reversing this collection. This action cannot be undone.
++          </DialogDescription>
++        </DialogHeader>
++        <form onSubmit={handleSubmit} className="space-y-4">
++          <div className="space-y-2">
++            <Label htmlFor="reason">Reason (min 10 characters)</Label>
++            <textarea
++              id="reason"
++              value={reason}
++              onChange={(e) => setReason(e.target.value)}
++              placeholder="e.g., Entered wrong amount by mistake"
++              className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
++              required
++              minLength={10}
++            />
++          </div>
++          <DialogFooter>
++            <Button
++              type="button"
++              variant="outline"
++              onClick={() => onOpenChange(false)}
++              disabled={reverseMutation.isPending}
++            >
++              Cancel
++            </Button>
++            <Button type="submit" disabled={reverseMutation.isPending || reason.length < 10}>
++              {reverseMutation.isPending && <LoadingSpinner className="mr-2 h-4 w-4" />}
++              Confirm Reversal
++            </Button>
++          </DialogFooter>
++        </form>
++      </DialogContent>
++    </Dialog>
++  );
++}
+diff --git a/pigmie-web/src/features/collections/components/collections-table.tsx b/pigmie-web/src/features/collections/components/collections-table.tsx
+new file mode 100644
+index 0000000..4b39fcf
+--- /dev/null
++++ b/pigmie-web/src/features/collections/components/collections-table.tsx
+@@ -0,0 +1,135 @@
++import React, { useState } from 'react';
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/shared/components/ui/table';
++import { Badge } from '@/shared/components/ui/badge';
++import { Button } from '@/shared/components/ui/button';
++import {
++  DropdownMenu,
++  DropdownMenuContent,
++  DropdownMenuItem,
++  DropdownMenuLabel,
++  DropdownMenuSeparator,
++  DropdownMenuTrigger,
++} from '@/shared/components/ui/dropdown-menu';
++import { MoreHorizontal, Undo } from 'lucide-react';
++import { useAuth } from '@/shared/hooks/use-auth';
++import { CollectionReversalDialog } from './collection-reversal-dialog';
++
++export interface Collection {
++  id: string;
++  customerId: string;
++  customerName: string;
++  amount: number;
++  status: 'PENDING' | 'COMPLETED' | 'collected' | 'REVERSED' | string;
++  collectedAt?: string;
++  createdAt?: string;
++}
++
++interface CollectionsTableProps {
++  collections: Collection[];
++}
++
++export function CollectionsTable({ collections }: CollectionsTableProps) {
++  const { user } = useAuth();
++  const [reversalCollectionId, setReversalCollectionId] = useState<string | null>(null);
++
++  const canReverse = user?.role === 'org_admin' || user?.role === 'branch_manager';
++
++  const isCompleted = (status: string) => {
++    return status.toLowerCase() === 'completed' || status.toLowerCase() === 'collected';
++  };
++
++  return (
++    <>
++      <div className="rounded-md border border-border">
++        <Table>
++          <TableHeader>
++            <TableRow>
++              <TableHead>ID / Customer</TableHead>
++              <TableHead>Amount</TableHead>
++              <TableHead>Date</TableHead>
++              <TableHead>Status</TableHead>
++              <TableHead className="text-right">Actions</TableHead>
++            </TableRow>
++          </TableHeader>
++          <TableBody>
++            {collections.length === 0 ? (
++              <TableRow>
++                <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
++                  No collections found.
++                </TableCell>
++              </TableRow>
++            ) : (
++              collections.map((collection) => (
++                <TableRow key={collection.id}>
++                  <TableCell>
++                    <div className="font-medium">{collection.customerName}</div>
++                    <div className="text-xs text-muted-foreground">{collection.id.slice(0, 8)}</div>
++                  </TableCell>
++                  <TableCell>Γé╣{collection.amount.toLocaleString()}</TableCell>
++                  <TableCell>
++                    {collection.collectedAt || collection.createdAt
++                      ? new Date(collection.collectedAt || collection.createdAt!).toLocaleDateString()
++                      : 'N/A'}
++                  </TableCell>
++                  <TableCell>
++                    <Badge
++                      variant={isCompleted(collection.status) ? 'default' : 'secondary'}
++                      className={
++                        isCompleted(collection.status)
++                          ? 'bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30'
++                          : ''
++                      }
++                    >
++                      {collection.status.toUpperCase()}
++                    </Badge>
++                  </TableCell>
++                  <TableCell className="text-right">
++                    <DropdownMenu>
++                      <DropdownMenuTrigger asChild>
++                        <Button variant="ghost" className="h-8 w-8 p-0">
++                          <span className="sr-only">Open menu</span>
++                          <MoreHorizontal className="h-4 w-4" />
++                        </Button>
++                      </DropdownMenuTrigger>
++                      <DropdownMenuContent align="end">
++                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
++                        <DropdownMenuSeparator />
++                        {canReverse && isCompleted(collection.status) && (
++                          <DropdownMenuItem
++                            onClick={() => setReversalCollectionId(collection.id)}
++                            className="text-destructive focus:text-destructive cursor-pointer"
++                          >
++                            <Undo className="mr-2 h-4 w-4" />
++                            Reverse Collection
++                          </DropdownMenuItem>
++                        )}
++                        {!canReverse && isCompleted(collection.status) && (
++                          <DropdownMenuItem disabled>
++                            No actions available
++                          </DropdownMenuItem>
++                        )}
++                      </DropdownMenuContent>
++                    </DropdownMenu>
++                  </TableCell>
++                </TableRow>
++              ))
++            )}
++          </TableBody>
++        </Table>
++      </div>
++
++      <CollectionReversalDialog
++        collectionId={reversalCollectionId || ''}
++        open={!!reversalCollectionId}
++        onOpenChange={(open) => !open && setReversalCollectionId(null)}
++      />
++    </>
++  );
++}
+diff --git a/pigmie-web/src/shared/lib/api-client.ts b/pigmie-web/src/shared/lib/api-client.ts
+index 736e96f..2607abd 100644
+--- a/pigmie-web/src/shared/lib/api-client.ts
++++ b/pigmie-web/src/shared/lib/api-client.ts
+@@ -7,6 +7,9 @@ declare module 'axios' {
+       restructureLoan: (id: string, data: { fromInstallmentNumber: number; newTenure: number; reason?: string }) => Promise<any>;
+       downloadLoanStatement: (id: string) => Promise<Blob>;
+     };
++    collections: {
++      reverseCollection: (id: string, data: { reason: string }) => Promise<any>;
++    };
+   }
+ }
+ 
+@@ -38,3 +41,8 @@ apiClient.loans = {
+     return response.data;
+   },
+ };
++
++apiClient.collections = {
++  reverseCollection: (id: string, data: { reason: string }) =>
++    apiClient.post(`/collections/${id}/reverse`, data).then((res) => res.data),
++};
