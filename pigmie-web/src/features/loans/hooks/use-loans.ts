@@ -127,3 +127,17 @@ export const useLoanSchedule = (loanId: string) => {
     enabled: !!loanId,
   });
 };
+
+export const useRestructureLoan = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string, data: { fromInstallmentNumber: number; newTenure: number; reason?: string } }) => 
+      apiClient.loans.restructureLoan(id, data),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['loans'] });
+      queryClient.invalidateQueries({ queryKey: ['loans', id] });
+      toast.success('Loan restructured successfully');
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to restructure loan')
+  });
+};

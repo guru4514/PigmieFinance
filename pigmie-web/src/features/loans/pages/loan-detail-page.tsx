@@ -3,11 +3,14 @@ import { useParams, Link } from 'react-router-dom';
 import { useLoanDetails, useApproveLoan, useDisburseLoan, useLoanSchedule } from '../hooks/use-loans';
 import { LoanStatusBadge } from '../components/loan-status-badge';
 import { LoanScheduleTable } from '../components/loan-schedule-table';
+import { RestructureLoanDialog } from '../components/restructure-loan-dialog';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
-import { ArrowLeft, CheckCircle, AlertTriangle, FileText, Download, User, Play } from 'lucide-react';
+import { ArrowLeft, CheckCircle, AlertTriangle, FileText, Download, User, Play, RefreshCw } from 'lucide-react';
 import { RoleGate } from '@/shared/components/auth/role-gate';
 import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
+import { apiClient } from '@/shared/lib/api-client';
+import { toast } from 'sonner';
 
 type Tab = 'overview' | 'schedule' | 'collections' | 'documents';
 
@@ -23,6 +26,29 @@ export const LoanDetailPage: React.FC = () => {
   const disburseLoan = useDisburseLoan();
 
   const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [downloadingStatement, setDownloadingStatement] = useState(false);
+
+  const handleDownloadStatement = async () => {
+    if (!loan) return;
+    try {
+      setDownloadingStatement(true);
+      const blob = await apiClient.loans.downloadLoanStatement(loan.id);
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `loan-statement-${loan.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('Statement downloaded successfully');
+    } catch (error) {
+      console.error('Failed to download statement', error);
+      toast.error('Failed to download statement');
+    } finally {
+      setDownloadingStatement(false);
+    }
+  };
 
   if (loading) {
     return <div className="p-8 flex justify-center"><LoadingSpinner className="w-8 h-8 text-primary" /></div>;
@@ -51,7 +77,17 @@ export const LoanDetailPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <RoleGate allowedRoles={['org_admin', 'branch_manager', 'accountant', 'agent']}>
+            <Button
+              onClick={handleDownloadStatement}
+              disabled={downloadingStatement}
+              className="bg-zinc-800/50 text-white hover:bg-zinc-800 border border-zinc-700 gap-2"
+            >
+              {downloadingStatement ? <LoadingSpinner className="w-4 h-4" /> : <Download className="h-4 w-4" />}
+              Statement
+            </Button>
+          </RoleGate>
           <RoleGate allowedRoles={['org_admin', 'branch_manager']}>
             {loan.status === 'PENDING' && (
               <Button 
@@ -74,10 +110,21 @@ export const LoanDetailPage: React.FC = () => {
               </Button>
             )}
             {loan.status === 'ACTIVE' && (
-              <Button className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border border-yellow-500/30 gap-2">
-                <AlertTriangle className="h-4 w-4" />
-                Mark Default
-              </Button>
+              <>
+                <RestructureLoanDialog 
+                  loan={loan} 
+                  trigger={
+                    <Button className="bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/30 gap-2">
+                      <RefreshCw className="h-4 w-4" />
+                      Restructure
+                    </Button>
+                  } 
+                />
+                <Button className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border border-yellow-500/30 gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  Mark Default
+                </Button>
+              </>
             )}
           </RoleGate>
         </div>
