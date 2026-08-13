@@ -1,6 +1,15 @@
 import axios from 'axios';
 import { supabase } from './supabase';
 
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+  type: string;
+}
+
 declare module 'axios' {
   export interface AxiosInstance {
     loans: {
@@ -9,6 +18,13 @@ declare module 'axios' {
     };
     collections: {
       reverseCollection: (id: string, data: { reason: string }) => Promise<any>;
+    };
+    notifications: {
+      getNotifications: (params?: any) => Promise<Notification[]>;
+      markAsRead: (id: string) => Promise<any>;
+      markAllAsRead: () => Promise<any>;
+      getVapidPublicKey: () => Promise<{ publicKey: string }>;
+      subscribe: (subscription: PushSubscriptionJSON) => Promise<any>;
     };
   }
 }
@@ -45,4 +61,12 @@ apiClient.loans = {
 apiClient.collections = {
   reverseCollection: (id: string, data: { reason: string }) =>
     apiClient.post(`/collections/${id}/reverse`, data).then((res) => res.data),
+};
+
+apiClient.notifications = {
+  getNotifications: (params) => apiClient.get('/notifications', { params }).then((res) => res.data),
+  markAsRead: (id: string) => apiClient.patch(`/notifications/${id}/read`).then((res) => res.data),
+  markAllAsRead: () => apiClient.patch('/notifications/read-all').then((res) => res.data),
+  getVapidPublicKey: () => apiClient.get('/notifications/vapid-public-key').then((res) => res.data),
+  subscribe: (subscription: PushSubscriptionJSON) => apiClient.post('/notifications/subscribe', subscription).then((res) => res.data),
 };

@@ -3,6 +3,7 @@ import { useAuth } from '@/shared/hooks/use-auth';
 import { useUIStore, useOfflineQueueStore } from '@/shared/stores/app-store';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
+import { NotificationBell } from '@/features/notifications/components/notification-bell';
 
 export function Header() {
   const { user } = useAuth();
@@ -30,10 +31,7 @@ export function Header() {
       </div>
       
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white relative">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-2 right-2 w-2 h-2 bg-indigo-500 rounded-full"></span>
-        </Button>
+        <NotificationBell />
         <div className="flex items-center gap-3 pl-4 border-l border-white/10">
           <div className="text-right hidden sm:block">
             <p className="text-sm font-medium text-white">{user?.fullName}</p>

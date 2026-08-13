@@ -1,0 +1,132 @@
+import { useState, useEffect } from 'react';
+import { Bell } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { formatDistanceToNow } from 'date-fns';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/shared/components/ui/dropdown-menu';
+import { Button } from '@/shared/components/ui/button';
+import { apiClient } from '@/shared/lib/api-client';
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+export function NotificationBell() {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+
+  const { data: notifications = [] } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => apiClient.notifications.getNotifications(),
+    refetchOnWindowFocus: true,
+  });
+
+  const markAsReadMutation = useMutation({
+    mutationFn: (id: string) => apiClient.notifications.markAsRead(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+  });
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  useEffect(() => {
+    async function registerPush() {
+      if ('serviceWorker' in navigator && 'PushManager' in window) {
+        try {
+          const permission = await Notification.requestPermission();
+          if (permission === 'granted') {
+            const registration = await navigator.serviceWorker.ready;
+            const { publicKey } = await apiClient.notifications.getVapidPublicKey();
+            
+            const existingSubscription = await registration.pushManager.getSubscription();
+            if (!existingSubscription) {
+              const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(publicKey),
+              });
+              await apiClient.notifications.subscribe(subscription.toJSON());
+            }
+          }
+        } catch (err) {
+          console.error('Push registration failed:', err);
+        }
+      }
+    }
+    
+    registerPush();
+  }, []);
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white relative">
+          <Bell className="w-5 h-5" />
+          {unreadCount > 0 && (
+            <span className="absolute top-2 right-2 w-2 h-2 bg-indigo-500 rounded-full"></span>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80 p-0 border-white/10 bg-zinc-950 text-white">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+          <span className="font-semibold text-sm">Notifications</span>
+          {unreadCount > 0 && (
+            <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full">
+              {unreadCount} new
+            </span>
+          )}
+        </div>
+        <div className="max-h-[350px] overflow-y-auto">
+          {notifications.length === 0 ? (
+            <div className="p-8 text-center text-sm text-zinc-400">No notifications</div>
+          ) : (
+            notifications.map((notification) => (
+              <DropdownMenuItem
+                key={notification.id}
+                className={`flex flex-col items-start px-4 py-3 cursor-pointer border-b border-white/5 last:border-0 rounded-none focus:bg-white/5 ${!notification.read ? 'bg-white/5' : ''}`}
+                onClick={(e) => {
+                  e.preventDefault(); // keep dropdown open if preferred, or remove to close
+                  if (!notification.read) {
+                    markAsReadMutation.mutate(notification.id);
+                  }
+                }}
+              >
+                <div className="flex items-start gap-3 w-full">
+                  <div className="mt-1 shrink-0">
+                    {!notification.read ? (
+                      <span className="block w-2 h-2 bg-indigo-500 rounded-full"></span>
+                    ) : (
+                      <span className="block w-2 h-2 rounded-full border border-zinc-700"></span>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1 w-full">
+                    <span className="font-medium text-sm leading-none">{notification.title}</span>
+                    <p className="text-xs text-zinc-400 line-clamp-2">{notification.message}</p>
+                    <span className="text-[10px] text-zinc-500 mt-1">
+                      {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                    </span>
+                  </div>
+                </div>
+              </DropdownMenuItem>
+            ))
+          )}
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
