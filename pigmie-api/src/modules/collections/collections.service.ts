@@ -12,21 +12,28 @@ export class CollectionsService {
     private prisma: PrismaService,
   ) {}
 
-  async getDueToday(organizationId: string, agentId: string) {
+  async getDueToday(organizationId: string, user: any) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
       const today = new Date().toISOString().split('T')[0];
-      const loans = await tx.loan.findMany({
-        where: {
-          organizationId,
-          status: 'active',
-          assignedAgentId: agentId,
-          schedule: {
-            some: {
-              dueDate: { lte: new Date(today) },
-              status: { in: ['pending', 'partially_paid', 'overdue'] },
-            },
+      const where: any = {
+        organizationId,
+        status: 'active',
+        schedule: {
+          some: {
+            dueDate: { lte: new Date(today) },
+            status: { in: ['pending', 'partially_paid', 'overdue'] },
           },
         },
+      };
+
+      if (user.role === 'agent') {
+        where.assignedAgentId = user.id;
+      } else if (user.role === 'branch_manager' && user.branchId) {
+        where.customer = { branchId: user.branchId };
+      }
+
+      const loans = await tx.loan.findMany({
+        where,
         include: {
           customer: { select: { id: true, fullName: true, phone: true, address: true } },
           schedule: {
@@ -163,7 +170,7 @@ export class CollectionsService {
     });
   }
 
-  async findAll(organizationId: string, query: QueryCollectionDto) {
+  async findAll(organizationId: string, query: QueryCollectionDto, user: any) {
     const page = parseInt(query.page || '1', 10);
     const limit = parseInt(query.limit || '20', 10);
     const skip = (page - 1) * limit;
@@ -171,7 +178,16 @@ export class CollectionsService {
     return this.tenantPrisma.run(organizationId, async (tx) => {
       const where: any = { organizationId };
       if (query.loanId) where.loanId = query.loanId;
-      if (query.agentId) where.collectedById = query.agentId;
+      
+      if (user.role === 'agent') {
+        where.collectedById = user.id;
+      } else if (user.role === 'branch_manager' && user.branchId) {
+        where.customer = { branchId: user.branchId };
+        if (query.agentId) where.collectedById = query.agentId;
+      } else if (query.agentId) {
+        where.collectedById = query.agentId;
+      }
+
       if (query.dateFrom || query.dateTo) {
         where.collectionDate = {};
         if (query.dateFrom) where.collectionDate.gte = new Date(query.dateFrom);

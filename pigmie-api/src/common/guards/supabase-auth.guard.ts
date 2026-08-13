@@ -28,7 +28,8 @@ export class SupabaseAuthGuard implements CanActivate {
         type: 'staff', 
         id: staff.id, 
         organizationId: staff.organizationId, 
-        role: staff.role 
+        role: staff.role,
+        branchId: staff.branchId
       } as RequestUser;
       return true;
     }

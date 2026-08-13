@@ -17,35 +17,35 @@ export class ReportsController {
   @Roles('org_admin', 'branch_manager')
   async getDashboardSummary(@CurrentUser() user: AuthenticatedUser) {
     if (user.type !== 'staff') throw new ForbiddenException();
-    return this.reportsService.getDashboardSummary(user.organizationId);
+    return this.reportsService.getDashboardSummary(user.organizationId, user);
   }
 
   @Get('overdue')
   @Roles('org_admin', 'branch_manager')
   async getOverdue(@Query() query: OverdueQueryDto, @CurrentUser() user: AuthenticatedUser) {
     if (user.type !== 'staff') throw new ForbiddenException();
-    return this.reportsService.getOverdue(user.organizationId, query);
+    return this.reportsService.getOverdue(user.organizationId, query, user);
   }
 
   @Get('portfolio-at-risk')
   @Roles('org_admin', 'branch_manager')
   async getPortfolioAtRisk(@CurrentUser() user: AuthenticatedUser) {
     if (user.type !== 'staff') throw new ForbiddenException();
-    return this.reportsService.getPortfolioAtRisk(user.organizationId);
+    return this.reportsService.getPortfolioAtRisk(user.organizationId, user);
   }
 
   @Get('collection-efficiency')
   @Roles('org_admin', 'branch_manager')
   async getCollectionEfficiency(@Query() query: CollectionEfficiencyQueryDto, @CurrentUser() user: AuthenticatedUser) {
     if (user.type !== 'staff') throw new ForbiddenException();
-    return this.reportsService.getCollectionEfficiency(user.organizationId, query);
+    return this.reportsService.getCollectionEfficiency(user.organizationId, query, user);
   }
 
   @Get('agent-performance')
   @Roles('org_admin', 'branch_manager')
   async getAgentPerformance(@CurrentUser() user: AuthenticatedUser) {
     if (user.type !== 'staff') throw new ForbiddenException();
-    return this.reportsService.getAgentPerformance(user.organizationId);
+    return this.reportsService.getAgentPerformance(user.organizationId, user);
   }
 
   @Get('export')

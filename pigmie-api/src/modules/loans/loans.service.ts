@@ -79,6 +79,11 @@ export class LoansService {
       // Agents can only see their own loans
       if (user.role === 'agent') {
         where.assignedAgentId = user.id;
+      } else if (user.role === 'branch_manager' && user.branchId) {
+        where.customer = { branchId: user.branchId };
+        if (query.agentId) {
+          where.assignedAgentId = query.agentId;
+        }
       } else if (query.agentId) {
         where.assignedAgentId = query.agentId;
       }

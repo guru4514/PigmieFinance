@@ -1,6 +1,6 @@
 export type StaffRole = 'org_admin' | 'branch_manager' | 'agent' | 'accountant';
 
-export type StaffUser = { type: 'staff'; id: string; organizationId: string; role: StaffRole };
+export type StaffUser = { type: 'staff'; id: string; organizationId: string; role: StaffRole; branchId: string | null };
 export type CustomerUser = { type: 'customer'; id: string; organizationId: string };
 export type UnprovisionedUser = { type: 'unprovisioned'; authUserId: string };
 

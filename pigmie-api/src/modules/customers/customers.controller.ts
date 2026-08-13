@@ -22,7 +22,7 @@ export class CustomersController {
   @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
   async findAll(@Query() query: QueryCustomerDto, @CurrentUser() user: AuthenticatedUser) {
     if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
-    return this.customersService.findAll(user.organizationId, query, user.role, user.id);
+    return this.customersService.findAll(user.organizationId, query, user);
   }
 
   @Post()

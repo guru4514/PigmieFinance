@@ -19,13 +19,13 @@ export class CollectionsController {
   @Get('due-today')
   @Roles('org_admin', 'branch_manager', 'agent')
   async getDueToday(@CurrentUser() user: AuthenticatedUser) {
-    return this.collectionsService.getDueToday(user.organizationId, user.id);
+    return this.collectionsService.getDueToday(user.organizationId, user);
   }
 
   @Get()
   @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
   async findAll(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryCollectionDto) {
-    return this.collectionsService.findAll(user.organizationId, query);
+    return this.collectionsService.findAll(user.organizationId, query, user);
   }
 
   @Post()

@@ -24,7 +24,7 @@ export class CustomersService {
     this.supabaseAdmin = createClient(supabaseUrl, supabaseKey);
   }
 
-  async findAll(organizationId: string, query: QueryCustomerDto, requestUserRole: string, requestUserId: string) {
+  async findAll(organizationId: string, query: QueryCustomerDto, user: any) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
       const { page = 1, limit = 20, search, branchId, agentId, isActive } = query;
       const skip = (page - 1) * limit;
@@ -35,12 +35,10 @@ export class CustomersService {
       let finalBranchId = branchId;
       let finalAgentId = agentId;
 
-      if (requestUserRole === 'agent') {
-        finalAgentId = requestUserId;
-      } else if (requestUserRole === 'branch_manager') {
-        const staff = await tx.staff.findUnique({ where: { id: requestUserId, organizationId } });
-        if (!staff) throw new ForbiddenException('Staff record not found');
-        finalBranchId = staff.branchId || undefined;
+      if (user.role === 'agent') {
+        finalAgentId = user.id;
+      } else if (user.role === 'branch_manager' && user.branchId) {
+        finalBranchId = user.branchId;
       }
 
       if (finalBranchId) where.branchId = finalBranchId;
