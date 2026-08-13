@@ -7,6 +7,9 @@ declare module 'axios' {
       restructureLoan: (id: string, data: { fromInstallmentNumber: number; newTenure: number; reason?: string }) => Promise<any>;
       downloadLoanStatement: (id: string) => Promise<Blob>;
     };
+    collections: {
+      reverseCollection: (id: string, data: { reason: string }) => Promise<any>;
+    };
   }
 }
 
@@ -37,4 +40,9 @@ apiClient.loans = {
     });
     return response.data;
   },
+};
+
+apiClient.collections = {
+  reverseCollection: (id: string, data: { reason: string }) =>
+    apiClient.post(`/collections/${id}/reverse`, data).then((res) => res.data),
 };
