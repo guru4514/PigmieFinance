@@ -1,0 +1,43 @@
+name: Database Backup
+on:
+  schedule:
+    - cron: '0 0 * * *' # Run daily at midnight UTC
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Dump Database
+        env:
+          PGPASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          pg_dump -h ${{ secrets.DB_HOST }} \
+                  -U ${{ secrets.DB_USER }} \
+                  -d ${{ secrets.DB_NAME }} \
+                  -F c -b -v -f pigmie-backup.dump
+
+      - name: Encrypt Backup
+        run: |
+          openssl enc -aes-256-cbc -salt -in pigmie-backup.dump -out pigmie-backup.dump.enc \
+            -pass pass:${{ secrets.BACKUP_ENCRYPTION_KEY }} -pbkdf2
+
+      - name: Configure AWS CLI for Cloudflare R2
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          aws-region: auto
+
+      - name: Upload to R2
+        run: |
+          TIMESTAMP=$(date +%Y-%m-%d-%H%M%S)
+          aws s3 cp pigmie-backup.dump.enc \
+            s3://${{ secrets.R2_BUCKET_NAME }}/backups/pigmie-${TIMESTAMP}.dump.enc \
+            --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+
+      - name: Cleanup
+        run: rm -f pigmie-backup.dump pigmie-backup.dump.enc
