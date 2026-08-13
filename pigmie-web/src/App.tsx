@@ -1,34 +1,35 @@
 import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { processSyncQueue } from './lib/offline-sync';
-import { Toaster } from './shared/components/ui/sonner';
-import { ProtectedRoute } from './shared/components/auth/protected-route';
-import { AppLayout } from './shared/components/layout/app-layout';
-import { PortalLayout } from './shared/components/layout/portal-layout';
-import { LoginPage } from './features/auth/pages/login-page';
-import { SignupPage } from './features/auth/pages/signup-page';
-import { Setup2FAPage } from './features/auth/pages/setup-2fa-page';
-import { Verify2FAPage } from './features/auth/pages/verify-2fa-page';
-import { DashboardPage } from './features/dashboard/pages/dashboard-page';
+import { processSyncQueue } from '@/shared/lib/offline-sync';
+import { ErrorBoundary } from '@/shared/components/error-boundary';
+import { Toaster } from '@/shared/components/ui/sonner';
+import { ProtectedRoute } from '@/shared/components/auth/protected-route';
+import { AppLayout } from '@/shared/components/layout/app-layout';
+import { PortalLayout } from '@/shared/components/layout/portal-layout';
+import { LoginPage } from '@/features/auth/pages/login-page';
+import { SignupPage } from '@/features/auth/pages/signup-page';
+import { Setup2FAPage } from '@/features/auth/pages/setup-2fa-page';
+import { Verify2FAPage } from '@/features/auth/pages/verify-2fa-page';
+import { DashboardPage } from '@/features/dashboard/pages/dashboard-page';
 
-import { CustomersListPage } from './features/customers/pages/customers-list-page';
-import { CustomerDetailPage } from './features/customers/pages/customer-detail-page';
-import { CustomerFormPage } from './features/customers/pages/customer-form-page';
-import { ImportCustomersPage } from './features/customers/pages/import-customers-page';
-import { LoansListPage } from './features/loans/pages/loans-list-page';
-import { LoanDetailPage } from './features/loans/pages/loan-detail-page';
-import { NewLoanPage } from './features/loans/pages/new-loan-page';
-import { CollectionsTodayPage } from './features/collections/pages/collections-today-page';
-import { RecordCollectionPage } from './features/collections/pages/record-collection-page';
-import { LoanProductsPage } from './features/loan-products/pages/loan-products-page';
-import { NewLoanProductPage } from './features/loan-products/pages/new-loan-product-page';
-import { StaffPage } from './features/staff/pages/staff-page';
-import { StaffFormPage } from './features/staff/pages/staff-form-page';
-import { AuditLogsPage } from './features/audit-logs/pages/audit-logs-page';
-import { ReportsPage } from './features/reports/pages/reports-page';
-import { SettingsPage } from './features/settings/pages/settings-page';
-import { PortalDashboardPage } from './features/portal/pages/portal-dashboard-page';
-import { PortalLoanDetailPage } from './features/portal/pages/portal-loan-detail-page';
+import { CustomersListPage } from '@/features/customers/pages/customers-list-page';
+import { CustomerDetailPage } from '@/features/customers/pages/customer-detail-page';
+import { CustomerFormPage } from '@/features/customers/pages/customer-form-page';
+import { ImportCustomersPage } from '@/features/customers/pages/import-customers-page';
+import { LoansListPage } from '@/features/loans/pages/loans-list-page';
+import { LoanDetailPage } from '@/features/loans/pages/loan-detail-page';
+import { NewLoanPage } from '@/features/loans/pages/new-loan-page';
+import { CollectionsTodayPage } from '@/features/collections/pages/collections-today-page';
+import { RecordCollectionPage } from '@/features/collections/pages/record-collection-page';
+import { LoanProductsPage } from '@/features/loan-products/pages/loan-products-page';
+import { NewLoanProductPage } from '@/features/loan-products/pages/new-loan-product-page';
+import { StaffPage } from '@/features/staff/pages/staff-page';
+import { StaffFormPage } from '@/features/staff/pages/staff-form-page';
+import { AuditLogsPage } from '@/features/audit-logs/pages/audit-logs-page';
+import { ReportsPage } from '@/features/reports/pages/reports-page';
+import { SettingsPage } from '@/features/settings/pages/settings-page';
+import { PortalDashboardPage } from '@/features/portal/pages/portal-dashboard-page';
+import { PortalLoanDetailPage } from '@/features/portal/pages/portal-loan-detail-page';
 
 export function App() {
   useEffect(() => {
@@ -55,7 +56,9 @@ export function App() {
       {/* Staff Routes */}
       <Route path="/app" element={
         <ProtectedRoute>
-          <AppLayout />
+          <ErrorBoundary>
+            <AppLayout />
+          </ErrorBoundary>
         </ProtectedRoute>
       }>
         <Route index element={<Navigate to="dashboard" replace />} />
@@ -82,7 +85,9 @@ export function App() {
       {/* Portal Routes */}
       <Route path="/portal" element={
         <ProtectedRoute>
-          <PortalLayout />
+          <ErrorBoundary>
+            <PortalLayout />
+          </ErrorBoundary>
         </ProtectedRoute>
       }>
         <Route index element={<Navigate to="dashboard" replace />} />
