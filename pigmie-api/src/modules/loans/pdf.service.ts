@@ -72,7 +72,7 @@ export class PdfService {
         });
         doc.moveDown(0.5);
         
-        loan.schedule.forEach((inst: any) => {
+        loan.schedule.forEach((inst) => {
           if (doc.y > 700) { doc.addPage(); doc.y = 50; }
           y = doc.y;
           doc.text(inst.installmentNumber.toString(), 50, y, { width: 85, align: 'left' });
@@ -100,7 +100,7 @@ export class PdfService {
         });
         doc.moveDown(0.5);
 
-        loan.collections.forEach((coll: any) => {
+        loan.collections.forEach((coll) => {
           if (doc.y > 700) { doc.addPage(); doc.y = 50; }
           y = doc.y;
           doc.text(coll.collectionDate.toISOString().split('T')[0], 50, y, { width: 110, align: 'left' });
