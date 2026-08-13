@@ -32,8 +32,9 @@ export class ScheduledJobsService {
           for (const row of overdueRows) {
             let newDueAmount = row.dueAmount.toNumber();
             const product = row.loan.loanProduct;
+            let fee = 0;
             if (product.lateFeeValue.toNumber() > 0) {
-              const fee = calculateLateFee(row.dueAmount.toNumber(), product.lateFeeType as 'flat' | 'percentage', product.lateFeeValue.toNumber());
+              fee = calculateLateFee(row.dueAmount.toNumber(), product.lateFeeType as 'flat' | 'percentage', product.lateFeeValue.toNumber());
               newDueAmount += fee;
             }
             await tx.loanSchedule.update({
@@ -41,18 +42,28 @@ export class ScheduledJobsService {
               data: { status: 'overdue', dueAmount: newDueAmount },
             });
             
-            // Optional: write audit log
-              await tx.auditLog.create({
+            if (fee > 0) {
+              await tx.loan.update({
+                where: { id: row.loan.id },
                 data: {
-                  organizationId: org.id,
-                  actorStaffId: null,
-                  action: 'loan_schedule.overdue',
-                  entityType: 'LoanSchedule',
-                  entityId: row.id,
-                  newValue: { previousStatus: row.status, newStatus: 'overdue', newDueAmount },
-                  ipAddress: 'system'
-                }
+                  totalPayable: { increment: fee },
+                  outstandingBalance: { increment: fee },
+                },
               });
+            }
+            
+            // Optional: write audit log
+            await tx.auditLog.create({
+              data: {
+                organizationId: org.id,
+                actorStaffId: null,
+                action: 'loan_schedule.overdue',
+                entityType: 'LoanSchedule',
+                entityId: row.id,
+                newValue: { previousStatus: row.status, newStatus: 'overdue', newDueAmount },
+                ipAddress: 'system'
+              }
+            });
           }
           
           // Auto-default loans
