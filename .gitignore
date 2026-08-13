@@ -15,3 +15,8 @@ pnpm-debug.log*
 coverage/
 *.log
 .worktrees/
+
+# Temporary and recovery files
+temp*.txt
+recover*.js
+recover*.md
