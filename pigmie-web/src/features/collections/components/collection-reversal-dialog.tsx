@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -27,6 +27,12 @@ export function CollectionReversalDialog({
 }: CollectionReversalDialogProps) {
   const [reason, setReason] = useState('');
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (open) {
+      setReason('');
+    }
+  }, [open]);
 
   const reverseMutation = useMutation({
     mutationFn: async (data: { reason: string }) => {
@@ -85,7 +91,7 @@ export function CollectionReversalDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={reverseMutation.isPending || reason.length < 10}>
+            <Button type="submit" disabled={reverseMutation.isPending}>
               {reverseMutation.isPending && <LoadingSpinner className="mr-2 h-4 w-4" />}
               Confirm Reversal
             </Button>
