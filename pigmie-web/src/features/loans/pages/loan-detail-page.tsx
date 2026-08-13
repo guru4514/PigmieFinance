@@ -33,7 +33,7 @@ export const LoanDetailPage: React.FC = () => {
     try {
       setDownloadingStatement(true);
       const blob = await apiClient.loans.downloadLoanStatement(loan.id);
-      const url = window.URL.createObjectURL(new Blob([blob]));
+      const url = window.URL.createObjectURL(blob as Blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `loan-statement-${loan.id}.pdf`;

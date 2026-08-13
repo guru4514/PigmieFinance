@@ -28,7 +28,7 @@ export const RestructureLoanDialog: React.FC<RestructureLoanDialogProps> = ({ lo
   const { data: scheduleResponse, isLoading: scheduleLoading } = useLoanSchedule(loan.id);
   const schedule = scheduleResponse?.data || [];
   
-  const pendingInstallments = schedule.filter((s: any) => s.status === 'PENDING' || s.status === 'PARTIAL');
+  const pendingInstallments = schedule.filter((s: { status: string; installmentNumber: number }) => s.status === 'pending' || s.status === 'partially_paid');
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<RestructureFormValues>({
     resolver: zodResolver(restructureSchema),

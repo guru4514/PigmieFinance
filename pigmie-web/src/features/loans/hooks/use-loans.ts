@@ -138,6 +138,6 @@ export const useRestructureLoan = () => {
       queryClient.invalidateQueries({ queryKey: ['loans', id] });
       toast.success('Loan restructured successfully');
     },
-    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to restructure loan')
+    onError: (error: { response?: { data?: { message?: string } } }) => toast.error(error?.response?.data?.message || 'Failed to restructure loan')
   });
 };
