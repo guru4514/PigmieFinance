@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { spawn } from 'child_process';
 import * as crypto from 'crypto';
 import { Upload } from '@aws-sdk/lib-storage';
 import { S3Client } from '@aws-sdk/client-s3';
@@ -14,11 +14,10 @@ const requiredEnvVars = [
   'R2_BUCKET_NAME',
 ];
 
-for (const envVar of requiredEnvVars) {
-  if (!process.env[envVar]) {
-    console.error(`Missing required environment variable: ${envVar}`);
-    process.exit(1);
-  }
+const missingVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+if (missingVars.length > 0) {
+  console.error(`Missing required environment variables: ${missingVars.join(', ')}`);
+  process.exit(1);
 }
 
 const dbUrl = process.env.DATABASE_URL!;
@@ -48,7 +47,7 @@ const s3Client = new S3Client({
 async function runBackup() {
   console.log(`Starting backup: ${filename}`);
 
-  const pgDumpProcess = exec(`pg_dump "${dbUrl}"`);
+  const pgDumpProcess = spawn('pg_dump', [dbUrl]);
 
   if (!pgDumpProcess.stdout) {
     throw new Error('Failed to get stdout from pg_dump process');
@@ -81,11 +80,20 @@ async function runBackup() {
   });
 
   try {
-    const result = await upload.done();
-    console.log('Backup uploaded successfully:', result);
+    const [uploadResult] = await Promise.all([
+      upload.done(),
+      new Promise<void>((resolve, reject) => {
+        pgDumpProcess.on('close', (code) => {
+          if (code === 0) resolve();
+          else reject(new Error(`pg_dump exited with code ${code}`));
+        });
+        pgDumpProcess.on('error', reject);
+      })
+    ]);
+    console.log('Backup uploaded successfully:', uploadResult);
     process.exit(0);
   } catch (error) {
-    console.error('Backup failed during upload:', error);
+    console.error('Backup failed:', error);
     process.exit(1);
   }
 }
