@@ -278,7 +278,7 @@ export class LoansService {
         where: {
           loanId: id,
           installmentNumber: { gte: dto.fromInstallmentNumber },
-          status: 'pending'
+          status: { in: ['pending', 'overdue'] }
         }
       });
 
@@ -293,7 +293,7 @@ export class LoansService {
         where: {
           loanId: id,
           installmentNumber: { gte: dto.fromInstallmentNumber },
-          status: 'pending'
+          status: { in: ['pending', 'overdue'] }
         }
       });
 
