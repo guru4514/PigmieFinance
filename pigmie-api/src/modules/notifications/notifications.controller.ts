@@ -5,7 +5,6 @@ import { AuthenticatedUser } from '../../common/types/request-user.type';
 import { NotificationsService } from './notifications.service';
 import { IsOptional, IsInt, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
-import { PrismaService } from '../../prisma/prisma.service';
 
 export class NotificationQueryDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number = 1;
@@ -15,8 +14,7 @@ export class NotificationQueryDto {
 @Controller('notifications')
 export class NotificationsController {
   constructor(
-    private readonly notificationsService: NotificationsService,
-    private readonly prisma: PrismaService
+    private readonly notificationsService: NotificationsService
   ) {}
 
   @Post('subscribe')
@@ -25,20 +23,7 @@ export class NotificationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() subscriptionData: any
   ) {
-    let authUserId: string | null = null;
-    if (user.type === 'staff') {
-      const staff = await this.prisma.staff.findUnique({ where: { id: user.id } });
-      authUserId = staff?.authUserId || null;
-    } else if (user.type === 'customer') {
-      const customer = await this.prisma.customer.findUnique({ where: { id: user.id } });
-      authUserId = customer?.authUserId || null;
-    }
-
-    if (!authUserId) {
-      throw new UnauthorizedException('User not found');
-    }
-
-    return this.notificationsService.subscribe(authUserId, subscriptionData);
+    return this.notificationsService.subscribe(user.organizationId, user.type, user.id, subscriptionData);
   }
 
   @Get('vapid-public-key')
