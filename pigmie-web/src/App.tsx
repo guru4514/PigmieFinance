@@ -19,6 +19,7 @@ import { ImportCustomersPage } from '@/features/customers/pages/import-customers
 import { LoansListPage } from '@/features/loans/pages/loans-list-page';
 import { LoanDetailPage } from '@/features/loans/pages/loan-detail-page';
 import { NewLoanPage } from '@/features/loans/pages/new-loan-page';
+import { EMICalculatorPage } from '@/features/loans/pages/emi-calculator-page';
 import { CollectionsTodayPage } from '@/features/collections/pages/collections-today-page';
 import { RecordCollectionPage } from '@/features/collections/pages/record-collection-page';
 import { LoanProductsPage } from '@/features/loan-products/pages/loan-products-page';
@@ -70,6 +71,7 @@ export function App() {
         <Route path="customers/:id/edit" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent']}><CustomerFormPage /></ProtectedRoute>} />
         <Route path="loans" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent', 'accountant']}><LoansListPage /></ProtectedRoute>} />
         <Route path="loans/new" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent']}><NewLoanPage /></ProtectedRoute>} />
+        <Route path="emi-calculator" element={<EMICalculatorPage />} />
         <Route path="loans/:id" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent', 'accountant']}><LoanDetailPage /></ProtectedRoute>} />
         <Route path="collections/today" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent', 'accountant']}><CollectionsTodayPage /></ProtectedRoute>} />
         <Route path="collections/record/:loanId" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent']}><RecordCollectionPage /></ProtectedRoute>} />
