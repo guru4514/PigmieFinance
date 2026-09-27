@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
 import { EncryptionService } from '../../services/encryption.service';
@@ -135,6 +136,69 @@ export class AuthService {
     await this.prisma.$executeRaw`UPDATE "Staff" SET "two_factor_secret" = NULL WHERE id = ${targetId}::uuid`;
 
     return { success: true };
+  }
+
+  async logLoginEvent(user: RequestUser, req: Request) {
+    if (user.type === 'unprovisioned') {
+      return { success: true, logged: false, reason: 'unprovisioned' };
+    }
+
+    const ipAddress = this.extractClientIp(req);
+    const userAgent = typeof req.headers?.['user-agent'] === 'string' ? req.headers['user-agent'] : null;
+
+    try {
+      const auditLog = await this.prisma.auditLog.create({
+        data: {
+          organizationId: user.organizationId,
+          actorStaffId: user.type === 'staff' ? user.id : null,
+          action: 'LOGIN',
+          entityType: 'auth',
+          entityId: user.id,
+          ipAddress,
+          userAgent,
+          newValue: {
+            userId: user.id,
+            userType: user.type,
+            timestamp: new Date().toISOString(),
+            ...(user.type === 'staff' ? { role: user.role } : {}),
+          },
+        },
+      });
+
+      return { success: true, logged: true, id: auditLog.id };
+    } catch (error) {
+      console.error('Failed to log login audit event:', error);
+      return { success: true, logged: false };
+    }
+  }
+
+  private extractClientIp(req: Request): string | null {
+    if (!req) return null;
+    const forwarded = req.headers?.['x-forwarded-for'];
+    let ip: string | undefined;
+
+    if (typeof forwarded === 'string') {
+      ip = forwarded.split(',')[0].trim();
+    } else if (Array.isArray(forwarded) && forwarded.length > 0) {
+      ip = forwarded[0].split(',')[0].trim();
+    } else {
+      ip = req.ip || req.socket?.remoteAddress;
+    }
+
+    if (!ip) return null;
+
+    if (ip.startsWith('::ffff:')) {
+      ip = ip.substring(7);
+    }
+
+    const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+    const ipv6Regex = /^([0-9a-fA-F]{0,4}:){1,7}[0-9a-fA-F]{0,4}$/;
+
+    if (ipv4Regex.test(ip) || ipv6Regex.test(ip) || ip === '::1') {
+      return ip;
+    }
+
+    return null;
   }
 }
 

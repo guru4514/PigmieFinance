@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Body, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, ForbiddenException, Req } from '@nestjs/common';
+import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { AuthenticatedUser } from '../../common/types/request-user.type';
+import { AuthenticatedUser, RequestUser } from '../../common/types/request-user.type';
 import { Enable2FADto } from './dto/enable-2fa.dto';
 import { Verify2FADto } from './dto/verify-2fa.dto';
 import { Disable2FADto } from './dto/disable-2fa.dto';
@@ -17,6 +18,15 @@ export class AuthController {
   @Get('me')
   async getMe(@CurrentUser() user: AuthenticatedUser) {
     return this.authService.getMe(user);
+  }
+
+  @Post('login-event')
+  @AuditAction('LOGIN')
+  async recordLoginEvent(
+    @CurrentUser() user: RequestUser,
+    @Req() req: Request,
+  ) {
+    return this.authService.logLoginEvent(user, req);
   }
 
   @Post('2fa/setup')

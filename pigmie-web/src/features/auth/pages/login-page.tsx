@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../../../shared/lib/supabase';
+import { apiClient } from '@/shared/lib/api-client';
 import { Button } from '../../../shared/components/ui/button';
 import { Input } from '../../../shared/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../../../shared/components/ui/card';
@@ -27,6 +28,11 @@ export function LoginPage() {
       setError(error.message);
       setLoading(false);
     } else {
+      // Fire-and-forget login event to record in audit log
+      apiClient.post('/auth/login-event').catch((err) => {
+        console.error('Failed to record login audit event:', err);
+      });
+
       const verifiedFactors = data.user?.factors?.filter((f) => f.status === 'verified') || [];
       if (verifiedFactors.length > 0) {
         navigate(`/verify-2fa?factorId=${verifiedFactors[0].id}`);
