@@ -64,7 +64,7 @@ apiClient.collections = {
 };
 
 apiClient.notifications = {
-  getNotifications: (params) => apiClient.get('/notifications', { params }).then((res) => res.data),
+  getNotifications: (params) => apiClient.get('/notifications', { params }).then((res) => res.data?.data ?? res.data),
   markAsRead: (id: string) => apiClient.patch(`/notifications/${id}/read`).then((res) => res.data),
   markAllAsRead: () => apiClient.patch('/notifications/read-all').then((res) => res.data),
   getVapidPublicKey: () => apiClient.get('/notifications/vapid-public-key').then((res) => res.data),

@@ -27,5 +27,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
     });
 
     if (status === 500) this.logger.error(exception);
+    if (status === 400) this.logger.warn(`400 error: ${JSON.stringify(typeof body === 'object' ? body : { message: body })}`);
   }
 }
