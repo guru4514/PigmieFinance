@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useLoanDetails, useApproveLoan, useDisburseLoan, useLoanSchedule } from '../hooks/use-loans';
+import { useLoanDetails, useApproveLoan, useDisburseLoan, useLoanSchedule, useMarkDefaultLoan } from '../hooks/use-loans';
+import { useDocuments, useUploadDocument, useDownloadDocument } from '@/features/documents/hooks/use-documents';
 import { LoanStatusBadge } from '../components/loan-status-badge';
 import { LoanScheduleTable } from '../components/loan-schedule-table';
 import { RestructureLoanDialog } from '../components/restructure-loan-dialog';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
-import { ArrowLeft, CheckCircle, AlertTriangle, FileText, Download, User, Play, RefreshCw, MessageCircle, Receipt } from 'lucide-react';
+import { ArrowLeft, CheckCircle, AlertTriangle, FileText, Download, User, Play, RefreshCw, MessageCircle, Receipt, Upload } from 'lucide-react';
 import { RoleGate } from '@/shared/components/auth/role-gate';
 import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
 import { apiClient } from '@/shared/lib/api-client';
@@ -26,8 +27,15 @@ export const LoanDetailPage: React.FC = () => {
 
   const approveLoan = useApproveLoan();
   const disburseLoan = useDisburseLoan();
+  const markDefaultLoan = useMarkDefaultLoan();
+  
+  const { data: documentsResponse, isLoading: documentsLoading } = useDocuments('loan', id || '');
+  const documents = documentsResponse || [];
+  const uploadDocument = useUploadDocument('loan', id || '');
+  const downloadDocument = useDownloadDocument();
 
   const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [downloadingStatement, setDownloadingStatement] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<ReceiptCollection | null>(null);
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);

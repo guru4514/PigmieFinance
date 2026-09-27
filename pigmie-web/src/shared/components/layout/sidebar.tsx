@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, Users, CreditCard, Banknote, FileText, Settings, UserCog, LogOut, X, ShieldAlert, Calculator, ClipboardCheck, GitBranch, Wallet } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, Banknote, FileText, Settings, UserCog, LogOut, X, ShieldAlert, Calculator, ClipboardCheck, GitBranch, Wallet, Package } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { useAuth } from '@/shared/hooks/use-auth';
 import { useUIStore } from '@/shared/stores/app-store';
@@ -21,6 +21,7 @@ const navItems: NavItem[] = [
   { title: 'Dashboard', href: '/app/dashboard', icon: LayoutDashboard, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.dashboard' },
   { title: 'Customers', href: '/app/customers', icon: Users, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.customers' },
   { title: 'Loans', href: '/app/loans', icon: CreditCard, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.loans' },
+  { title: 'Loan Products', href: '/app/loan-products', icon: Package, roles: ['org_admin', 'branch_manager'], translationKey: 'Loan Products' },
   { title: 'EMI Calculator', href: '/app/emi-calculator', icon: Calculator, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'EMI Calculator' },
   { title: 'Collections', href: '/app/collections/today', icon: Banknote, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.collections' },
   { title: 'Cash Deposits', href: '/app/cash-deposits', icon: Wallet, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.cashDeposits' },
@@ -122,3 +123,4 @@ export function Sidebar() {
     </>
   );
 }
+

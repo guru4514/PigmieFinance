@@ -1,11 +1,122 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useLoanProducts } from '../hooks/use-loan-products';
+import { useLoanProducts, useUpdateLoanProduct } from '../hooks/use-loan-products';
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
 import { Plus, Percent, Clock, DollarSign } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
+import { Input } from '@/shared/components/ui/input';
+
+const ProductCard = ({ product }: { product: any }) => {
+  const [showEdit, setShowEdit] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  
+  const updateProduct = useUpdateLoanProduct();
+  const [editForm, setEditForm] = useState({
+    name: product.name,
+    status: product.status,
+  });
+
+  const handleUpdate = () => {
+    updateProduct.mutate({ id: product.id, data: editForm });
+    setShowEdit(false);
+  };
+
+  return (
+    <>
+      <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm overflow-hidden hover:border-primary/50 transition-colors">
+        <CardHeader className="pb-4">
+          <div className="flex justify-between items-start">
+            <CardTitle className="text-xl text-white">{product.name}</CardTitle>
+            <Badge variant={product.status === 'active' ? 'default' : 'secondary'} className={product.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' : 'bg-zinc-800 text-zinc-400'}>
+              {product.status}
+            </Badge>
+          </div>
+          <p className="text-sm text-zinc-400 mt-2 min-h-[40px]">{product.description}</p>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center text-zinc-400 gap-2">
+                <DollarSign className="w-4 h-4" /> Max Amount
+              </div>
+              <span className="font-medium text-white">${(product.maxAmount || 0).toLocaleString()}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center text-zinc-400 gap-2">
+                <Percent className="w-4 h-4" /> Interest Rate
+              </div>
+              <span className="font-medium text-white">{product.interestRate || product.interestRateAnnual || 0}%</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center text-zinc-400 gap-2">
+                <Clock className="w-4 h-4" /> Duration
+              </div>
+              <span className="font-medium text-white">{product.durationMonths || product.maxTenure || 0} months</span>
+            </div>
+          </div>
+          <div className="mt-6 pt-4 border-t border-zinc-800/50 flex gap-3">
+            <Button onClick={() => setShowEdit(true)} variant="outline" className="w-full border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">Edit</Button>
+            <Button onClick={() => setShowDetails(true)} variant="outline" className="w-full border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">Details</Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={showEdit} onOpenChange={setShowEdit}>
+        <DialogContent className="sm:max-w-[425px] bg-zinc-950 border-white/10 text-white">
+          <DialogHeader>
+            <DialogTitle>Edit Loan Product</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">Name</label>
+              <Input 
+                value={editForm.name} 
+                onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                className="bg-zinc-900 border-white/10 text-white"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">Status</label>
+              <select 
+                value={editForm.status} 
+                onChange={e => setEditForm({ ...editForm, status: e.target.value as any })}
+                className="w-full p-2 bg-zinc-900 border border-white/10 text-white rounded-md"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowEdit(false)}>Cancel</Button>
+            <Button onClick={handleUpdate} disabled={updateProduct.isPending} className="bg-primary text-primary-foreground">
+              {updateProduct.isPending ? <LoadingSpinner className="w-4 h-4" /> : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDetails} onOpenChange={setShowDetails}>
+        <DialogContent className="sm:max-w-[425px] bg-zinc-950 border-white/10 text-white">
+          <DialogHeader>
+            <DialogTitle>Product Details</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            {Object.entries(product).map(([key, value]) => (
+              <div key={key} className="flex justify-between border-b border-zinc-800 pb-2">
+                <span className="text-zinc-400 capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
+                <span className="text-white font-medium">{String(value)}</span>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
 
 export const LoanProductsPage = () => {
   const { data: productsResponse, isLoading } = useLoanProducts();
@@ -34,46 +145,11 @@ export const LoanProductsPage = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {products?.map((product) => (
-          <Card key={product.id} className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm overflow-hidden hover:border-primary/50 transition-colors">
-            <CardHeader className="pb-4">
-              <div className="flex justify-between items-start">
-                <CardTitle className="text-xl text-white">{product.name}</CardTitle>
-                <Badge variant={product.status === 'active' ? 'default' : 'secondary'} className={product.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' : 'bg-zinc-800 text-zinc-400'}>
-                  {product.status}
-                </Badge>
-              </div>
-              <p className="text-sm text-zinc-400 mt-2 min-h-[40px]">{product.description}</p>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center text-zinc-400 gap-2">
-                    <DollarSign className="w-4 h-4" /> Max Amount
-                  </div>
-                  <span className="font-medium text-white">${product.maxAmount.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center text-zinc-400 gap-2">
-                    <Percent className="w-4 h-4" /> Interest Rate
-                  </div>
-                  <span className="font-medium text-white">{product.interestRate}%</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center text-zinc-400 gap-2">
-                    <Clock className="w-4 h-4" /> Duration
-                  </div>
-                  <span className="font-medium text-white">{product.durationMonths} months</span>
-                </div>
-              </div>
-              <div className="mt-6 pt-4 border-t border-zinc-800/50 flex gap-3">
-                <Button variant="outline" className="w-full border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">Edit</Button>
-                <Button variant="outline" className="w-full border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">Details</Button>
-              </div>
-            </CardContent>
-          </Card>
+        {products?.map((product: any) => (
+          <ProductCard key={product.id} product={product} />
         ))}
       </div>
     </div>
   );
 };
+

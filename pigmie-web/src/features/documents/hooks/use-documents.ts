@@ -41,7 +41,7 @@ export const useUploadDocument = (entityType: EntityType, entityId: string) => {
       });
 
       // 2. Upload file directly to Supabase storage via PUT
-      const uploadResponse = await fetch(uploadInfo.uploadUrl, {
+      const uploadResponse = await fetch(uploadInfo.signedUrl, {
         method: 'PUT',
         body: file,
         headers: {
