@@ -32,6 +32,8 @@ import { SettingsPage } from '@/features/settings/pages/settings-page';
 import { ApprovalsPage } from '@/features/approvals/pages/approvals-page';
 import { PortalDashboardPage } from '@/features/portal/pages/portal-dashboard-page';
 import { PortalLoanDetailPage } from '@/features/portal/pages/portal-loan-detail-page';
+import { BranchesPage } from '@/features/branches/pages/branches-page';
+import { CashDepositsPage } from '@/features/cash-deposits/pages/cash-deposits-page';
 
 export function App() {
   useEffect(() => {
@@ -84,6 +86,8 @@ export function App() {
         <Route path="staff/new" element={<ProtectedRoute allowedRoles={['org_admin']}><StaffFormPage /></ProtectedRoute>} />
         <Route path="audit-logs" element={<ProtectedRoute allowedRoles={['org_admin', 'accountant']}><AuditLogsPage /></ProtectedRoute>} />
         <Route path="settings" element={<ProtectedRoute allowedRoles={['org_admin']}><SettingsPage /></ProtectedRoute>} />
+        <Route path="branches" element={<ProtectedRoute allowedRoles={['org_admin']}><BranchesPage /></ProtectedRoute>} />
+        <Route path="cash-deposits" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent', 'accountant']}><CashDepositsPage /></ProtectedRoute>} />
       </Route>
       
       {/* Portal Routes */}

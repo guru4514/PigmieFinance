@@ -136,6 +136,19 @@ export const useWriteOffLoan = () => {
   });
 };
 
+export const useMarkDefaultLoan = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.post(`/loans/${id}/mark-default`).then(r => r.data),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['loans'] });
+      queryClient.invalidateQueries({ queryKey: ['loans', id] });
+      toast.success('Loan marked as default');
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to mark loan as default')
+  });
+};
+
 export const useLoanSchedule = (loanId: string) => {
   return useQuery({
     queryKey: ['loans', loanId, 'schedule'],

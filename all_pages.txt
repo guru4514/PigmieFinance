@@ -1,0 +1,4201 @@
+﻿=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\approvals\pages\approvals-page.tsx ===
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/shared/lib/api-client';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { ApprovalCard } from '../components/approval-card';
+import { useAuth } from '@/shared/hooks/use-auth';
+import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
+import { Button } from '@/shared/components/ui/button';
+import { Textarea } from '@/shared/components/ui/textarea';
+
+export function ApprovalsPage() {
+  const [activeTab, setActiveTab] = useState('pending');
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [reviewNote, setReviewNote] = useState('');
+  
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const canReview = user?.role === 'org_admin' || user?.role === 'branch_manager';
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['approvals', activeTab],
+    queryFn: async () => {
+      const res = await apiClient.get('/approvals', { params: { status: activeTab } });
+      return res.data;
+    },
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.post(`/approvals/${id}/approve`);
+    },
+    onSuccess: () => {
+      toast.success('Action approved successfully');
+      queryClient.invalidateQueries({ queryKey: ['approvals'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-approvals-count'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to approve action');
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async ({ id, note }: { id: string; note: string }) => {
+      await apiClient.post(`/approvals/${id}/reject`, { reviewNote: note });
+    },
+    onSuccess: () => {
+      toast.success('Action rejected successfully');
+      setRejectingId(null);
+      setReviewNote('');
+      queryClient.invalidateQueries({ queryKey: ['approvals'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-approvals-count'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to reject action');
+    },
+  });
+
+  const handleApprove = (id: string) => {
+    if (window.confirm('Are you sure you want to approve this action? It will execute immediately.')) {
+      approveMutation.mutate(id);
+    }
+  };
+
+  const handleReject = () => {
+    if (!rejectingId) return;
+    rejectMutation.mutate({ id: rejectingId, note: reviewNote });
+  };
+
+  const requests = data?.data || [];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold text-foreground">Approvals</h1>
+        <p className="text-sm text-muted-foreground">Manage pending requests for sensitive actions</p>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsTrigger value="pending">Pending</TabsTrigger>
+          <TabsTrigger value="approved">Approved</TabsTrigger>
+          <TabsTrigger value="rejected">Rejected</TabsTrigger>
+        </TabsList>
+
+        <div className="mt-6">
+          {isLoading ? (
+            <div className="flex justify-center p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : requests.length === 0 ? (
+            <div className="text-center p-8 text-muted-foreground border rounded-lg border-dashed">
+              No {activeTab} approvals found.
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {requests.map((request: any) => (
+                <ApprovalCard 
+                  key={request.id} 
+                  request={request}
+                  canReview={canReview}
+                  onApprove={handleApprove}
+                  onReject={(id) => setRejectingId(id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </Tabs>
+
+      <Dialog open={!!rejectingId} onOpenChange={(open) => !open && setRejectingId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Approval Request</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Rejection Note (Optional)</label>
+              <Textarea 
+                value={reviewNote} 
+                onChange={(e) => setReviewNote(e.target.value)} 
+                placeholder="Why is this request being rejected?" 
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectingId(null)}>Cancel</Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleReject} 
+              disabled={rejectMutation.isPending}
+            >
+              {rejectMutation.isPending ? 'Rejecting...' : 'Confirm Rejection'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\audit-logs\pages\audit-logs-page.tsx ===
+import { useState, useEffect, useCallback } from 'react';
+import { ShieldAlert, Search } from 'lucide-react';
+import { apiClient as api } from '@/shared/lib/api-client';
+
+export function AuditLogsPage() {
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionFilter, setActionFilter] = useState('');
+  const [entityTypeFilter, setEntityTypeFilter] = useState('');
+
+  const [page, setPage] = useState(1);
+
+  const fetchLogs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (actionFilter) params.append('action', actionFilter);
+      if (entityTypeFilter) params.append('entityType', entityTypeFilter);
+      if (page > 1) params.append('page', page.toString());
+
+      const response = await api.get(`/audit-logs?${params.toString()}`);
+      setLogs(response.data.data);
+    } catch (error) {
+      console.error('Failed to fetch audit logs', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [actionFilter, entityTypeFilter, page]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchLogs();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [fetchLogs]);
+
+  const formatJson = (val: any) => {
+    if (!val) return '-';
+    if (typeof val === 'object') {
+      return (
+        <pre className="text-xs max-w-xs overflow-auto bg-black/20 p-2 rounded">
+          {JSON.stringify(val, null, 2)}
+        </pre>
+      );
+    }
+    return String(val);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+          <ShieldAlert className="w-6 h-6 text-indigo-400" />
+          Audit Logs
+        </h1>
+      </div>
+
+      <div className="glass p-4 rounded-xl space-y-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+            <input
+              type="text"
+              placeholder="Filter by Action..."
+              value={actionFilter}
+              onChange={(e) => setActionFilter(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-black/20 border border-white/10 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
+            />
+          </div>
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+            <input
+              type="text"
+              placeholder="Filter by Entity Type..."
+              value={entityTypeFilter}
+              onChange={(e) => setEntityTypeFilter(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-black/20 border border-white/10 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="text-xs text-zinc-400 bg-black/20">
+              <tr>
+                <th className="px-4 py-3 rounded-tl-lg">Date</th>
+                <th className="px-4 py-3">Actor</th>
+                <th className="px-4 py-3">Action</th>
+                <th className="px-4 py-3">Entity Type</th>
+                <th className="px-4 py-3">Old Value</th>
+                <th className="px-4 py-3 rounded-tr-lg">New Value</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">
+                    Loading logs...
+                  </td>
+                </tr>
+              ) : logs.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">
+                    No audit logs found.
+                  </td>
+                </tr>
+              ) : (
+                logs.map((log) => (
+                  <tr key={log.id} className="hover:bg-white/5 transition-colors">
+                    <td className="px-4 py-3 text-zinc-300 whitespace-nowrap">
+                      {new Date(log.createdAt).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-zinc-300">
+                      {log.actorStaff?.fullName || 'System'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                        {log.action}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-zinc-400">
+                      {log.entityType}
+                    </td>
+                    <td className="px-4 py-3">
+                      {formatJson(log.oldValue)}
+                    </td>
+                    <td className="px-4 py-3">
+                      {formatJson(log.newValue)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        
+        <div className="flex justify-between items-center px-4 py-3 bg-black/20 border-t border-white/5">
+          <button 
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="px-3 py-1 text-sm bg-white/5 border border-white/10 rounded disabled:opacity-50 text-zinc-300"
+          >
+            Previous
+          </button>
+          <span className="text-sm text-zinc-400">Page {page}</span>
+          <button 
+            onClick={() => setPage(p => p + 1)}
+            disabled={logs.length < 20}
+            className="px-3 py-1 text-sm bg-white/5 border border-white/10 rounded disabled:opacity-50 text-zinc-300"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\auth\pages\login-page.tsx ===
+import { useState } from 'react';
+import { supabase } from '../../../shared/lib/supabase';
+import { apiClient } from '@/shared/lib/api-client';
+import { Button } from '../../../shared/components/ui/button';
+import { Input } from '../../../shared/components/ui/input';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../../../shared/components/ui/card';
+import { useNavigate, Link } from 'react-router-dom';
+import { GoogleIcon } from '@/shared/components/icons/google-icon';
+
+export function LoginPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+    
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+    } else {
+      // Fire-and-forget login event to record in audit log
+      apiClient.post('/auth/login-event').catch((err) => {
+        console.error('Failed to record login audit event:', err);
+      });
+
+      const verifiedFactors = data.user?.factors?.filter((f) => f.status === 'verified') || [];
+      if (verifiedFactors.length > 0) {
+        navigate(`/verify-2fa?factorId=${verifiedFactors[0].id}`);
+      } else {
+        navigate('/app/dashboard');
+      }
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/app/dashboard',
+        },
+      });
+      
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to sign in with Google');
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#09090b] bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-900/20 via-background to-background p-4">
+      <Card className="w-full max-w-md glass-card border-white/10">
+        <CardHeader className="space-y-2 text-center pb-8">
+          <div className="mx-auto w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center mb-4">
+            <div className="w-6 h-6 bg-gradient-to-tr from-indigo-500 to-emerald-500 rounded-md"></div>
+          </div>
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent">Welcome back</CardTitle>
+          <CardDescription className="text-zinc-400">Sign in to your Pigmie account</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleLogin} className="space-y-4">
+            {error && (
+              <div className="p-3 rounded-md bg-destructive/20 border border-destructive/50 text-destructive-foreground text-sm">
+                {error}
+              </div>
+            )}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">Email address</label>
+              <Input 
+                type="email" 
+                placeholder="name@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="bg-black/50 border-white/10"
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-zinc-300">Password</label>
+                <a href="#" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">Forgot password?</a>
+              </div>
+              <Input 
+                type="password" 
+                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="bg-black/50 border-white/10"
+              />
+            </div>
+            <Button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white border-0" disabled={loading}>
+              {loading ? 'Signing in...' : 'Sign in'}
+            </Button>
+          </form>
+
+          <div className="flex items-center my-4 gap-3">
+            <div className="flex-1 border-t border-white/10" />
+            <span className="text-xs uppercase text-zinc-400">or</span>
+            <div className="flex-1 border-t border-white/10" />
+          </div>
+
+          <Button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={loading}
+            className="w-full bg-white hover:bg-zinc-100 text-zinc-900 font-medium border-0 shadow-sm transition-colors flex items-center justify-center gap-2"
+          >
+            <GoogleIcon className="w-5 h-5 shrink-0" />
+            Sign in with Google
+          </Button>
+        </CardContent>
+        <CardFooter className="flex justify-center border-t border-white/5 pt-6 text-sm text-zinc-400">
+          Don't have an account? 
+          <Link to="/signup" className="text-indigo-400 hover:text-indigo-300 ml-1 font-medium transition-colors">Sign up</Link>
+        </CardFooter>
+      </Card>
+    </div>
+  );
+}
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\auth\pages\setup-2fa-page.tsx ===
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../../shared/hooks/use-auth';
+import { Button } from '../../../shared/components/ui/button';
+import { Input } from '../../../shared/components/ui/input';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../../../shared/components/ui/card';
+
+export function Setup2FAPage() {
+  const [code, setCode] = useState('');
+  const [factorId, setFactorId] = useState('');
+  const [qrCodeSvg, setQrCodeSvg] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const { enroll2FA, verify2FASetup } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    async function setup() {
+      try {
+        setLoading(true);
+        const data = await enroll2FA();
+        if (data) {
+          setFactorId(data.id);
+          setQrCodeSvg(data.totp.qr_code);
+        }
+      } catch (err: any) {
+        setError(err.message || 'Failed to setup 2FA');
+      } finally {
+        setLoading(false);
+      }
+    }
+    setup();
+  }, []); // run once on mount
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    
+    try {
+      await verify2FASetup(factorId, code);
+      navigate('/app/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'Verification failed');
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#09090b] bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-900/20 via-background to-background p-4">
+      <Card className="w-full max-w-md glass-card border-white/10">
+        <CardHeader className="space-y-2 text-center pb-8">
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent">Setup 2FA</CardTitle>
+          <CardDescription className="text-zinc-400">Scan the QR code with your authenticator app</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleVerify} className="space-y-4">
+            {error && (
+              <div className="p-3 rounded-md bg-destructive/20 border border-destructive/50 text-destructive-foreground text-sm">
+                {error}
+              </div>
+            )}
+            
+            <div className="flex justify-center mb-6">
+              {qrCodeSvg ? (
+                <div dangerouslySetInnerHTML={{ __html: qrCodeSvg }} className="bg-white p-2 rounded-md" />
+              ) : (
+                <div className="w-48 h-48 bg-zinc-800 animate-pulse rounded-md"></div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">Verification Code</label>
+              <Input 
+                type="text" 
+                placeholder="123456"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                required
+                maxLength={6}
+                className="bg-black/50 border-white/10 text-center tracking-widest text-lg"
+              />
+            </div>
+            <Button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white border-0" disabled={loading || !factorId}>
+              {loading ? 'Verifying...' : 'Verify and Complete'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\auth\pages\signup-page.tsx ===
+import React, { useState } from 'react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { Button } from '@/shared/components/ui/button';
+import { PiggyBank, ArrowRight, Building2, CheckCircle2 } from 'lucide-react';
+import { supabase } from '@/shared/lib/supabase';
+import { apiClient } from '@/shared/lib/api-client';
+
+import { GoogleIcon } from '@/shared/components/icons/google-icon';
+
+export function SignupPage() {
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [adminFullName, setAdminFullName] = useState('');
+  const [orgName, setOrgName] = useState('');
+  const [currency, setCurrency] = useState('INR');
+
+  const handleGoogleSignIn = async () => {
+    setErrorMsg('');
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/app/dashboard',
+        },
+      });
+      if (error) {
+        setErrorMsg(error.message);
+        setLoading(false);
+      }
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Failed to sign in with Google');
+      setLoading(false);
+    }
+  };
+
+  const handleStep1 = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) throw error;
+      setStep(2);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to create account');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStep2 = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setLoading(true);
+    try {
+      await apiClient.post('/organizations', {
+        organizationName: orgName,
+        adminFullName: adminFullName,
+        adminEmail: email,
+        currency,
+      });
+      setStep(3);
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.message || err.message || 'Failed to provision organization');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background dark:bg-[#0a0a0a] relative overflow-hidden">
+      {/* Background decoration */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/20 blur-[120px]" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-500/20 blur-[120px]" />
+      
+      <div className="w-full max-w-md z-10">
+        <div className="flex items-center justify-center gap-2 mb-8">
+          <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/25">
+            <PiggyBank className="text-primary-foreground w-6 h-6" />
+          </div>
+          <span className="text-2xl font-bold tracking-tight">Pigmie</span>
+        </div>
+
+        <Card className="glassmorphism bg-card/60 border-white/10 shadow-2xl backdrop-blur-xl">
+          <CardHeader>
+            <CardTitle className="text-xl">
+              {step === 1 && "Create your account"}
+              {step === 2 && "Setup your organization"}
+              {step === 3 && "You're all set!"}
+            </CardTitle>
+            <CardDescription>
+              {step === 1 && "Enter your email below to create your account"}
+              {step === 2 && "Tell us a bit about your MFI or collection agency"}
+              {step === 3 && "Your organization has been provisioned"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {step === 1 && (
+              <>
+                <form onSubmit={handleStep1} className="space-y-4">
+                  {errorMsg && <div className="text-red-500 text-sm font-medium">{errorMsg}</div>}
+                  <div className="space-y-2">
+                    <Label htmlFor="fullName">Full Name</Label>
+                    <Input id="fullName" value={adminFullName} onChange={e => setAdminFullName(e.target.value)} placeholder="John Doe" required className="bg-background/50" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="m@example.com" required className="bg-background/50" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required className="bg-background/50" />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? 'Creating account...' : 'Continue'}
+                    {!loading && <ArrowRight className="w-4 h-4 ml-2" />}
+                  </Button>
+                </form>
+
+                <div className="flex items-center my-4 gap-3">
+                  <div className="flex-1 border-t border-white/10" />
+                  <span className="text-xs uppercase text-muted-foreground">or</span>
+                  <div className="flex-1 border-t border-white/10" />
+                </div>
+
+                <Button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  disabled={loading}
+                  className="w-full bg-white hover:bg-zinc-100 text-zinc-900 font-medium border-0 shadow-sm transition-colors flex items-center justify-center gap-2"
+                >
+                  <GoogleIcon className="w-5 h-5 shrink-0" />
+                  Sign in with Google
+                </Button>
+              </>
+            )}
+
+            {step === 2 && (
+              <form onSubmit={handleStep2} className="space-y-4">
+                {errorMsg && <div className="text-red-500 text-sm font-medium">{errorMsg}</div>}
+                <div className="space-y-2">
+                  <Label htmlFor="orgName">Organization Name</Label>
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input id="orgName" value={orgName} onChange={e => setOrgName(e.target.value)} placeholder="Acme Finance Ltd" required className="pl-9 bg-background/50" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="currency">Base Currency</Label>
+                  <select id="currency" value={currency} onChange={e => setCurrency(e.target.value)} className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background/50 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                    <option value="INR">INR (â‚¹) - Indian Rupee</option>
+                    <option value="USD">USD ($) - US Dollar</option>
+                    <option value="KES">KES (KSh) - Kenyan Shilling</option>
+                  </select>
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? 'Provisioning...' : 'Complete Setup'}
+                </Button>
+              </form>
+            )}
+
+            {step === 3 && (
+              <div className="flex flex-col items-center justify-center py-6 space-y-4">
+                <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mb-2">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                </div>
+                <h3 className="text-xl font-medium">Provisioning Complete</h3>
+                <p className="text-center text-sm text-muted-foreground">
+                  Your workspace is ready. You can now invite staff and start managing collections.
+                </p>
+                <Button className="w-full mt-4" onClick={() => window.location.href = '/app/dashboard'}>
+                  Go to Dashboard
+                </Button>
+              </div>
+            )}
+          </CardContent>
+          
+          {step === 1 && (
+            <CardFooter className="flex justify-center border-t border-border/50 pt-4">
+              <div className="text-sm text-muted-foreground">
+                Already have an account? <a href="/login" className="text-primary hover:underline">Log in</a>
+              </div>
+            </CardFooter>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\auth\pages\verify-2fa-page.tsx ===
+import { useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../../shared/hooks/use-auth';
+import { Button } from '../../../shared/components/ui/button';
+import { Input } from '../../../shared/components/ui/input';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../../shared/components/ui/card';
+
+export function Verify2FAPage() {
+  const [code, setCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const { challenge2FA } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const factorId = searchParams.get('factorId');
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!factorId) {
+      setError('No factor ID provided');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    
+    try {
+      await challenge2FA(factorId, code);
+      navigate('/app/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'Verification failed');
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#09090b] bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-900/20 via-background to-background p-4">
+      <Card className="w-full max-w-md glass-card border-white/10">
+        <CardHeader className="space-y-2 text-center pb-8">
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent">Two-Factor Authentication</CardTitle>
+          <CardDescription className="text-zinc-400">Enter the 6-digit code from your authenticator app</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleVerify} className="space-y-4">
+            {error && (
+              <div className="p-3 rounded-md bg-destructive/20 border border-destructive/50 text-destructive-foreground text-sm">
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">Verification Code</label>
+              <Input 
+                type="text" 
+                placeholder="123456"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                required
+                maxLength={6}
+                className="bg-black/50 border-white/10 text-center tracking-widest text-lg"
+              />
+            </div>
+            <Button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white border-0" disabled={loading || !factorId}>
+              {loading ? 'Verifying...' : 'Verify'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\collections\pages\collections-today-page.tsx ===
+import React, { useState, useMemo } from 'react';
+import { useCollectionsToday, useRecordCollection } from '../hooks/use-collections';
+import { Card, CardContent } from '@/shared/components/ui/card';
+import { Badge } from '@/shared/components/ui/badge';
+import { MapPin, Phone, User, IndianRupee, ListX, MessageCircle, Check, Search, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
+import { EmptyState } from '@/shared/components/ui/empty-state';
+import { useAuth } from '@/shared/hooks/use-auth';
+import { openWhatsApp, generateReminderMessage } from '@/shared/lib/whatsapp';
+import { toast } from 'sonner';
+
+const PresetAmountChip = ({ amount, selected, onClick }: { amount: number, selected: boolean, onClick: () => void }) => (
+  <Badge 
+    variant="outline" 
+    className={`cursor-pointer px-3 py-1.5 text-sm ${selected ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-muted'}`}
+    onClick={onClick}
+  >
+    â‚¹{amount}
+  </Badge>
+);
+
+const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boolean }) => {
+  const [expanded, setExpanded] = useState(false);
+  const [customAmount, setCustomAmount] = useState<number | ''>(item.amountDue);
+  const { mutate: recordCollection, isPending } = useRecordCollection(item.loanId || item.id);
+  const isCollected = item.status === 'collected';
+
+  const handleCollect = () => {
+    if (!customAmount || customAmount <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+
+    recordCollection({
+      loanId: item.loanId || item.id,
+      amount: Number(customAmount),
+      collectionMethod: 'cash'
+    }, {
+      onSuccess: () => {
+        toast.success(`Collected â‚¹${customAmount} from ${item.customerName}`);
+        setExpanded(false);
+      },
+      onError: (err: any) => {
+        toast.error(err?.response?.data?.message || 'Failed to record collection');
+      }
+    });
+  };
+
+  const presetAmounts = [item.amountDue, 100, 200, 500, 1000].filter((v, i, a) => a.indexOf(v) === i && v > 0).sort((a, b) => a - b);
+
+  return (
+    <Card className={`glassmorphism transition-all overflow-hidden ${isCollected ? 'bg-card/20 opacity-75' : 'bg-card/40 hover:bg-card/60'}`}>
+      <div className={`h-1 w-full ${isCollected ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+      <CardContent className="p-4 sm:p-5">
+        {/* Header Section */}
+        <div 
+          className={`flex justify-between items-start ${!isCollected && !isAccountant ? 'cursor-pointer' : ''}`} 
+          onClick={() => !isCollected && !isAccountant && setExpanded(!expanded)}
+        >
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isCollected ? 'bg-emerald-500/20 text-emerald-500' : 'bg-secondary text-secondary-foreground'}`}>
+              {isCollected ? <Check className="w-5 h-5" /> : <User className="w-5 h-5" />}
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg line-clamp-1">{item.customerName}</h3>
+              <div className="flex items-center text-sm text-muted-foreground mt-0.5">
+                <Phone className="w-3 h-3 mr-1" /> {item.phone}
+              </div>
+            </div>
+          </div>
+          <div className="text-right shrink-0">
+            <div className="font-bold text-lg flex items-center justify-end">
+              <IndianRupee className="w-4 h-4 mr-1" /> {item.amountDue}
+            </div>
+            {isCollected ? (
+              <Badge className="mt-1 bg-emerald-500/20 text-emerald-500 border-none">COLLECTED</Badge>
+            ) : (
+              <div className="flex items-center justify-end mt-1 text-muted-foreground">
+                <span className="text-xs mr-1">Due</span>
+                {!isAccountant && (expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Expanded Collection Action Section */}
+        {expanded && !isCollected && !isAccountant && (
+          <div className="mt-4 pt-4 border-t border-border/50 animate-in slide-in-from-top-2">
+            <div className="mb-3">
+              <p className="text-sm font-medium mb-2 text-muted-foreground">Select Amount</p>
+              <div className="flex flex-wrap gap-2">
+                {presetAmounts.map((amt) => (
+                  <PresetAmountChip 
+                    key={amt} 
+                    amount={amt} 
+                    selected={customAmount === amt}
+                    onClick={() => setCustomAmount(amt)}
+                  />
+                ))}
+              </div>
+            </div>
+            
+            <div className="flex items-end gap-3 mt-4">
+              <div className="flex-1">
+                <label className="text-sm font-medium mb-1 block text-muted-foreground">Custom Amount</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <IndianRupee className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <Input 
+                    type="number" 
+                    value={customAmount} 
+                    onChange={(e) => setCustomAmount(e.target.value ? Number(e.target.value) : '')}
+                    className="pl-9 h-11 text-lg font-semibold bg-background/50"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              </div>
+              <Button 
+                className="h-11 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm"
+                onClick={(e) => { e.stopPropagation(); handleCollect(); }}
+                disabled={isPending || !customAmount}
+              >
+                {isPending ? 'Saving...' : 'Collect'}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Footer Actions */}
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-border/50">
+          <div className="flex items-center text-sm text-muted-foreground max-w-[60%]">
+            <MapPin className="w-4 h-4 mr-1 text-primary/70 shrink-0" />
+            <span className="truncate">{item.location}</span>
+          </div>
+          
+          {!isCollected && (
+            <Button 
+              size="sm" 
+              variant="ghost"
+              className="h-8 text-[#25D366] hover:bg-[#25D366]/10 hover:text-[#25D366]"
+              onClick={(e) => {
+                e.stopPropagation();
+                const msg = generateReminderMessage({
+                  customerName: item.customerName,
+                  dueAmount: item.amountDue,
+                  dueDate: new Date().toLocaleDateString(),
+                  daysOverdue: item.daysOverdue || 0,
+                });
+                openWhatsApp(item.phone || '9999999999', msg);
+              }}
+            >
+              <MessageCircle className="w-4 h-4 mr-1.5" />
+              WhatsApp
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+export function CollectionsTodayPage() {
+  const { user } = useAuth();
+  const isAccountant = user?.userType === 'staff' && user.role === 'accountant';
+  const { data: collectionsResponse, isLoading } = useCollectionsToday();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  
+  // The API returns an array directly, not a paginated { data: [] } object
+  const collectionsRaw = Array.isArray(collectionsResponse) ? collectionsResponse : collectionsResponse?.data || [];
+  
+  const collections = useMemo(() => {
+    return collectionsRaw.map((loan: any) => {
+      const amountDue = loan.dueItems?.reduce((acc: number, item: any) => acc + Number(item.remaining), 0) || 0;
+      return {
+        id: loan.loanId,
+        loanId: loan.loanId,
+        customerName: loan.customer?.fullName,
+        phone: loan.customer?.phone,
+        location: loan.customer?.address || 'N/A',
+        amountDue: amountDue,
+        status: amountDue <= 0 ? 'collected' : 'pending',
+        daysOverdue: 0,
+      };
+    });
+  }, [collectionsRaw]);
+
+  const filteredCollections = useMemo(() => {
+    if (!searchQuery) return collections;
+    const lowerQuery = searchQuery.toLowerCase();
+    return collections.filter((c: any) => 
+      c.customerName?.toLowerCase().includes(lowerQuery) || 
+      c.phone?.includes(lowerQuery)
+    );
+  }, [collections, searchQuery]);
+
+  // Sort: pending first, collected at bottom
+  const sortedCollections = useMemo(() => {
+    return [...filteredCollections].sort((a, b) => {
+      if (a.status === 'collected' && b.status !== 'collected') return 1;
+      if (a.status !== 'collected' && b.status === 'collected') return -1;
+      return 0;
+    });
+  }, [filteredCollections]);
+
+  if (isLoading) {
+    return (
+      <div className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center min-h-[50vh]">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+        Loading today's route...
+      </div>
+    );
+  }
+
+  const collectedCount = collections.filter((c: any) => c.status === 'collected').length;
+  const totalCount = collections.length;
+  // Calculate total collected amount using amountDue or an actual collected amount if the API provides it.
+  const collectedAmount = collections
+    .filter((c: any) => c.status === 'collected')
+    .reduce((sum: number, c: any) => sum + (c.amountDue || 0), 0);
+    
+  const remainingCount = totalCount - collectedCount;
+
+  return (
+    <div className="container mx-auto p-4 max-w-2xl pb-24">
+      {/* Header and Summary */}
+      <div className="mb-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center">
+            Daily Collection
+          </h1>
+          <div className="flex items-center relative max-w-xs">
+            <Calendar className="absolute left-3 w-4 h-4 text-muted-foreground" />
+            <Input 
+              type="date" 
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="pl-9 h-10 w-full sm:w-[160px] bg-card/50"
+            />
+          </div>
+        </div>
+
+        <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-primary/20">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground font-medium mb-1">Total Collected</p>
+              <div className="text-2xl font-bold flex items-center text-emerald-600 dark:text-emerald-400">
+                <IndianRupee className="w-5 h-5 mr-0.5" />
+                {collectedAmount.toLocaleString('en-IN')}
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-muted-foreground font-medium mb-1">Remaining</p>
+              <div className="text-xl font-bold text-foreground">
+                {remainingCount} <span className="text-sm font-normal text-muted-foreground">customers</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <Input 
+            type="text" 
+            placeholder="Search by name or phone..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 h-12 text-base rounded-full bg-card/50 backdrop-blur-sm border-white/10 shadow-sm"
+          />
+        </div>
+      </div>
+
+      {/* Collections List */}
+      {collections.length === 0 ? (
+        <EmptyState
+          icon={ListX}
+          title="No collections today"
+          description="You don't have any collections assigned for today."
+        />
+      ) : sortedCollections.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground bg-card/20 rounded-lg border border-white/5">
+          No customers found matching "{searchQuery}"
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {sortedCollections.map((item: any) => (
+            <CollectionCard key={item.id} item={item} isAccountant={isAccountant} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\collections\pages\record-collection-page.tsx ===
+import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { MapPin, Camera, AlertCircle } from 'lucide-react';
+
+const collectionSchema = z.object({
+  amount: z.number().positive('Amount must be greater than zero'),
+  collectionMethod: z.enum(['cash', 'cheque', 'other']),
+  notes: z.string().optional(),
+});
+
+type RecordCollectionInput = z.infer<typeof collectionSchema>;
+
+import { useParams, useNavigate } from 'react-router-dom';
+import { apiClient } from '@/shared/lib/api-client';
+import { toast } from 'sonner';
+
+// Mocking these for now until Phase 2 (Offline mode)
+const queueCollection = async (data: any) => { console.log('Queued offline', data); };
+const useOnlineStatus = () => ({ isOnline: navigator.onLine });
+
+export function RecordCollectionPage() {
+  const { loanId } = useParams<{ loanId: string }>();
+  const navigate = useNavigate();
+  
+  const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<RecordCollectionInput>({
+    resolver: zodResolver(collectionSchema),
+    defaultValues: { amount: 0, collectionMethod: 'cash' },
+  });
+  
+  const { isOnline } = useOnlineStatus();
+  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleCaptureLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+          toast.success('Location captured');
+        },
+        (error) => toast.error('Failed to capture location: ' + error.message)
+      );
+    } else {
+      toast.error('Geolocation is not supported by this browser.');
+    }
+  };
+
+  const handleCapturePhoto = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoUrl(reader.result as string);
+        toast.success('Photo captured');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const onSubmit = handleSubmit(async (data) => {
+    if (!loanId) return;
+    setStatus('idle');
+    const collection = {
+      loanId,
+      amount: data.amount,
+      collectionMethod: data.collectionMethod,
+      notes: data.notes,
+      ...(location ? { latitude: location.latitude, longitude: location.longitude } : {}),
+      ...(photoUrl ? { photoUrl } : {}),
+    };
+    
+    if (isOnline) {
+      try { 
+        await apiClient.post('/collections', collection); 
+        setStatus('success');
+        toast.success('Collection recorded successfully');
+        setTimeout(() => navigate(`/app/loans/${loanId}`), 1500);
+      }
+      catch (error: any) { 
+        toast.error(error?.response?.data?.message || 'Failed to record collection');
+        setStatus('error');
+      } 
+    } else {
+      await queueCollection(collection);
+      setStatus('success');
+      toast.success('Collection queued for offline sync');
+      setTimeout(() => navigate(`/app/loans/${loanId}`), 1500);
+    }
+  });
+
+  return (
+    <div className="container mx-auto p-4 max-w-md">
+      <Card className="glassmorphism bg-card/50 backdrop-blur-md border-white/10 dark:text-white">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold flex items-center justify-between">
+            Record Collection
+            {!isOnline && (
+              <span className="text-xs bg-amber-500/20 text-amber-500 px-2 py-1 rounded-full flex items-center gap-1">
+                <AlertCircle size={14} /> Offline Mode
+              </span>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={onSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="amount">Amount (â‚¹)</Label>
+              <Input 
+                id="amount" 
+                type="number" 
+                step="0.01"
+                {...register('amount', { valueAsNumber: true })} 
+                className="text-lg bg-background/50 border-white/10 focus:border-primary/50"
+              />
+              {errors.amount && (
+                <p className="text-destructive text-sm">{errors.amount.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="collectionMethod">Method</Label>
+              <Select 
+                defaultValue="cash" 
+                onValueChange={(val: any) => setValue('collectionMethod', val)}
+              >
+                <SelectTrigger className="bg-background/50 border-white/10">
+                  <SelectValue placeholder="Select method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="cheque">Cheque</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.collectionMethod && (
+                <p className="text-destructive text-sm">{errors.collectionMethod.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes (Optional)</Label>
+              <Input 
+                id="notes" 
+                {...register('notes')} 
+                placeholder="Any additional details..."
+                className="bg-background/50 border-white/10"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-2 flex-col">
+              <div className="flex gap-2">
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  capture="environment" 
+                  className="hidden" 
+                  ref={fileInputRef}
+                  onChange={handleCapturePhoto}
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="flex-1 bg-background/30 border-white/10 hover:bg-white/10"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  {photoUrl ? 'Photo Captured' : 'Photo'}
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="flex-1 bg-background/30 border-white/10 hover:bg-white/10"
+                  onClick={handleCaptureLocation}
+                >
+                  <MapPin className="w-4 h-4 mr-2" />
+                  {location ? 'Location Captured' : 'Location'}
+                </Button>
+              </div>
+              {location && (
+                <div className="text-xs text-muted-foreground text-center">
+                  Coordinates: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                </div>
+              )}
+            </div>
+
+            <Button type="submit" className="w-full font-semibold" disabled={isSubmitting}>
+              {isSubmitting ? 'Saving...' : 'Record Collection'}
+            </Button>
+
+            {status === 'success' && (
+              <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-md text-sm text-center">
+                Collection recorded successfully. {isOnline ? '' : 'Will sync when online.'}
+              </div>
+            )}
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\customers\pages\customer-detail-page.tsx ===
+import React, { useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { useCustomer } from '../hooks/use-customers';
+import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui/card';
+import { Button } from '@/shared/components/ui/button';
+import { Badge } from '@/shared/components/ui/badge';
+import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
+import { ArrowLeft, User, FileText, CreditCard, Mail, Phone, Calendar, MapPin, Download } from 'lucide-react';
+import { CustomerDocuments } from '../components/customer-documents';
+import { RoleGate } from '@/shared/components/auth/role-gate';
+import { apiClient } from '@/shared/lib/api-client';
+
+export const CustomerDetailPage = () => {
+  const { id } = useParams<{ id: string }>();
+  const { data: customerRes, isLoading } = useCustomer(id || '');
+  const customer = customerRes?.data || customerRes; // handle wrapped response or direct
+  const [activeTab, setActiveTab] = useState<'profile' | 'loans' | 'documents'>('profile');
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadPassbook = async () => {
+    if (!id) return;
+    try {
+      setIsDownloading(true);
+      const blob = await apiClient.customers.downloadPassbook(id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `passbook-${customer.fullName.replace(/\s+/g, '_')}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download passbook', error);
+      alert('Failed to download passbook. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  if (isLoading || !customer) {
+
+    return (
+      <div className="flex h-full items-center justify-center min-h-[400px]">
+        <LoadingSpinner className="w-8 h-8 text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 p-6 max-w-6xl mx-auto">
+      <div className="flex items-center gap-4">
+        <Link to="/app/customers">
+          <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+        </Link>
+        <div className="flex-1">
+          <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
+            {customer.fullName}
+            <Badge 
+              variant="default"
+              className={customer.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' : 'bg-zinc-800 text-zinc-400'}
+            >
+              {customer.status}
+            </Badge>
+          </h1>
+          <p className="text-muted-foreground mt-1 text-zinc-400">Customer ID: {customer.id}</p>
+        </div>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+            onClick={handleDownloadPassbook}
+            disabled={isDownloading}
+          >
+            {isDownloading ? (
+              <LoadingSpinner className="w-4 h-4 mr-2" />
+            ) : (
+              <Download className="w-4 h-4 mr-2" />
+            )}
+            Download Passbook
+          </Button>
+          <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+            <Link to={`/app/customers/${customer.id}/edit`}>
+              <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
+                Edit Profile
+              </Button>
+            </Link>
+          </RoleGate>
+        </div>
+
+      </div>
+
+      <div className="flex border-b border-zinc-800">
+        <button
+          onClick={() => setActiveTab('profile')}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'profile' ? 'border-primary text-primary' : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+          }`}
+        >
+          <div className="flex items-center gap-2"><User className="w-4 h-4" /> Profile</div>
+        </button>
+        <button
+          onClick={() => setActiveTab('loans')}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'loans' ? 'border-primary text-primary' : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+          }`}
+        >
+          <div className="flex items-center gap-2"><CreditCard className="w-4 h-4" /> Loans</div>
+        </button>
+        <button
+          onClick={() => setActiveTab('documents')}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'documents' ? 'border-primary text-primary' : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+          }`}
+        >
+          <div className="flex items-center gap-2"><FileText className="w-4 h-4" /> Documents</div>
+        </button>
+      </div>
+
+      <div className="mt-6">
+        {activeTab === 'profile' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="bg-zinc-900/50 border-zinc-800">
+              <CardHeader>
+                <CardTitle className="text-lg text-white">Contact Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-3 text-zinc-300">
+                  <Mail className="w-5 h-5 text-zinc-500" />
+                  <span>{customer.email || 'N/A'}</span>
+                </div>
+                <div className="flex items-center gap-3 text-zinc-300">
+                  <Phone className="w-5 h-5 text-zinc-500" />
+                  <span>{customer.phone}</span>
+                </div>
+                <div className="flex items-center gap-3 text-zinc-300">
+                  <MapPin className="w-5 h-5 text-zinc-500" />
+                  <span>{customer.address || 'N/A'}</span>
+                </div>
+                <div className="flex items-center gap-3 text-zinc-300">
+                  <Calendar className="w-5 h-5 text-zinc-500" />
+                  <span>Joined {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString() : 'N/A'}</span>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-zinc-900/50 border-zinc-800">
+              <CardHeader>
+                <CardTitle className="text-lg text-white">Financial Summary</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between py-2 border-b border-zinc-800/50">
+                    <span className="text-zinc-400">Total Loans</span>
+                    <span className="text-white font-medium">{customer.totalLoans || 0}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b border-zinc-800/50">
+                    <span className="text-zinc-400">Outstanding Balance</span>
+                    <span className="text-white font-medium">â‚¹0</span>
+                  </div>
+                  <div className="flex justify-between py-2">
+                    <span className="text-zinc-400">Credit Score</span>
+                    <span className="text-emerald-400 font-medium">N/A</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === 'loans' && (
+          <Card className="bg-zinc-900/50 border-zinc-800">
+            <CardContent className="p-12 text-center text-zinc-500">
+              <CreditCard className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>No active loans found for this customer.</p>
+              <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+                <Link to="/app/loans/new">
+                  <Button variant="outline" className="mt-4 border-zinc-700 text-zinc-300">Issue New Loan</Button>
+                </Link>
+              </RoleGate>
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === 'documents' && (
+          <CustomerDocuments customerId={customer.id} />
+        )}
+      </div>
+    </div>
+  );
+};
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\customers\pages\customer-form-page.tsx ===
+import React from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useCreateCustomer } from '../hooks/use-customers';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/shared/components/ui/card';
+import { Input } from '@/shared/components/ui/input';
+import { Button } from '@/shared/components/ui/button';
+import { ArrowLeft, Save } from 'lucide-react';
+import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
+import { useNavigate, Link } from 'react-router-dom';
+
+const customerSchema = z.object({
+  fullName: z.string().min(2, 'Full name is required'),
+  email: z.string().email('Invalid email address').optional().or(z.literal('')),
+  phone: z.string().min(10, 'Valid phone number is required'),
+  address: z.string().optional(),
+});
+
+type CustomerFormValues = z.infer<typeof customerSchema>;
+
+export const CustomerFormPage = () => {
+  const navigate = useNavigate();
+  const createCustomer = useCreateCustomer();
+  
+  const { register, handleSubmit, formState: { errors } } = useForm<CustomerFormValues>({
+    resolver: zodResolver(customerSchema),
+    defaultValues: {
+      fullName: '',
+      email: '',
+      phone: '',
+      address: '',
+    }
+  });
+
+  const onSubmit = async (data: CustomerFormValues) => {
+    try {
+      await createCustomer.mutateAsync({
+        ...data,
+        email: data.email || undefined,
+        address: data.address || undefined
+      });
+      navigate('/app/customers');
+    } catch (error) {
+      console.error('Failed to create customer:', error);
+    }
+  };
+
+  return (
+    <div className="space-y-6 p-6 max-w-3xl mx-auto">
+      <div className="flex items-center gap-4">
+        <Link to="/app/customers">
+          <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+        </Link>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-white">Add New Customer</h1>
+          <p className="text-muted-foreground mt-1 text-zinc-400">Enter customer details to register them in the system.</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <Card className="bg-zinc-900/50 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="text-xl text-white">Personal Information</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">Full Name</label>
+              <Input 
+                {...register('fullName')} 
+                className="bg-zinc-800/50 border-zinc-700 text-white" 
+                placeholder="John Doe" 
+              />
+              {errors.fullName && <p className="text-sm text-red-400">{errors.fullName.message}</p>}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Email Address (Optional)</label>
+                <Input 
+                  {...register('email')} 
+                  type="email"
+                  className="bg-zinc-800/50 border-zinc-700 text-white" 
+                  placeholder="john.doe@example.com" 
+                />
+                {errors.email && <p className="text-sm text-red-400">{errors.email.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Phone Number</label>
+                <Input 
+                  {...register('phone')} 
+                  className="bg-zinc-800/50 border-zinc-700 text-white" 
+                  placeholder="+91 9876543210" 
+                />
+                {errors.phone && <p className="text-sm text-red-400">{errors.phone.message}</p>}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">Address (Optional)</label>
+              <Input 
+                {...register('address')}
+                className="bg-zinc-800/50 border-zinc-700 text-white" 
+                placeholder="123 Main St, City"
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-end gap-3 border-t border-zinc-800/50 pt-6">
+            <Link to="/app/customers">
+              <Button type="button" variant="ghost" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+                Cancel
+              </Button>
+            </Link>
+            <Button type="submit" disabled={createCustomer.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+              {createCustomer.isPending ? <LoadingSpinner className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+              Save Customer
+            </Button>
+          </CardFooter>
+        </Card>
+      </form>
+    </div>
+  );
+};
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\customers\pages\customers-list-page.tsx ===
+import React from 'react';
+import { useCustomers } from '../hooks/use-customers';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
+import { Button } from '@/shared/components/ui/button';
+import { Badge } from '@/shared/components/ui/badge';
+import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
+import { Plus, Search, MoreHorizontal, Users } from 'lucide-react';
+import { Input } from '@/shared/components/ui/input';
+import { Link } from 'react-router-dom';
+import { EmptyState } from '@/shared/components/ui/empty-state';
+import { useAuth } from '@/shared/hooks/use-auth';
+
+export const CustomersListPage = () => {
+  const { user } = useAuth();
+  const isAccountant = user?.userType === 'staff' && user.role === 'accountant';
+  const { data: customersResponse, isLoading } = useCustomers();
+  const customers = customersResponse?.data || [];
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center min-h-[400px]">
+        <LoadingSpinner className="w-8 h-8 text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-white">Customers</h1>
+          <p className="text-muted-foreground mt-1 text-zinc-400">Manage your customer base and view their details.</p>
+        </div>
+        {!isAccountant && (
+          <div className="flex gap-2">
+            <Link to="/app/customers/import">
+              <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
+                Import CSV
+              </Button>
+            </Link>
+            <Link to="/app/customers/new">
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+                <Plus className="w-4 h-4" /> Add Customer
+              </Button>
+            </Link>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-4 bg-zinc-900/50 p-4 rounded-lg border border-zinc-800">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+          <Input 
+            placeholder="Search customers..." 
+            className="pl-9 bg-zinc-800/50 border-zinc-700 text-white w-full max-w-md"
+          />
+        </div>
+        <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
+          Filter
+        </Button>
+      </div>
+
+        {customers.length === 0 ? (
+          <EmptyState 
+            icon={Users} 
+            title="No customers yet" 
+            description="Get started by adding your first customer to the system." 
+            actionLabel={isAccountant ? undefined : "Add Customer"} 
+            actionHref={isAccountant ? undefined : "/app/customers/new"} 
+          />
+        ) : (
+          <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900/50">
+            <Table>
+              <TableHeader className="bg-zinc-800/50">
+                <TableRow className="border-zinc-800 hover:bg-transparent">
+                  <TableHead className="text-zinc-400">Name</TableHead>
+                  <TableHead className="text-zinc-400">Contact</TableHead>
+                  <TableHead className="text-zinc-400">Status</TableHead>
+                  <TableHead className="text-zinc-400">Join Date</TableHead>
+                  <TableHead className="text-zinc-400 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {customers.map((customer: any) => (
+                  <TableRow key={customer.id} className="border-zinc-800 hover:bg-zinc-800/50">
+                    <TableCell className="font-medium text-white">
+                      {customer.fullName}
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm text-zinc-300">{customer.email || 'N/A'}</div>
+                      <div className="text-xs text-zinc-500">{customer.phone}</div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant={customer.status === 'active' ? 'default' : customer.status === 'pending' ? 'outline' : 'secondary'}
+                        className={
+                          customer.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' : 
+                          customer.status === 'pending' ? 'border-amber-500/50 text-amber-500' :
+                          'bg-zinc-800 text-zinc-400'
+                        }
+                      >
+                        {customer.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-zinc-400">{customer.createdAt ? new Date(customer.createdAt).toLocaleDateString() : 'N/A'}</TableCell>
+                    <TableCell className="text-right">
+                      <Link to={`/app/customers/${customer.id}`}>
+                        <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+    </div>
+  );
+};
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\customers\pages\import-customers-page.tsx ===
+import React, { useState } from 'react';
+import Papa from 'papaparse';
+import { Button } from '@/shared/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
+import { Upload, X, Check, Loader2 } from 'lucide-react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient as api } from '@/shared/lib/api-client';
+import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
+
+interface CustomerCSVRow {
+  fullName: string;
+  phone: string;
+  email?: string;
+  address?: string;
+}
+
+export const ImportCustomersPage = () => {
+  const [data, setData] = useState<CustomerCSVRow[]>([]);
+  const [file, setFile] = useState<File | null>(null);
+  const [isParsing, setIsParsing] = useState(false);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+
+    setFile(selectedFile);
+    setIsParsing(true);
+
+    Papa.parse<CustomerCSVRow>(selectedFile, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const sanitizedRows = results.data.map(row => ({
+          ...row,
+          email: row.email === "" ? undefined : row.email,
+          address: row.address === "" ? undefined : row.address
+        }));
+        const validRows = sanitizedRows.filter(row => row.fullName && row.phone);
+        if (validRows.length !== results.data.length) {
+          toast.warning(`Skipped ${results.data.length - validRows.length} rows with missing required fields (fullName, phone).`);
+        }
+        setData(validRows);
+        setIsParsing(false);
+      },
+      error: (error) => {
+        toast.error(`Error parsing CSV: ${error.message}`);
+        setIsParsing(false);
+      }
+    });
+  };
+
+  const importMutation = useMutation({
+    mutationFn: async (customers: CustomerCSVRow[]) => {
+      const res = await api.post('/customers/bulk', { customers });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      toast.success(`Successfully imported ${data.successCount} customers.`);
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      navigate('/app/customers');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to import customers');
+    }
+  });
+
+  const handleImport = () => {
+    if (data.length === 0) return;
+    importMutation.mutate(data);
+  };
+
+  return (
+    <div className="space-y-6 p-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight text-white">Import Customers</h1>
+        <p className="text-muted-foreground mt-1 text-zinc-400">Upload a CSV file to bulk import customers.</p>
+      </div>
+
+      <div className="p-6 bg-zinc-900/50 border border-zinc-800 rounded-lg">
+        {!file && (
+          <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-zinc-700 rounded-lg bg-zinc-900/30">
+            <Upload className="w-10 h-10 text-zinc-500 mb-4" />
+            <h3 className="text-lg font-medium text-white mb-2">Upload CSV File</h3>
+            <p className="text-sm text-zinc-400 mb-6 text-center max-w-sm">
+              Ensure your CSV has the following headers: <br/> <code className="text-primary bg-primary/10 px-1 py-0.5 rounded">fullName</code>, <code className="text-primary bg-primary/10 px-1 py-0.5 rounded">phone</code>, <code className="text-zinc-300">email</code>, <code className="text-zinc-300">address</code>
+            </p>
+            <div className="relative">
+              <input 
+                type="file" 
+                accept=".csv" 
+                onChange={handleFileUpload}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+              <Button>Select File</Button>
+            </div>
+          </div>
+        )}
+
+        {isParsing && (
+          <div className="flex justify-center items-center p-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        )}
+
+        {file && !isParsing && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between bg-zinc-800/50 p-4 rounded-lg border border-zinc-700">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Check className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h4 className="font-medium text-white">{file.name}</h4>
+                  <p className="text-sm text-zinc-400">{data.length} valid rows found</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={() => { setFile(null); setData([]); }}>
+                  <X className="w-4 h-4 mr-2" /> Cancel
+                </Button>
+                <Button 
+                  onClick={handleImport} 
+                  disabled={data.length === 0 || importMutation.isPending}
+                >
+                  {importMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Confirm Import
+                </Button>
+              </div>
+            </div>
+
+            {data.length > 0 && (
+              <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900/50">
+                <div className="max-h-[400px] overflow-y-auto">
+                  <Table>
+                    <TableHeader className="bg-zinc-800/50 sticky top-0 z-10">
+                      <TableRow className="border-zinc-800">
+                        <TableHead className="text-zinc-400">Full Name</TableHead>
+                        <TableHead className="text-zinc-400">Phone</TableHead>
+                        <TableHead className="text-zinc-400">Email</TableHead>
+                        <TableHead className="text-zinc-400">Address</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.map((row, i) => (
+                        <TableRow key={i} className="border-zinc-800">
+                          <TableCell className="font-medium text-white">{row.fullName}</TableCell>
+                          <TableCell className="text-zinc-300">{row.phone}</TableCell>
+                          <TableCell className="text-zinc-400">{row.email || '-'}</TableCell>
+                          <TableCell className="text-zinc-400">{row.address || '-'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\dashboard\pages\dashboard-page.tsx ===
+import { useQuery } from '@tanstack/react-query';
+import { Users, Banknote, AlertCircle, TrendingUp, CreditCard, Activity } from 'lucide-react';
+import { apiClient } from '../../../shared/lib/api-client';
+import { KPICard } from '../components/kpi-card';
+import { ReportSummary } from '../../../shared/types';
+import { LoadingSpinner } from '../../../shared/components/ui/loading-spinner';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../shared/components/ui/table';
+import { Badge } from '../../../shared/components/ui/badge';
+import { useCollectionsToday } from '../../collections/hooks/use-collections';
+
+export function DashboardPage() {
+  const { data: summaryRes, isLoading } = useQuery({
+    queryKey: ['reports', 'dashboard-summary'],
+    queryFn: () => apiClient.get('/reports/dashboard-summary').then(res => res.data),
+  });
+  const summary = summaryRes?.data || summaryRes;
+
+  const { data: collectionsRaw } = useCollectionsToday();
+  const dueCollections = Array.isArray(collectionsRaw) ? collectionsRaw : collectionsRaw?.data || [];
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+
+  if (isLoading || !summary) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <LoadingSpinner size={32} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Dashboard</h1>
+        <p className="text-zinc-400">Overview of your micro-finance operations.</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+        <KPICard 
+          title="Total Outstanding" 
+          value={formatCurrency(summary?.totalOutstanding || 0)} 
+          icon={Banknote} 
+          className="border-indigo-500/20 bg-indigo-500/5"
+          valueClassName="text-indigo-100"
+        />
+        <KPICard 
+          title="Collected Today" 
+          value={formatCurrency(summary?.collectedToday || 0)} 
+          icon={TrendingUp} 
+          className="border-emerald-500/20 bg-emerald-500/5"
+          valueClassName="text-emerald-100"
+        />
+        <KPICard 
+          title="Due Today" 
+          value={formatCurrency(summary?.dueToday || 0)} 
+          icon={Activity} 
+        />
+        <KPICard 
+          title="Active Loans" 
+          value={summary?.activeLoans || 0} 
+          icon={CreditCard} 
+        />
+        <KPICard 
+          title="Overdue Accounts" 
+          value={summary?.overdueCount || 0} 
+          icon={AlertCircle} 
+          className="border-rose-500/20 bg-rose-500/5"
+          valueClassName="text-rose-100"
+        />
+        <KPICard 
+          title="PAR30" 
+          value={`${((summary?.portfolioAtRisk30 || 0) * 100).toFixed(1)}%`} 
+          icon={Users} 
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-4">
+          <h3 className="text-lg font-medium text-white">Today's Due Collections</h3>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Customer</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {dueCollections.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-zinc-400 py-8">
+                    No due collections today.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                dueCollections.slice(0, 5).map((loan: any) => {
+                  const amountDue = loan.dueItems?.reduce((acc: number, item: any) => acc + Number(item.remaining), 0) || 0;
+                  return (
+                    <TableRow key={loan.loanId}>
+                      <TableCell className="font-medium">{loan.customer?.fullName}</TableCell>
+                      <TableCell>{loan.customer?.phone}</TableCell>
+                      <TableCell>{formatCurrency(amountDue)}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={amountDue <= 0 ? 'text-emerald-500' : 'text-amber-500'}>
+                          {amountDue <= 0 ? 'Collected' : 'Pending'}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium text-white">Recent Activity</h3>
+          <div className="glass rounded-xl p-4 text-center text-zinc-400 py-8">
+            No recent activity.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\loan-products\pages\loan-products-page.tsx ===
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { useLoanProducts } from '../hooks/use-loan-products';
+import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui/card';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
+import { Plus, Percent, Clock, DollarSign } from 'lucide-react';
+
+export const LoanProductsPage = () => {
+  const { data: productsResponse, isLoading } = useLoanProducts();
+  const products = productsResponse?.data || [];
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center min-h-[400px]">
+        <LoadingSpinner className="w-8 h-8 text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-white">Loan Products</h1>
+          <p className="text-muted-foreground mt-1 text-zinc-400">Manage available loan products and terms.</p>
+        </div>
+        <Link to="/app/loan-products/new">
+          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+            <Plus className="w-4 h-4" /> Create Product
+          </Button>
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {products?.map((product) => (
+          <Card key={product.id} className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm overflow-hidden hover:border-primary/50 transition-colors">
+            <CardHeader className="pb-4">
+              <div className="flex justify-between items-start">
+                <CardTitle className="text-xl text-white">{product.name}</CardTitle>
+                <Badge variant={product.status === 'active' ? 'default' : 'secondary'} className={product.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' : 'bg-zinc-800 text-zinc-400'}>
+                  {product.status}
+                </Badge>
+              </div>
+              <p className="text-sm text-zinc-400 mt-2 min-h-[40px]">{product.description}</p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center text-zinc-400 gap-2">
+                    <DollarSign className="w-4 h-4" /> Max Amount
+                  </div>
+                  <span className="font-medium text-white">${product.maxAmount.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center text-zinc-400 gap-2">
+                    <Percent className="w-4 h-4" /> Interest Rate
+                  </div>
+                  <span className="font-medium text-white">{product.interestRate}%</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center text-zinc-400 gap-2">
+                    <Clock className="w-4 h-4" /> Duration
+                  </div>
+                  <span className="font-medium text-white">{product.durationMonths} months</span>
+                </div>
+              </div>
+              <div className="mt-6 pt-4 border-t border-zinc-800/50 flex gap-3">
+                <Button variant="outline" className="w-full border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">Edit</Button>
+                <Button variant="outline" className="w-full border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">Details</Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\loan-products\pages\new-loan-product-page.tsx ===
+import React from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/shared/components/ui/card';
+import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
+import { ArrowLeft, Save } from 'lucide-react';
+import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
+import { useCreateLoanProduct } from '../hooks/use-loan-products';
+
+const productSchema = z.object({
+  name: z.string().min(2, 'Name is required'),
+  interestType: z.enum(['flat', 'reducing']),
+  interestRateAnnual: z.number().min(0, 'Interest rate must be positive'),
+  collectionFrequency: z.enum(['daily', 'weekly', 'monthly']),
+  minAmount: z.number().min(0),
+  maxAmount: z.number().min(1),
+  minTenure: z.number().min(1),
+  maxTenure: z.number().min(1),
+  processingFee: z.number().min(0).optional(),
+});
+
+type ProductFormValues = z.infer<typeof productSchema>;
+
+export const NewLoanProductPage = () => {
+  const navigate = useNavigate();
+  const createProduct = useCreateLoanProduct();
+  
+  const { register, handleSubmit, formState: { errors } } = useForm<ProductFormValues>({
+    resolver: zodResolver(productSchema),
+    defaultValues: {
+      name: '',
+      interestType: 'flat',
+      interestRateAnnual: 12,
+      collectionFrequency: 'daily',
+      minAmount: 1000,
+      maxAmount: 50000,
+      minTenure: 30,
+      maxTenure: 100,
+      processingFee: 1
+    }
+  });
+
+  const onSubmit = async (data: ProductFormValues) => {
+    try {
+      await createProduct.mutateAsync(data);
+      navigate('/app/loan-products');
+    } catch (error) {
+      console.error('Failed to create product:', error);
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-w-3xl mx-auto p-6">
+      <div className="flex items-center gap-4">
+        <Link to="/app/loan-products">
+          <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        </Link>
+        <div>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Create Loan Product</h1>
+          <p className="text-sm text-zinc-400 mt-1">Configure terms for a new loan offering.</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="text-xl text-white">Product Configuration</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">Product Name</label>
+              <Input 
+                {...register('name')} 
+                className="bg-zinc-800/50 border-zinc-700 text-white" 
+                placeholder="e.g. Daily Personal Loan" 
+              />
+              {errors.name && <p className="text-sm text-red-400">{errors.name.message}</p>}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Interest Type</label>
+                <select
+                  {...register('interestType')}
+                  className="flex h-10 w-full rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="flat">Flat Rate</option>
+                  <option value="reducing">Reducing Balance</option>
+                </select>
+                {errors.interestType && <p className="text-sm text-red-400">{errors.interestType.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Interest Rate (Annual %)</label>
+                <Input 
+                  type="number"
+                  step="0.1"
+                  {...register('interestRateAnnual', { valueAsNumber: true })} 
+                  className="bg-zinc-800/50 border-zinc-700 text-white" 
+                />
+                {errors.interestRateAnnual && <p className="text-sm text-red-400">{errors.interestRateAnnual.message}</p>}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Collection Frequency</label>
+                <select
+                  {...register('collectionFrequency')}
+                  className="flex h-10 w-full rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+                {errors.collectionFrequency && <p className="text-sm text-red-400">{errors.collectionFrequency.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Processing Fee (Flat â‚¹)</label>
+                <Input 
+                  type="number"
+                  {...register('processingFee', { valueAsNumber: true })} 
+                  className="bg-zinc-800/50 border-zinc-700 text-white" 
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Min Amount (â‚¹)</label>
+                <Input 
+                  type="number"
+                  {...register('minAmount', { valueAsNumber: true })} 
+                  className="bg-zinc-800/50 border-zinc-700 text-white" 
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Max Amount (â‚¹)</label>
+                <Input 
+                  type="number"
+                  {...register('maxAmount', { valueAsNumber: true })} 
+                  className="bg-zinc-800/50 border-zinc-700 text-white" 
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Min Tenure (Installments)</label>
+                <Input 
+                  type="number"
+                  {...register('minTenure', { valueAsNumber: true })} 
+                  className="bg-zinc-800/50 border-zinc-700 text-white" 
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Max Tenure (Installments)</label>
+                <Input 
+                  type="number"
+                  {...register('maxTenure', { valueAsNumber: true })} 
+                  className="bg-zinc-800/50 border-zinc-700 text-white" 
+                />
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-end gap-3 border-t border-zinc-800/50 pt-6">
+            <Link to="/app/loan-products">
+              <Button type="button" variant="ghost" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+                Cancel
+              </Button>
+            </Link>
+            <Button type="submit" disabled={createProduct.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+              {createProduct.isPending ? <LoadingSpinner className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+              Save Product
+            </Button>
+          </CardFooter>
+        </Card>
+      </form>
+    </div>
+  );
+};
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\loans\pages\emi-calculator-page.tsx ===
+import React, { useState, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/card';
+import { Input } from '@/shared/components/ui/input';
+import { Calculator } from 'lucide-react';
+import { calculateEMI, InterestType, CollectionFrequency, TenurePeriod } from '../utils/emi-calculator';
+
+export const EMICalculatorPage: React.FC = () => {
+  const [principal, setPrincipal] = useState<number>(10000);
+  const [interestRate, setInterestRate] = useState<number>(12);
+  const [tenure, setTenure] = useState<number>(12);
+  const [tenurePeriod, setTenurePeriod] = useState<TenurePeriod>('months');
+  const [collectionFrequency, setCollectionFrequency] = useState<CollectionFrequency>('monthly');
+  const [interestType, setInterestType] = useState<InterestType>('flat');
+
+  const result = useMemo(() => {
+    return calculateEMI({
+      principal: Number(principal) || 0,
+      interestRate: Number(interestRate) || 0,
+      tenure: Number(tenure) || 0,
+      tenurePeriod,
+      collectionFrequency,
+      interestType
+    });
+  }, [principal, interestRate, tenure, tenurePeriod, collectionFrequency, interestType]);
+
+  const formatCurrency = (val: number) => {
+    return val.toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
+  };
+
+  return (
+    <div className="space-y-6 max-w-6xl mx-auto p-6">
+      <div className="flex items-center gap-4">
+        <div className="bg-indigo-500/20 p-3 rounded-xl border border-indigo-500/30">
+          <Calculator className="h-6 w-6 text-indigo-400" />
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold text-white tracking-tight">EMI Calculator</h1>
+          <p className="text-sm text-zinc-400 mt-1">Preview loan repayment schedule based on terms.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1 space-y-6">
+          <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-xl text-white">Loan Parameters</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Loan Amount (â‚¹)</label>
+                <Input
+                  type="number"
+                  value={principal}
+                  onChange={(e) => setPrincipal(Number(e.target.value))}
+                  className="bg-zinc-800/50 border-zinc-700 text-white"
+                  min={0}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Annual Interest Rate (%)</label>
+                <Input
+                  type="number"
+                  value={interestRate}
+                  onChange={(e) => setInterestRate(Number(e.target.value))}
+                  className="bg-zinc-800/50 border-zinc-700 text-white"
+                  min={0}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Tenure</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    value={tenure}
+                    onChange={(e) => setTenure(Number(e.target.value))}
+                    className="bg-zinc-800/50 border-zinc-700 text-white flex-1"
+                    min={1}
+                  />
+                  <select
+                    value={tenurePeriod}
+                    onChange={(e) => setTenurePeriod(e.target.value as TenurePeriod)}
+                    className="flex h-10 w-28 rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="days">Days</option>
+                    <option value="weeks">Weeks</option>
+                    <option value="months">Months</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Collection Frequency</label>
+                <select
+                  value={collectionFrequency}
+                  onChange={(e) => setCollectionFrequency(e.target.value as CollectionFrequency)}
+                  className="flex h-10 w-full rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="biweekly">Bi-weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Interest Type</label>
+                <select
+                  value={interestType}
+                  onChange={(e) => setInterestType(e.target.value as InterestType)}
+                  className="flex h-10 w-full rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="flat">Flat</option>
+                  <option value="reducing_balance">Reducing Balance</option>
+                </select>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="lg:col-span-2 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
+              <CardContent className="p-6">
+                <div className="text-sm font-medium text-zinc-400">Total Payable</div>
+                <div className="text-2xl font-bold text-white mt-2">{formatCurrency(result.totalPayable)}</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
+              <CardContent className="p-6">
+                <div className="text-sm font-medium text-zinc-400">Total Interest</div>
+                <div className="text-2xl font-bold text-indigo-400 mt-2">{formatCurrency(result.totalInterest)}</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
+              <CardContent className="p-6">
+                <div className="text-sm font-medium text-zinc-400">EMI / Installment</div>
+                <div className="text-2xl font-bold text-emerald-400 mt-2">{formatCurrency(result.emi)}</div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-xl text-white">Repayment Schedule</CardTitle>
+              <CardDescription className="text-zinc-400">
+                Detailed breakdown of each installment over the loan period.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {result.schedule.length > 0 ? (
+                <div className="overflow-auto max-h-[500px] border border-zinc-800 rounded-md">
+                  <table className="w-full text-sm text-left">
+                    <thead className="text-xs text-zinc-400 bg-zinc-900/80 sticky top-0 uppercase">
+                      <tr>
+                        <th className="px-4 py-3">#</th>
+                        <th className="px-4 py-3">Principal</th>
+                        <th className="px-4 py-3">Interest</th>
+                        <th className="px-4 py-3">Total Installment</th>
+                        <th className="px-4 py-3">Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.schedule.map((item) => (
+                        <tr key={item.installmentNumber} className="border-b border-zinc-800/50 hover:bg-zinc-800/20">
+                          <td className="px-4 py-3 font-medium text-zinc-300">{item.installmentNumber}</td>
+                          <td className="px-4 py-3 text-white">{formatCurrency(item.principal)}</td>
+                          <td className="px-4 py-3 text-white">{formatCurrency(item.interest)}</td>
+                          <td className="px-4 py-3 text-white font-medium">{formatCurrency(item.total)}</td>
+                          <td className="px-4 py-3 text-white">{formatCurrency(item.balance)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="py-8 text-center text-zinc-500">
+                  Enter valid parameters to see the schedule.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\loans\pages\loan-detail-page.tsx ===
+import React, { useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { useLoanDetails, useApproveLoan, useDisburseLoan, useLoanSchedule } from '../hooks/use-loans';
+import { LoanStatusBadge } from '../components/loan-status-badge';
+import { LoanScheduleTable } from '../components/loan-schedule-table';
+import { RestructureLoanDialog } from '../components/restructure-loan-dialog';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/card';
+import { Button } from '@/shared/components/ui/button';
+import { ArrowLeft, CheckCircle, AlertTriangle, FileText, Download, User, Play, RefreshCw, MessageCircle, Receipt } from 'lucide-react';
+import { RoleGate } from '@/shared/components/auth/role-gate';
+import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
+import { apiClient } from '@/shared/lib/api-client';
+import { toast } from 'sonner';
+import { openWhatsApp, generateReceiptMessage } from '@/shared/lib/whatsapp';
+import { ReceiptModal, ReceiptCollection } from '@/features/collections/components/receipt-modal';
+
+type Tab = 'overview' | 'schedule' | 'collections' | 'documents';
+
+export const LoanDetailPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const { data: loanResponse, isLoading: loading } = useLoanDetails(id || '');
+  const loan = loanResponse?.data;
+  
+  const { data: scheduleResponse, isLoading: scheduleLoading } = useLoanSchedule(id || '');
+  const schedule = scheduleResponse?.data || [];
+
+  const approveLoan = useApproveLoan();
+  const disburseLoan = useDisburseLoan();
+
+  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [downloadingStatement, setDownloadingStatement] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState<ReceiptCollection | null>(null);
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+
+  const handleDownloadStatement = async () => {
+    if (!loan) return;
+    try {
+      setDownloadingStatement(true);
+      const blob = await apiClient.loans.downloadLoanStatement(loan.id);
+      const url = window.URL.createObjectURL(blob as Blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `loan-statement-${loan.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('Statement downloaded successfully');
+    } catch (error) {
+      console.error('Failed to download statement', error);
+      toast.error('Failed to download statement');
+    } finally {
+      setDownloadingStatement(false);
+    }
+  };
+
+  const handleShareReceipt = () => {
+    if (!loan) return;
+    // Fallback to loan info if collections data isn't available
+    const msg = generateReceiptMessage({
+      customerName: loan.customer?.fullName || loan.customerId,
+      amount: loan.nextPaymentAmount || 0,
+      date: new Date().toLocaleDateString(),
+      loanId: loan.id,
+      outstandingBalance: loan.remainingBalance || 0,
+    });
+    const phone = loan.customer?.phone || loan.customer?.phoneNumber || '9999999999';
+    openWhatsApp(phone, msg);
+  };
+
+  if (loading) {
+    return <div className="p-8 flex justify-center"><LoadingSpinner className="w-8 h-8 text-primary" /></div>;
+  }
+
+  if (!loan) {
+    return <div className="p-8 text-center text-red-400">Loan not found</div>;
+  }
+
+  return (
+    <div className="space-y-6 max-w-7xl mx-auto p-4 md:p-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex items-center gap-4">
+          <Link to="/app/loans">
+            <Button variant="ghost" size="icon" className="rounded-full hover:bg-white/10 text-gray-400">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-white tracking-tight">Loan {loan.id.slice(0, 8)}</h1>
+              <LoanStatusBadge status={loan.status} />
+            </div>
+            <p className="text-sm text-gray-400 mt-1">Borrower: {loan.customer?.fullName || loan.customerId}</p>
+          </div>
+        </div>
+
+        <div className="flex gap-2 flex-wrap">
+          <RoleGate allowedRoles={['org_admin', 'branch_manager', 'accountant', 'agent']}>
+            <Button
+              onClick={() => {
+                const latestCol = loan.collections?.[0];
+                setSelectedReceipt({
+                  id: latestCol?.id || loan.id,
+                  amount: latestCol ? Number(latestCol.amount) : (loan.nextPaymentAmount || loan.principalAmount || 0),
+                  collectionDate: latestCol?.collectionDate || latestCol?.collectedAt || new Date().toISOString(),
+                  collectionMethod: latestCol?.collectionMethod || 'cash',
+                  customerName: loan.customer?.fullName || loan.customerId,
+                  customerPhone: loan.customer?.phone || loan.customer?.phoneNumber,
+                  loanId: loan.id,
+                  outstandingBalance: Number(loan.remainingBalance || 0),
+                  receiptNumber: latestCol?.receiptNumber || undefined,
+                });
+                setReceiptModalOpen(true);
+              }}
+              className="bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30 gap-2"
+            >
+              <Receipt className="h-4 w-4" />
+              View Receipt
+            </Button>
+            <Button
+              onClick={handleShareReceipt}
+              className="bg-[#25D366]/20 text-[#25D366] hover:bg-[#25D366]/30 border border-[#25D366]/30 gap-2"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Share Receipt
+            </Button>
+            <Button
+              onClick={handleDownloadStatement}
+              disabled={downloadingStatement}
+              className="bg-zinc-800/50 text-white hover:bg-zinc-800 border border-zinc-700 gap-2"
+            >
+              {downloadingStatement ? <LoadingSpinner className="w-4 h-4" /> : <Download className="h-4 w-4" />}
+              Statement
+            </Button>
+          </RoleGate>
+          <RoleGate allowedRoles={['org_admin', 'branch_manager']}>
+            {loan.status === 'PENDING' && (
+              <Button 
+                onClick={() => approveLoan.mutate(loan.id)}
+                disabled={approveLoan.isPending}
+                className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 gap-2"
+              >
+                {approveLoan.isPending ? <LoadingSpinner className="w-4 h-4" /> : <CheckCircle className="h-4 w-4" />}
+                Approve
+              </Button>
+            )}
+            {loan.status === 'APPROVED' && (
+              <Button 
+                onClick={() => disburseLoan.mutate(loan.id)}
+                disabled={disburseLoan.isPending}
+                className="bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30 gap-2"
+              >
+                {disburseLoan.isPending ? <LoadingSpinner className="w-4 h-4" /> : <Play className="h-4 w-4" />}
+                Disburse
+              </Button>
+            )}
+            {loan.status === 'ACTIVE' && (
+              <>
+                <RestructureLoanDialog 
+                  loan={loan} 
+                  trigger={
+                    <Button className="bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/30 gap-2">
+                      <RefreshCw className="h-4 w-4" />
+                      Restructure
+                    </Button>
+                  } 
+                />
+                <Button className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border border-yellow-500/30 gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  Mark Default
+                </Button>
+              </>
+            )}
+          </RoleGate>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex space-x-1 border-b border-white/10 overflow-x-auto no-scrollbar">
+        {(['overview', 'schedule', 'collections', 'documents'] as Tab[]).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
+              activeTab === tab
+                ? 'border-primary text-primary'
+                : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-white/20'
+            }`}
+          >
+            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div className="mt-6">
+        {activeTab === 'overview' && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="md:col-span-2 border-white/10 bg-black/40 backdrop-blur-xl">
+              <CardHeader>
+                <CardTitle className="text-white text-lg">Loan Details</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-y-6 gap-x-4">
+                <div>
+                  <p className="text-sm text-gray-500">Principal Amount</p>
+                  <p className="text-xl font-semibold text-white">â‚¹{loan.principalAmount?.toLocaleString() || loan.amount?.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Remaining Balance</p>
+                  <p className="text-xl font-semibold text-white">â‚¹{loan.remainingBalance?.toLocaleString() || '0'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Interest Rate</p>
+                  <p className="text-lg font-medium text-white">{loan.loanProduct?.interestRateAnnual}% p.a.</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Tenure</p>
+                  <p className="text-lg font-medium text-white">{loan.tenure} Installments</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Start Date</p>
+                  <p className="text-base text-gray-200">{loan.startDate ? new Date(loan.startDate).toLocaleDateString() : 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">End Date</p>
+                  <p className="text-base text-gray-200">{loan.endDate ? new Date(loan.endDate).toLocaleDateString() : 'N/A'}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-white/10 bg-black/40 backdrop-blur-xl">
+              <CardHeader>
+                <CardTitle className="text-white text-lg">Next Payment</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loan.nextPaymentDate ? (
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                      <p className="text-sm text-gray-400 mb-1">Due Date</p>
+                      <p className="text-lg font-medium text-white mb-3">{new Date(loan.nextPaymentDate).toLocaleDateString()}</p>
+                      <p className="text-sm text-gray-400 mb-1">Amount</p>
+                      <p className="text-2xl font-bold text-primary">â‚¹{loan.nextPaymentAmount?.toLocaleString()}</p>
+                    </div>
+                    <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+                      <Link to={`/app/collections/record/${loan.id}`}>
+                        <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+                          Record Payment
+                        </Button>
+                      </Link>
+                    </RoleGate>
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-gray-500">
+                    No upcoming payments
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {activeTab === 'schedule' && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-medium text-white">Repayment Schedule</h2>
+            {scheduleLoading ? (
+              <div className="flex justify-center p-8"><LoadingSpinner className="w-6 h-6 text-primary" /></div>
+            ) : (
+              <LoanScheduleTable payments={schedule} />
+            )}
+          </div>
+        )}
+
+        {activeTab === 'collections' && (
+          <Card className="border-white/10 bg-black/40 backdrop-blur-xl">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-white text-lg">Collection History</CardTitle>
+                <CardDescription className="text-gray-400">Recent collections for this loan.</CardDescription>
+              </div>
+              <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+                <Link to={`/app/collections/record/${loan.id}`}>
+                  <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                    Record Payment
+                  </Button>
+                </Link>
+              </RoleGate>
+            </CardHeader>
+            <CardContent>
+              {loan.collections && loan.collections.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="border-b border-white/10 text-xs text-gray-400 uppercase">
+                      <tr>
+                        <th className="pb-3 font-medium">Receipt #</th>
+                        <th className="pb-3 font-medium">Date</th>
+                        <th className="pb-3 font-medium">Method</th>
+                        <th className="pb-3 font-medium">Amount</th>
+                        <th className="pb-3 font-medium">Collected By</th>
+                        <th className="pb-3 font-medium">Status</th>
+                        <th className="pb-3 font-medium text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {loan.collections.map((col: any) => (
+                        <tr key={col.id} className="hover:bg-white/5 transition-colors">
+                          <td className="py-3 font-mono text-xs text-gray-300">
+                            {col.receiptNumber || `COL-${col.id.replace(/-/g, '').slice(0, 5).toUpperCase()}`}
+                          </td>
+                          <td className="py-3 text-gray-300">
+                            {col.collectionDate || col.collectedAt
+                              ? new Date(col.collectionDate || col.collectedAt!).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                              : 'N/A'}
+                          </td>
+                          <td className="py-3 text-gray-300 capitalize">
+                            {col.collectionMethod || 'Cash'}
+                          </td>
+                          <td className="py-3 font-semibold text-emerald-400">
+                            â‚¹{Number(col.amount).toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-3 text-gray-400 text-xs">
+                            {col.collectedBy?.fullName || 'Staff'}
+                          </td>
+                          <td className="py-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                              col.status === 'reversed'
+                                ? 'bg-red-500/20 text-red-400'
+                                : 'bg-emerald-500/20 text-emerald-400'
+                            }`}>
+                              {(col.status || 'recorded').toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="py-3 text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedReceipt({
+                                  id: col.id,
+                                  amount: Number(col.amount),
+                                  collectionDate: col.collectionDate || col.collectedAt || new Date().toISOString(),
+                                  collectionMethod: col.collectionMethod || 'cash',
+                                  customerName: loan.customer?.fullName || loan.customerId,
+                                  customerPhone: loan.customer?.phone || loan.customer?.phoneNumber,
+                                  loanId: loan.id,
+                                  outstandingBalance: Number(loan.remainingBalance || 0),
+                                  receiptNumber: col.receiptNumber || undefined,
+                                });
+                                setReceiptModalOpen(true);
+                              }}
+                              className="h-8 border-white/10 hover:bg-white/10 text-white gap-1.5"
+                            >
+                              <Receipt className="h-3.5 w-3.5" />
+                              View Receipt
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  <User className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                  <p>No collection records yet.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === 'documents' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {['ID Proof', 'Address Proof', 'Loan Agreement', 'Promissory Note'].map((doc, idx) => (
+              <Card key={idx} className="border-white/10 bg-white/5 hover:bg-white/10 transition-colors cursor-pointer group">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                      <FileText className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white group-hover:text-primary transition-colors">{doc}</p>
+                      <p className="text-xs text-gray-500">PDF Document</p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white rounded-full">
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <ReceiptModal
+        open={receiptModalOpen}
+        onClose={() => setReceiptModalOpen(false)}
+        collection={selectedReceipt}
+      />
+    </div>
+  );
+};
+
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\loans\pages\loans-list-page.tsx ===
+import React from 'react';
+import { useLoans } from '../hooks/use-loans';
+import { LoanStatusBadge } from '../components/loan-status-badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
+import { Plus, Search, Filter, FileText } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { RoleGate } from '@/shared/components/auth/role-gate';
+import { EmptyState } from '@/shared/components/ui/empty-state';
+import { useAuth } from '@/shared/hooks/use-auth';
+
+export const LoansListPage: React.FC = () => {
+  const { user } = useAuth();
+  const isAccountant = user?.userType === 'staff' && user.role === 'accountant';
+  const { data: loansResponse, isLoading: loading } = useLoans();
+  const loans = loansResponse?.data || [];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Loans</h1>
+          <p className="text-sm text-gray-400 mt-1">Manage and track all loan accounts</p>
+        </div>
+        <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+          <Link to="/app/loans/new">
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+              <Plus className="h-4 w-4" />
+              New Loan
+            </Button>
+          </Link>
+        </RoleGate>
+      </div>
+
+      <Card className="border-white/10 bg-black/40 backdrop-blur-xl">
+        <CardHeader className="border-b border-white/5 pb-4">
+          <div className="flex flex-col sm:flex-row gap-4 justify-between">
+            <CardTitle className="text-lg font-medium text-white flex items-center gap-2">
+              All Loans
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input 
+                  placeholder="Search loans..." 
+                  className="pl-9 w-full sm:w-64 bg-white/5 border-white/10 text-white placeholder:text-gray-500"
+                />
+              </div>
+              <Button variant="outline" size="icon" className="border-white/10 bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white">
+                <Filter className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="p-8 text-center text-gray-500">Loading loans...</div>
+          ) : loans.length === 0 ? (
+            <div className="p-6">
+              <EmptyState
+                icon={FileText}
+                title="No active loans"
+                description="There are no loans in the system. Create a new loan to get started."
+                actionLabel={isAccountant ? undefined : "New Loan"}
+                actionHref={isAccountant ? undefined : "/app/loans/new"}
+              />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm text-gray-300">
+                <thead className="bg-white/5 text-xs uppercase text-gray-400 border-b border-white/10">
+                  <tr>
+                    <th className="px-6 py-4 font-medium">Loan ID</th>
+                    <th className="px-6 py-4 font-medium">Borrower</th>
+                    <th className="px-6 py-4 font-medium">Amount</th>
+                    <th className="px-6 py-4 font-medium">Balance</th>
+                    <th className="px-6 py-4 font-medium">Status</th>
+                    <th className="px-6 py-4 font-medium text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/10">
+                  {loans.map((loan: any) => (
+                    <tr key={loan.id} className="hover:bg-white/5 transition-colors">
+                      <td className="px-6 py-4 font-medium text-white">{loan.id.slice(0, 8)}</td>
+                      <td className="px-6 py-4">{loan.customer?.fullName || loan.customerId}</td>
+                      <td className="px-6 py-4 font-medium">â‚¹{(loan.principalAmount || loan.amount || 0).toLocaleString()}</td>
+                      <td className="px-6 py-4">â‚¹{(loan.remainingBalance || 0).toLocaleString()}</td>
+                      <td className="px-6 py-4">
+                        <LoanStatusBadge status={loan.status} />
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <Link to={`/app/loans/${loan.id}`}>
+                          <Button variant="ghost" size="sm" className="text-primary hover:text-primary-foreground hover:bg-primary/20">
+                            View
+                          </Button>
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\loans\pages\new-loan-page.tsx ===
+import React from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/shared/components/ui/card';
+import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
+import { ArrowLeft, Save } from 'lucide-react';
+import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
+import { useCustomers } from "../../customers/hooks/use-customers";
+import { useLoanProducts } from '../../loan-products/hooks/use-loan-products';
+import { useCreateLoan } from '../hooks/use-loans';
+
+const loanSchema = z.object({
+  customerId: z.string().min(1, 'Customer is required'),
+  loanProductId: z.string().min(1, 'Loan Product is required'),
+  principalAmount: z.number().min(1, 'Amount must be greater than 0'),
+  tenure: z.number().min(1, 'Tenure must be at least 1'),
+  notes: z.string().optional(),
+});
+
+type LoanFormValues = z.infer<typeof loanSchema>;
+
+export const NewLoanPage: React.FC = () => {
+  const navigate = useNavigate();
+  const createLoan = useCreateLoan();
+  
+  const { data: customersRes } = useCustomers();
+  const { data: productsRes } = useLoanProducts();
+  
+  const customers = customersRes?.data || [];
+  const products = productsRes?.data || [];
+
+  const { register, handleSubmit, formState: { errors } } = useForm<LoanFormValues>({
+    resolver: zodResolver(loanSchema),
+    defaultValues: {
+      customerId: '',
+      loanProductId: '',
+      principalAmount: 0,
+      tenure: 0,
+      notes: ''
+    }
+  });
+
+  const onSubmit = async (data: LoanFormValues) => {
+    try {
+      await createLoan.mutateAsync(data);
+      navigate('/app/loans');
+    } catch (error) {
+      console.error('Failed to create loan:', error);
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-w-3xl mx-auto p-6">
+      <div className="flex items-center gap-4">
+        <Link to="/app/loans">
+          <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        </Link>
+        <div>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Create New Loan</h1>
+          <p className="text-sm text-zinc-400 mt-1">Issue a new loan to a registered customer.</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="text-xl text-white">Loan Details</CardTitle>
+            <CardDescription className="text-zinc-400">
+              Select a customer and a loan product to determine the terms.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">Customer</label>
+              <select
+                {...register('customerId')}
+                className="flex h-10 w-full rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Select a customer...</option>
+                {customers.map(c => (
+                  <option key={c.id} value={c.id}>{c.firstName} {c.lastName} ({c.phone})</option>
+                ))}
+              </select>
+              {errors.customerId && <p className="text-sm text-red-400">{errors.customerId.message}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">Loan Product</label>
+              <select
+                {...register('loanProductId')}
+                className="flex h-10 w-full rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Select a product...</option>
+                {products.map(p => (
+                  <option key={p.id} value={p.id}>{p.name} ({p.interestRateAnnual}% {p.interestType})</option>
+                ))}
+              </select>
+              {errors.loanProductId && <p className="text-sm text-red-400">{errors.loanProductId.message}</p>}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Principal Amount (â‚¹)</label>
+                <Input
+                  type="number"
+                  {...register('principalAmount', { valueAsNumber: true })}
+                  className="bg-zinc-800/50 border-zinc-700 text-white"
+                  placeholder="10000"
+                />
+                {errors.principalAmount && <p className="text-sm text-red-400">{errors.principalAmount.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Tenure (Number of Installments)</label>
+                <Input
+                  type="number"
+                  {...register('tenure', { valueAsNumber: true })}
+                  className="bg-zinc-800/50 border-zinc-700 text-white"
+                  placeholder="100"
+                />
+                {errors.tenure && <p className="text-sm text-red-400">{errors.tenure.message}</p>}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">Notes (Optional)</label>
+              <Input
+                {...register('notes')}
+                className="bg-zinc-800/50 border-zinc-700 text-white"
+                placeholder="Any special notes..."
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-end gap-3 border-t border-zinc-800/50 pt-6">
+            <Link to="/app/loans">
+              <Button type="button" variant="ghost" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+                Cancel
+              </Button>
+            </Link>
+            <Button type="submit" disabled={createLoan.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+              {createLoan.isPending ? <LoadingSpinner className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+              Create Loan
+            </Button>
+          </CardFooter>
+        </Card>
+      </form>
+    </div>
+  );
+};
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\portal\pages\portal-dashboard-page.tsx ===
+import { useState } from 'react';
+import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui/card';
+import { Wallet, CreditCard, Activity, FileText, Download } from 'lucide-react';
+import { usePortalDashboard } from '../hooks/use-portal';
+import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
+import { Button } from '@/shared/components/ui/button';
+import { Link } from 'react-router-dom';
+import { apiClient } from '@/shared/lib/api-client';
+
+export function PortalDashboardPage() {
+  const { data: dashboard, isLoading } = usePortalDashboard();
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadPassbook = async () => {
+    try {
+      setIsDownloading(true);
+      const blob = await apiClient.portal.downloadPassbook();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `my-passbook.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download passbook', error);
+      alert('Failed to download passbook. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[400px] items-center justify-center">
+        <LoadingSpinner className="w-8 h-8 text-indigo-500" />
+      </div>
+    );
+  }
+
+  const { customer, loans, stats } = dashboard || { customer: null, loans: [], stats: {} };
+
+  const STATS = [
+    {
+      title: 'Active Loans',
+      value: stats?.totalActiveLoans || 0,
+      icon: CreditCard,
+      color: 'text-blue-500',
+    },
+    {
+      title: 'Total Disbursed',
+      value: `â‚¹${(stats?.totalDisbursed || 0).toLocaleString()}`,
+      icon: Wallet,
+      color: 'text-purple-500',
+    },
+    {
+      title: 'Total Outstanding',
+      value: `â‚¹${(stats?.totalOutstanding || 0).toLocaleString()}`,
+      icon: Activity,
+      color: 'text-rose-500',
+    }
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Customer Portal</h1>
+          <p className="text-muted-foreground mt-2">
+            Welcome back, {customer?.fullName || 'User'}! Here's an overview of your accounts.
+          </p>
+        </div>
+        <Button 
+          variant="outline" 
+          className="border-white/10 bg-white/5 hover:bg-white/10"
+          onClick={handleDownloadPassbook}
+          disabled={isDownloading}
+        >
+          {isDownloading ? (
+            <LoadingSpinner className="w-4 h-4 mr-2" />
+          ) : (
+            <Download className="w-4 h-4 mr-2" />
+          )}
+          Download My Passbook
+        </Button>
+      </div>
+
+
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {STATS.map((stat, index) => {
+          const Icon = stat.icon;
+          return (
+            <Card key={index} className="border-white/10 bg-black/40 backdrop-blur-xl">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
+                    <p className="text-2xl font-bold mt-1">{stat.value}</p>
+                  </div>
+                  <div className={`p-3 rounded-full bg-white/5 ${stat.color}`}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      <div className="grid gap-6">
+        <Card className="border-white/10 bg-black/40 backdrop-blur-xl">
+          <CardHeader>
+            <CardTitle>Your Active Loans</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {loans.length === 0 ? (
+                <div className="text-center py-8 text-zinc-500">
+                  <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>You have no active loans at the moment.</p>
+                </div>
+              ) : (
+                loans.map((loan: any) => (
+                  <div key={loan.id} className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
+                    <div className="flex flex-col">
+                      <span className="font-medium text-white">{loan.loanProduct?.name || 'Loan'}</span>
+                      <span className="text-xs text-muted-foreground">ID: {loan.id.slice(0, 8)}</span>
+                    </div>
+                    <div className="flex flex-col items-end mr-4">
+                      <span className="font-semibold text-rose-400">
+                        â‚¹{loan.remainingBalance.toLocaleString()} Left
+                      </span>
+                      <span className="text-xs text-zinc-400">of â‚¹{loan.amount.toLocaleString()}</span>
+                    </div>
+                    <Link to={`/app/portal/loans/${loan.id}`}>
+                      <button className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-md text-sm font-medium transition-colors">
+                        View Details
+                      </button>
+                    </Link>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\portal\pages\portal-loan-detail-page.tsx ===
+import { useParams, Link } from 'react-router-dom';
+import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui/card';
+import { Button } from '@/shared/components/ui/button';
+import { Badge } from '@/shared/components/ui/badge';
+import { ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
+import { usePortalLoanDetails } from '../hooks/use-portal';
+import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
+
+export function PortalLoanDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const { data: loanRes, isLoading } = usePortalLoanDetails(id || '');
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[400px] items-center justify-center">
+        <LoadingSpinner className="w-8 h-8 text-indigo-500" />
+      </div>
+    );
+  }
+
+  const { loan, schedule, summary } = loanRes || { loan: null, schedule: [], summary: null };
+
+  if (!loan) {
+    return (
+      <div className="flex h-[400px] items-center justify-center text-zinc-500">
+        Loan not found.
+      </div>
+    );
+  }
+
+  const progressPercent = summary?.totalAmount > 0 
+    ? Math.round((summary.totalPaid / summary.totalAmount) * 100) 
+    : 0;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Link to="/app/portal/dashboard">
+          <Button variant="ghost" size="icon" className="hover:bg-white/10">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        </Link>
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold tracking-tight text-white">{loan.loanProduct?.name || 'Loan Account'}</h1>
+            <Badge variant="default" className={
+              loan.status === 'active' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50' :
+              loan.status === 'closed' ? 'bg-zinc-500/20 text-zinc-400 border-zinc-500/50' :
+              'bg-amber-500/20 text-amber-400 border-amber-500/50'
+            }>
+              {loan.status}
+            </Badge>
+          </div>
+          <p className="text-muted-foreground mt-1">
+            Loan ID: #{loan.id.slice(0, 8)}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-3">
+        <div className="md:col-span-2 space-y-6">
+          <Card className="border-white/10 bg-black/40 backdrop-blur-xl">
+            <CardHeader>
+              <CardTitle className="text-white">Loan Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+                <div>
+                  <p className="text-sm text-zinc-400">Principal</p>
+                  <p className="text-xl font-bold mt-1 text-white">â‚¹{(loan.principalAmount || loan.amount).toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-400">Interest Rate</p>
+                  <p className="text-xl font-bold mt-1 text-white">{loan.interestRate}%</p>
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-400">Total Amount</p>
+                  <p className="text-xl font-bold mt-1 text-white">â‚¹{summary?.totalAmount?.toLocaleString() || 0}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-zinc-400">Paid Amount</p>
+                  <p className="text-xl font-bold mt-1 text-emerald-400">â‚¹{summary?.totalPaid?.toLocaleString() || 0}</p>
+                </div>
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-white/10">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-white">Repayment Progress</span>
+                  <span className="text-sm font-medium text-emerald-400">{progressPercent}%</span>
+                </div>
+                <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                  <div className={`h-full bg-emerald-500 rounded-full`} style={{ width: `${progressPercent}%` }}></div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-white/10 bg-black/40 backdrop-blur-xl">
+            <CardHeader>
+              <CardTitle className="text-white">Repayment Schedule</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {schedule.length === 0 ? (
+                  <div className="text-center p-4 text-zinc-500">No schedule generated yet.</div>
+                ) : (
+                  schedule.map((installment: any) => (
+                    <div key={installment.id} className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/10">
+                      <div className="flex items-center gap-4">
+                        {installment.status === 'paid' ? (
+                          <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+                        ) : installment.status === 'overdue' ? (
+                          <AlertCircle className="h-6 w-6 text-rose-500" />
+                        ) : (
+                          <AlertCircle className="h-6 w-6 text-amber-500" />
+                        )}
+                        <div>
+                          <p className="font-medium text-white">Installment {installment.installmentNumber}</p>
+                          <p className="text-sm text-zinc-400">{new Date(installment.dueDate).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-white">â‚¹{installment.amount.toLocaleString()}</p>
+                        <Badge variant="outline" className={
+                          installment.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                          installment.status === 'overdue' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
+                          'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                        }>
+                          {installment.status}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card className="border-white/10 bg-black/40 backdrop-blur-xl">
+            <CardHeader>
+              <CardTitle className="text-white">Next Payment Due</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {summary?.nextInstallment ? (
+                <div className="text-center py-4">
+                  <p className="text-4xl font-bold text-amber-400">â‚¹{summary.nextInstallment.amount.toLocaleString()}</p>
+                  <p className="text-zinc-400 mt-2">Due on {new Date(summary.nextInstallment.dueDate).toLocaleDateString()}</p>
+                  <Button className="w-full mt-6 bg-indigo-500 hover:bg-indigo-600 text-white font-medium">
+                    Pay Now via UPI
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
+                  <p className="text-lg font-medium text-white">All Caught Up!</p>
+                  <p className="text-sm text-zinc-400 mt-1">No pending installments.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\reports\pages\reports-page.tsx ===
+import React, { useState } from 'react';
+import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui/card';
+import { Button } from '@/shared/components/ui/button';
+import { Download, AlertTriangle, TrendingUp, Users, MessageCircle } from 'lucide-react';
+import { usePortfolioAtRisk, useCollectionEfficiency, useAgentPerformance, useExportReport } from '../hooks/use-reports';
+import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/shared/components/ui/table';
+import { openWhatsApp, generateReminderMessage } from '@/shared/lib/whatsapp';
+
+export function ReportsPage() {
+  const [activeTab, setActiveTab] = useState<'par' | 'collections' | 'agents'>('par');
+  
+  const exportReport = useExportReport();
+  
+  const parQuery = usePortfolioAtRisk();
+  const collectionsQuery = useCollectionEfficiency();
+  const agentsQuery = useAgentPerformance();
+
+  const handleExport = () => {
+    exportReport.mutate(activeTab);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-white">Reports & Analytics</h1>
+          <p className="text-muted-foreground mt-2">
+            Monitor the health and efficiency of your micro-finance operations.
+          </p>
+        </div>
+        <Button 
+          onClick={handleExport} 
+          disabled={exportReport.isPending}
+          className="bg-primary hover:bg-primary/90 gap-2"
+        >
+          <Download className="w-4 h-4" />
+          {exportReport.isPending ? 'Exporting...' : 'Export CSV'}
+        </Button>
+      </div>
+
+      <div className="flex border-b border-zinc-800">
+        <button
+          onClick={() => setActiveTab('par')}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+            activeTab === 'par' ? 'border-primary text-primary' : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+          }`}
+        >
+          <AlertTriangle className="w-4 h-4" /> Portfolio At Risk
+        </button>
+        <button
+          onClick={() => setActiveTab('collections')}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+            activeTab === 'collections' ? 'border-primary text-primary' : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+          }`}
+        >
+          <TrendingUp className="w-4 h-4" /> Collection Efficiency
+        </button>
+        <button
+          onClick={() => setActiveTab('agents')}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+            activeTab === 'agents' ? 'border-primary text-primary' : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+          }`}
+        >
+          <Users className="w-4 h-4" /> Agent Performance
+        </button>
+      </div>
+
+      <div className="mt-6">
+        {activeTab === 'par' && (
+          <Card className="bg-zinc-900/50 border-zinc-800">
+            <CardHeader>
+              <CardTitle className="text-white">Portfolio At Risk (PAR)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {parQuery.isLoading ? (
+                <div className="p-12 flex justify-center"><LoadingSpinner className="w-8 h-8 text-primary" /></div>
+              ) : (
+                <div className="rounded-md border border-white/10 overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-white/5">
+                      <TableRow className="border-white/10">
+                        <TableHead>Loan ID</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Principal</TableHead>
+                        <TableHead>Outstanding Balance</TableHead>
+                        <TableHead>Days Overdue</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {parQuery.data?.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center p-8 text-zinc-500">No overdue loans found.</TableCell>
+                        </TableRow>
+                      ) : (
+                        parQuery.data?.map((item: any) => (
+                          <TableRow key={item.loanId} className="border-white/10">
+                            <TableCell className="font-medium text-white">{item.loanId.slice(0, 8)}</TableCell>
+                            <TableCell>{item.customerName}</TableCell>
+                            <TableCell>â‚¹{item.principalAmount.toLocaleString()}</TableCell>
+                            <TableCell className="text-rose-400 font-medium">â‚¹{item.outstandingBalance.toLocaleString()}</TableCell>
+                            <TableCell>{item.daysOverdue}</TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/10 hover:text-[#25D366]"
+                                onClick={() => {
+                                  const msg = generateReminderMessage({
+                                    customerName: item.customerName,
+                                    dueAmount: item.outstandingBalance, // Since amount is outstanding
+                                    dueDate: new Date(Date.now() - item.daysOverdue * 24 * 60 * 60 * 1000).toLocaleDateString(),
+                                    daysOverdue: item.daysOverdue,
+                                  });
+                                  openWhatsApp(item.customerPhone || '9999999999', msg);
+                                }}
+                              >
+                                <MessageCircle className="w-4 h-4 mr-1" />
+                                Remind
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === 'collections' && (
+          <Card className="bg-zinc-900/50 border-zinc-800">
+            <CardHeader>
+              <CardTitle className="text-white">Collection Efficiency</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {collectionsQuery.isLoading ? (
+                <div className="p-12 flex justify-center"><LoadingSpinner className="w-8 h-8 text-primary" /></div>
+              ) : (
+                <div className="rounded-md border border-white/10 overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-white/5">
+                      <TableRow className="border-white/10">
+                        <TableHead>Date</TableHead>
+                        <TableHead>Expected Collections</TableHead>
+                        <TableHead>Actual Collections</TableHead>
+                        <TableHead>Efficiency %</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {collectionsQuery.data?.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center p-8 text-zinc-500">No collection data available.</TableCell>
+                        </TableRow>
+                      ) : (
+                        collectionsQuery.data?.map((item: any, i: number) => (
+                          <TableRow key={i} className="border-white/10">
+                            <TableCell className="font-medium text-white">{item.date}</TableCell>
+                            <TableCell>â‚¹{item.expected.toLocaleString()}</TableCell>
+                            <TableCell className="text-emerald-400">â‚¹{item.actual.toLocaleString()}</TableCell>
+                            <TableCell>
+                              <span className={`px-2 py-1 rounded-full text-xs ${item.efficiency >= 90 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                                {item.efficiency.toFixed(1)}%
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {activeTab === 'agents' && (
+          <Card className="bg-zinc-900/50 border-zinc-800">
+            <CardHeader>
+              <CardTitle className="text-white">Agent Performance</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {agentsQuery.isLoading ? (
+                <div className="p-12 flex justify-center"><LoadingSpinner className="w-8 h-8 text-primary" /></div>
+              ) : (
+                <div className="rounded-md border border-white/10 overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-white/5">
+                      <TableRow className="border-white/10">
+                        <TableHead>Agent Name</TableHead>
+                        <TableHead>Total Collections</TableHead>
+                        <TableHead>Amount Collected</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {agentsQuery.data?.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-center p-8 text-zinc-500">No agent performance data available.</TableCell>
+                        </TableRow>
+                      ) : (
+                        agentsQuery.data?.map((item: any) => (
+                          <TableRow key={item.agentId} className="border-white/10">
+                            <TableCell className="font-medium text-white">{item.agentName}</TableCell>
+                            <TableCell>{item.totalCollections}</TableCell>
+                            <TableCell className="text-indigo-400 font-medium">â‚¹{item.amountCollected.toLocaleString()}</TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\settings\pages\settings-page.tsx ===
+import { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { apiClient } from '@/shared/lib/api-client';
+
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/shared/components/ui/card';
+import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
+import { Save, Building2, Bell, ShieldCheck, Loader2 } from 'lucide-react';
+import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
+
+const organizationSchema = z.object({
+  name: z.string().min(2, 'Organization name is required'),
+  contactEmail: z.string().email('Invalid email address').optional().or(z.literal('')),
+  contactPhone: z.string().optional().or(z.literal('')),
+});
+
+type OrganizationFormValues = z.infer<typeof organizationSchema>;
+
+export function SettingsPage() {
+  const [activeTab, setActiveTab] = useState<'organization' | 'notifications' | 'security'>('organization');
+  const queryClient = useQueryClient();
+  
+  const { data: orgData, isLoading } = useQuery({
+    queryKey: ['organization', 'me'],
+    queryFn: async () => {
+      const res = await apiClient.get('/organizations/me');
+      return res.data;
+    },
+  });
+
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<OrganizationFormValues>({
+    resolver: zodResolver(organizationSchema),
+    defaultValues: {
+      name: '',
+      contactEmail: '',
+      contactPhone: '',
+    },
+  });
+
+  useEffect(() => {
+    if (orgData) {
+      reset({
+        name: orgData.name || '',
+        contactEmail: orgData.contactEmail || '',
+        contactPhone: orgData.contactPhone || '',
+      });
+    }
+  }, [orgData, reset]);
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: OrganizationFormValues) => {
+      const res = await apiClient.patch('/organizations/me', data);
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success('Organization settings updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['organization', 'me'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to update organization');
+    },
+  });
+
+  const onSubmit = (data: OrganizationFormValues) => {
+    updateMutation.mutate(data);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <p className="text-muted-foreground mt-2">
+          Manage your platform preferences and configuration.
+        </p>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-12">
+        <div className="md:col-span-3">
+          <nav className="flex flex-col space-y-1">
+            <Button 
+              variant={activeTab === 'organization' ? 'secondary' : 'ghost'} 
+              className={`justify-start gap-2 ${activeTab !== 'organization' ? 'hover:bg-white/5' : ''}`}
+              onClick={() => setActiveTab('organization')}
+            >
+              <Building2 className="h-4 w-4" />
+              Organization
+            </Button>
+            <Button 
+              variant={activeTab === 'notifications' ? 'secondary' : 'ghost'} 
+              className={`justify-start gap-2 ${activeTab !== 'notifications' ? 'hover:bg-white/5' : ''}`}
+              onClick={() => setActiveTab('notifications')}
+            >
+              <Bell className="h-4 w-4" />
+              Notifications
+            </Button>
+            <Button 
+              variant={activeTab === 'security' ? 'secondary' : 'ghost'} 
+              className={`justify-start gap-2 ${activeTab !== 'security' ? 'hover:bg-white/5' : ''}`}
+              onClick={() => setActiveTab('security')}
+            >
+              <ShieldCheck className="h-4 w-4" />
+              Security
+            </Button>
+          </nav>
+        </div>
+
+        <div className="md:col-span-9 space-y-6">
+          {activeTab === 'organization' && (
+            <Card className="border-white/10 bg-black/40 backdrop-blur-xl">
+              <CardHeader>
+                <CardTitle>Organization Profile</CardTitle>
+                <CardDescription>
+                  Update your company details and basic information.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="flex justify-center p-8">
+                    <LoadingSpinner className="w-8 h-8 text-primary" />
+                  </div>
+                ) : (
+                  <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-200">Organization Name</label>
+                      <Input 
+                        {...register('name')}
+                        className="bg-white/5 border-white/10" 
+                      />
+                      {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-200">Support Email</label>
+                      <Input 
+                        {...register('contactEmail')}
+                        type="email" 
+                        className="bg-white/5 border-white/10" 
+                      />
+                      {errors.contactEmail && <p className="text-sm text-red-500">{errors.contactEmail.message}</p>}
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-200">Contact Number</label>
+                      <Input 
+                        {...register('contactPhone')}
+                        type="tel" 
+                        className="bg-white/5 border-white/10" 
+                      />
+                      {errors.contactPhone && <p className="text-sm text-red-500">{errors.contactPhone.message}</p>}
+                    </div>
+                    
+                    <div className="pt-4 flex justify-end">
+                      <Button type="submit" disabled={updateMutation.isPending} className="gap-2">
+                        {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                        Save Changes
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {activeTab === 'notifications' && (
+            <Card className="border-white/10 bg-black/40 backdrop-blur-xl">
+              <CardHeader>
+                <CardTitle>Notifications</CardTitle>
+                <CardDescription>
+                  Configure how you receive alerts and updates.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-400">Notification settings are coming soon.</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {activeTab === 'security' && (
+            <Card className="border-white/10 bg-black/40 backdrop-blur-xl">
+              <CardHeader>
+                <CardTitle>Security</CardTitle>
+                <CardDescription>
+                  Manage your organization's security preferences.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-400">Security settings are coming soon.</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\staff\pages\staff-form-page.tsx ===
+import { useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { useCreateStaff, StaffRole } from '../hooks/use-staff';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/card';
+import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { ArrowLeft, UserPlus } from 'lucide-react';
+import { Link } from 'react-router-dom';
+
+const staffSchema = z.object({
+  name: z.string().min(2, 'Name is required'),
+  email: z.string().email('Valid email is required'),
+  role: z.enum(['admin', 'manager', 'agent']),
+  status: z.enum(['active', 'inactive', 'suspended']).default('active'),
+});
+
+type StaffFormValues = z.infer<typeof staffSchema>;
+
+export function StaffFormPage() {
+  const navigate = useNavigate();
+  const createStaff = useCreateStaff();
+
+  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<StaffFormValues>({
+    resolver: zodResolver(staffSchema),
+    defaultValues: {
+      status: 'active',
+    }
+  });
+
+  const onSubmit = async (data: StaffFormValues) => {
+    try {
+      await createStaff.mutateAsync(data);
+      navigate('/app/staff');
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-6">
+      <div className="flex items-center gap-4">
+        <Link to="/app/staff">
+          <Button variant="ghost" size="icon" className="hover:bg-white/10">
+            <ArrowLeft className="w-5 h-5 text-zinc-400" />
+          </Button>
+        </Link>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-white">Add Staff Member</h1>
+          <p className="text-sm text-zinc-400">Provision a new user for your organization.</p>
+        </div>
+      </div>
+
+      <Card className="border-white/10 bg-black/40 backdrop-blur-xl">
+        <CardHeader>
+          <CardTitle>Staff Details</CardTitle>
+          <CardDescription>Enter the staff member's information and assign a role.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <Input 
+                  id="name" 
+                  {...register('name')} 
+                  className="bg-white/5 border-white/10" 
+                  placeholder="e.g. Jane Doe"
+                />
+                {errors.name && <p className="text-xs text-red-400">{errors.name.message}</p>}
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address</Label>
+                <Input 
+                  id="email" 
+                  type="email"
+                  {...register('email')} 
+                  className="bg-white/5 border-white/10" 
+                  placeholder="e.g. jane@pigmie.com"
+                />
+                {errors.email && <p className="text-xs text-red-400">{errors.email.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
+                <Select onValueChange={(val: any) => setValue('role', val)}>
+                  <SelectTrigger className="bg-white/5 border-white/10">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Administrator (Full Access)</SelectItem>
+                    <SelectItem value="manager">Branch Manager (Approve Loans)</SelectItem>
+                    <SelectItem value="agent">Field Agent (Record Collections)</SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.role && <p className="text-xs text-red-400">{errors.role.message}</p>}
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="status">Initial Status</Label>
+                <Select defaultValue="active" onValueChange={(val: any) => setValue('status', val)}>
+                  <SelectTrigger className="bg-white/5 border-white/10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-4 pt-4 border-t border-white/10">
+              <Link to="/app/staff">
+                <Button type="button" variant="ghost">Cancel</Button>
+              </Link>
+              <Button type="submit" disabled={createStaff.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+                <UserPlus className="w-4 h-4" />
+                {createStaff.isPending ? 'Adding...' : 'Add Staff Member'}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+=== FILE: D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\staff\pages\staff-page.tsx ===
+import { useStaff, StaffMember, StaffRole, StaffStatus } from '../hooks/use-staff';
+import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui/card';
+import { Button } from '@/shared/components/ui/button';
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/shared/components/ui/table';
+import { Badge } from '@/shared/components/ui/badge';
+import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
+import { Plus, MoreVertical, Shield, User, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { EmptyState } from '@/shared/components/ui/empty-state';
+
+const roleIcons: Record<string, React.ElementType> = {
+  org_admin: Shield,
+  branch_manager: Users,
+  collection_agent: User,
+};
+
+const statusColors: Record<StaffStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  active: 'default',
+  inactive: 'secondary',
+  suspended: 'destructive',
+};
+
+export function StaffPage() {
+  const { data: staffResponse, isLoading, error } = useStaff();
+  const staff = staffResponse?.data || [];
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+        <LoadingSpinner className="h-8 w-8 text-primary" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-[calc(100vh-4rem)] items-center justify-center text-red-500">
+        Error loading staff: {error.message}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Staff Management</h1>
+          <p className="text-muted-foreground mt-2">
+            Manage your organization's staff members and their roles.
+          </p>
+        </div>
+        <Button className="shrink-0 gap-2" asChild>
+          <Link to="/app/staff/new">
+            <Plus className="h-4 w-4" />
+            Add Staff Member
+          </Link>
+        </Button>
+      </div>
+
+      <Card className="border-white/10 bg-black/40 backdrop-blur-xl">
+        <CardHeader>
+          <CardTitle>All Staff Members</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {staff.length === 0 ? (
+            <EmptyState
+              icon={Users}
+              title="No staff members yet"
+              description="Add your first staff member to start managing your organization."
+              actionLabel="Add Staff Member"
+              actionHref="/app/staff/new"
+            />
+          ) : (
+            <div className="rounded-md border border-white/10">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-white/10 hover:bg-white/5">
+                    <TableHead>Name</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Joined</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {staff.map((member) => {
+                    const RoleIcon = roleIcons[member.role] || User;
+                    return (
+                      <TableRow key={member.id} className="border-white/10 hover:bg-white/5">
+                        <TableCell className="font-medium">
+                          <div className="flex flex-col">
+                            <span>{member.name}</span>
+                            <span className="text-xs text-muted-foreground">{member.email}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <RoleIcon className="h-4 w-4 text-muted-foreground" />
+                            <span className="capitalize">{member.role}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={statusColors[member.status]} className="capitalize">
+                            {member.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {new Date(member.joinedAt).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+

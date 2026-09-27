@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, Users, CreditCard, Banknote, FileText, Settings, UserCog, LogOut, X, ShieldAlert, Calculator, ClipboardCheck } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, Banknote, FileText, Settings, UserCog, LogOut, X, ShieldAlert, Calculator, ClipboardCheck, GitBranch, Wallet } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { useAuth } from '@/shared/hooks/use-auth';
 import { useUIStore } from '@/shared/stores/app-store';
@@ -23,9 +23,11 @@ const navItems: NavItem[] = [
   { title: 'Loans', href: '/app/loans', icon: CreditCard, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.loans' },
   { title: 'EMI Calculator', href: '/app/emi-calculator', icon: Calculator, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'EMI Calculator' },
   { title: 'Collections', href: '/app/collections/today', icon: Banknote, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.collections' },
+  { title: 'Cash Deposits', href: '/app/cash-deposits', icon: Wallet, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.cashDeposits' },
   { title: 'Approvals', href: '/app/approvals', icon: ClipboardCheck, roles: ['org_admin', 'branch_manager'], translationKey: 'Approvals' },
   { title: 'Reports', href: '/app/reports', icon: FileText, roles: ['org_admin', 'branch_manager', 'accountant'], translationKey: 'nav.reports' },
   { title: 'Staff', href: '/app/staff', icon: UserCog, roles: ['org_admin'], translationKey: 'nav.staff' },
+  { title: 'Branches', href: '/app/branches', icon: GitBranch, roles: ['org_admin'], translationKey: 'nav.branches' },
   { title: 'Audit Logs', href: '/app/audit-logs', icon: ShieldAlert, roles: ['org_admin', 'accountant'], translationKey: 'nav.auditLogs' },
   { title: 'Settings', href: '/app/settings', icon: Settings, roles: ['org_admin'], translationKey: 'nav.settings' },
 ];

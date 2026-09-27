@@ -96,6 +96,17 @@ export class LoansController {
     return this.loansService.writeOff(user.organizationId, id, dto.reason);
   }
 
+  @Post(':id/mark-default')
+  @HttpCode(HttpStatus.OK)
+  @Roles('org_admin', 'branch_manager')
+  @AuditAction('loan.mark_default')
+  async markDefault(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.loansService.markDefault(user.organizationId, id, user.id);
+  }
+
   @Get(':id/schedule')
   @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
   async getSchedule(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {

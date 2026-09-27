@@ -1,12 +1,22 @@
-import { useStaff, StaffMember, StaffRole, StaffStatus } from '../hooks/use-staff';
+import { useState } from 'react';
+import { useStaff, useUpdateStaff, useDeleteStaff, StaffMember, StaffRole, StaffStatus } from '../hooks/use-staff';
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/shared/components/ui/table';
 import { Badge } from '@/shared/components/ui/badge';
 import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
-import { Plus, MoreVertical, Shield, User, Users, Calculator } from 'lucide-react';
+import { Plus, MoreVertical, Shield, User, Users, Calculator, Edit, PowerOff, Trash } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { EmptyState } from '@/shared/components/ui/empty-state';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/shared/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 
 const roleIcons: Record<string, React.ElementType> = {
   org_admin: Shield,
@@ -20,6 +30,90 @@ const statusColors: Record<StaffStatus, 'default' | 'secondary' | 'destructive' 
   inactive: 'secondary',
   suspended: 'destructive',
 };
+
+function StaffRowActions({ member }: { member: StaffMember }) {
+  const updateStaff = useUpdateStaff();
+  const deleteStaff = useDeleteStaff();
+  
+  const [isEditRoleOpen, setIsEditRoleOpen] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<StaffRole>(member.role);
+
+  const handleDeactivate = () => {
+    if (confirm(`Are you sure you want to deactivate ${member.name}?`)) {
+      updateStaff.mutate({ id: member.id, data: { status: 'inactive' } });
+    }
+  };
+
+  const handleDelete = () => {
+    if (confirm(`Are you sure you want to delete ${member.name}? This cannot be undone.`)) {
+      deleteStaff.mutate(member.id);
+    }
+  };
+
+  const handleUpdateRole = () => {
+    updateStaff.mutate({ id: member.id, data: { role: selectedRole } });
+    setIsEditRoleOpen(false);
+  };
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => setIsEditRoleOpen(true)}>
+            <Edit className="mr-2 h-4 w-4" />
+            Edit Role
+          </DropdownMenuItem>
+          {member.status === 'active' && (
+            <DropdownMenuItem onClick={handleDeactivate}>
+              <PowerOff className="mr-2 h-4 w-4" />
+              Deactivate
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleDelete} className="text-red-500 focus:text-red-500 focus:bg-red-500/10">
+            <Trash className="mr-2 h-4 w-4" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Dialog open={isEditRoleOpen} onOpenChange={setIsEditRoleOpen}>
+        <DialogContent className="sm:max-w-[425px] bg-zinc-950 border-white/10 text-white">
+          <DialogHeader>
+            <DialogTitle>Edit Role for {member.name}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">Select Role</label>
+              <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as StaffRole)}>
+                <SelectTrigger className="w-full bg-zinc-900 border-white/10 text-white">
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-900 border-white/10 text-white">
+                  <SelectItem value="org_admin">Organization Admin</SelectItem>
+                  <SelectItem value="branch_manager">Branch Manager</SelectItem>
+                  <SelectItem value="agent">Agent</SelectItem>
+                  <SelectItem value="accountant">Accountant</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsEditRoleOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateRole} disabled={updateStaff.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              {updateStaff.isPending ? <LoadingSpinner className="h-4 w-4" /> : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
 export function StaffPage() {
   const { data: staffResponse, isLoading, error } = useStaff();
@@ -97,7 +191,7 @@ export function StaffPage() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <RoleIcon className="h-4 w-4 text-muted-foreground" />
-                            <span className="capitalize">{member.role}</span>
+                            <span className="capitalize">{member.role.replace('_', ' ')}</span>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -109,9 +203,7 @@ export function StaffPage() {
                           {new Date(member.joinedAt).toLocaleDateString()}
                         </TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
+                          <StaffRowActions member={member} />
                         </TableCell>
                       </TableRow>
                     );
@@ -125,3 +217,4 @@ export function StaffPage() {
     </div>
   );
 }
+

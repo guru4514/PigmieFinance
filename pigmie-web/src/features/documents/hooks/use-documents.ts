@@ -32,16 +32,16 @@ export const useUploadDocument = (entityType: EntityType, entityId: string) => {
     mutationFn: async ({ file, documentType }: { file: File, documentType: DocumentType }) => {
       // 1. Get signed upload URL
       const { data: uploadInfo } = await apiClient.post('/documents/upload-url', {
-        entityType,
-        entityId,
+        relatedEntityType: entityType,
+        relatedEntityId: entityId,
         documentType,
-        originalName: file.name,
+        fileName: file.name,
         mimeType: file.type,
-        size: file.size,
+        fileSizeBytes: file.size,
       });
 
       // 2. Upload file directly to Supabase storage via PUT
-      const uploadResponse = await fetch(uploadInfo.signedUploadUrl, {
+      const uploadResponse = await fetch(uploadInfo.uploadUrl, {
         method: 'PUT',
         body: file,
         headers: {
@@ -55,13 +55,12 @@ export const useUploadDocument = (entityType: EntityType, entityId: string) => {
 
       // 3. Register document in the database
       const { data: document } = await apiClient.post('/documents', {
-        entityType,
-        entityId,
+        relatedEntityType: entityType,
+        relatedEntityId: entityId,
         documentType,
-        filePath: uploadInfo.filePath,
-        originalName: file.name,
+        filePath: uploadInfo.path,
         mimeType: file.type,
-        size: file.size,
+        fileSizeBytes: file.size,
       });
 
       return document;

@@ -242,6 +242,19 @@ export class LoansService {
     });
   }
 
+  async markDefault(organizationId: string, id: string, staffId: string) {
+    return this.tenantPrisma.run(organizationId, async (tx) => {
+      const loan = await tx.loan.findFirstOrThrow({ where: { id, organizationId } });
+      if (loan.status !== 'active') {
+        throw new BadRequestException('Only active loans can be marked as default');
+      }
+      return tx.loan.update({
+        where: { id },
+        data: { status: 'defaulted' },
+      });
+    });
+  }
+
   async getSchedule(organizationId: string, id: string) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
       await tx.loan.findFirstOrThrow({ where: { id, organizationId } });
