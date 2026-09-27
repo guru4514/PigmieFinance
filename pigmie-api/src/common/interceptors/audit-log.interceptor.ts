@@ -15,9 +15,12 @@ export class AuditLogInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest();
     return next.handle().pipe(
       tap(async (result) => {
+        const organizationId = request.user.organizationId ?? result?.organization?.id ?? null;
+        if (!organizationId) return;
+
         await this.prisma.auditLog.create({
           data: {
-            organizationId: request.user.organizationId ?? result?.organization?.id ?? null,
+            organizationId,
             actorStaffId: request.user.type === 'staff' ? request.user.id : null,
             action,
             entityType: action.split('.')[0],

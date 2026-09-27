@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, UnauthorizedException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
@@ -74,7 +74,7 @@ export class AuthService {
     const encryptedSecret = this.encryptionService.encrypt(secret);
 
     // Save encrypted secret using raw query to bypass schema limits if two_factor_secret isn't generated in Prisma
-    await this.prisma.$executeRaw`UPDATE "Staff" SET "two_factor_secret" = ${encryptedSecret} WHERE id = ${staffId}::uuid`;
+    await this.prisma.$executeRaw`UPDATE "staff" SET "two_factor_secret" = ${encryptedSecret} WHERE id = ${staffId}::uuid`;
 
     const otpAuthUrl = authenticator.keyuri(staff.email || staffId, 'PigmiePlatform', secret);
 
@@ -86,7 +86,7 @@ export class AuthService {
     if (!staff) throw new NotFoundException('Staff not found');
     if (staff.twoFactorEnabled) throw new BadRequestException('2FA is already enabled');
 
-    const result: any = await this.prisma.$queryRaw`SELECT "two_factor_secret" FROM "Staff" WHERE id = ${staffId}::uuid`;
+    const result: any = await this.prisma.$queryRaw`SELECT "two_factor_secret" FROM "staff" WHERE id = ${staffId}::uuid`;
     if (!result || result.length === 0 || !result[0].two_factor_secret) {
       throw new BadRequestException('2FA setup not initiated');
     }
@@ -108,7 +108,7 @@ export class AuthService {
     const staff = await this.prisma.staff.findUnique({ where: { id: staffId } });
     if (!staff || !staff.twoFactorEnabled) return { verified: false };
 
-    const result: any = await this.prisma.$queryRaw`SELECT "two_factor_secret" FROM "Staff" WHERE id = ${staffId}::uuid`;
+    const result: any = await this.prisma.$queryRaw`SELECT "two_factor_secret" FROM "staff" WHERE id = ${staffId}::uuid`;
     if (!result || result.length === 0 || !result[0].two_factor_secret) {
       return { verified: false };
     }
@@ -122,6 +122,10 @@ export class AuthService {
   async disable2FA(staffId: string, organizationId: string, targetStaffId?: string, code?: string, isAdminOverride?: boolean) {
     const targetId = targetStaffId || staffId;
     
+    const targetStaff = await this.prisma.staff.findUnique({ where: { id: targetId } });
+    if (!targetStaff) throw new NotFoundException('Staff not found');
+    if (targetStaff.organizationId !== organizationId) throw new ForbiddenException('Cannot disable 2FA for staff outside your organization');
+
     if (!isAdminOverride) {
       if (!code) throw new BadRequestException('Code is required when disabling your own 2FA');
       const verifyResult = await this.verify2FA(targetId, organizationId, code);
@@ -133,7 +137,7 @@ export class AuthService {
       data: { twoFactorEnabled: false }
     });
 
-    await this.prisma.$executeRaw`UPDATE "Staff" SET "two_factor_secret" = NULL WHERE id = ${targetId}::uuid`;
+    await this.prisma.$executeRaw`UPDATE "staff" SET "two_factor_secret" = NULL WHERE id = ${targetId}::uuid`;
 
     return { success: true };
   }
