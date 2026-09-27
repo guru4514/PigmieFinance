@@ -1,5 +1,7 @@
-import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Query, UseGuards, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { CustomersService } from './customers.service';
+import { CustomerPdfService } from './customer-pdf.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { QueryCustomerDto } from './dto/query-customer.dto';
@@ -16,7 +18,10 @@ import { AuditAction } from '../../common/decorators/audit-action.decorator';
 @Controller('customers')
 @UseGuards(SupabaseAuthGuard, RolesGuard)
 export class CustomersController {
-  constructor(private readonly customersService: CustomersService) {}
+  constructor(
+    private readonly customersService: CustomersService,
+    private readonly customerPdfService: CustomerPdfService
+  ) {}
 
   @Get()
   @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
@@ -101,6 +106,30 @@ export class CustomersController {
   async revokePortalAccess(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
     return this.customersService.revokePortalAccess(user.organizationId, id);
+  }
+
+  @Get(':id/passbook')
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async downloadPassbook(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Res() res: Response
+  ) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    
+    // First ensure the staff member can access this customer
+    await this.customersService.findOne(user.organizationId, id, user.role, user.id);
+    
+    const customer = await this.customersService.findOne(user.organizationId, id, user.role, user.id);
+    const pdfBuffer = await this.customerPdfService.generatePassbook(id, user.organizationId);
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename=passbook-${customer.fullName.replace(/\s+/g, '_')}.pdf`,
+      'Content-Length': pdfBuffer.length,
+    });
+
+    res.end(pdfBuffer);
   }
 }
 

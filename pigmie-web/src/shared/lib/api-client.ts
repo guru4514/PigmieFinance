@@ -26,6 +26,12 @@ declare module 'axios' {
       getVapidPublicKey: () => Promise<{ publicKey: string }>;
       subscribe: (subscription: PushSubscriptionJSON) => Promise<any>;
     };
+    customers: {
+      downloadPassbook: (id: string) => Promise<Blob>;
+    };
+    portal: {
+      downloadPassbook: () => Promise<Blob>;
+    };
   }
 }
 
@@ -69,4 +75,22 @@ apiClient.notifications = {
   markAllAsRead: () => apiClient.patch('/notifications/read-all').then((res) => res.data),
   getVapidPublicKey: () => apiClient.get('/notifications/vapid-public-key').then((res) => res.data),
   subscribe: (subscription: PushSubscriptionJSON) => apiClient.post('/notifications/subscribe', subscription).then((res) => res.data),
+};
+
+apiClient.customers = {
+  downloadPassbook: async (id: string) => {
+    const response = await apiClient.get(`/customers/${id}/passbook`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+};
+
+apiClient.portal = {
+  downloadPassbook: async () => {
+    const response = await apiClient.get(`/portal/passbook`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
 };

@@ -5,17 +5,41 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui
 import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
 import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
-import { ArrowLeft, User, FileText, CreditCard, Mail, Phone, Calendar, MapPin } from 'lucide-react';
+import { ArrowLeft, User, FileText, CreditCard, Mail, Phone, Calendar, MapPin, Download } from 'lucide-react';
 import { CustomerDocuments } from '../components/customer-documents';
 import { RoleGate } from '@/shared/components/auth/role-gate';
+import { apiClient } from '@/shared/lib/api-client';
 
 export const CustomerDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const { data: customerRes, isLoading } = useCustomer(id || '');
   const customer = customerRes?.data || customerRes; // handle wrapped response or direct
   const [activeTab, setActiveTab] = useState<'profile' | 'loans' | 'documents'>('profile');
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadPassbook = async () => {
+    if (!id) return;
+    try {
+      setIsDownloading(true);
+      const blob = await apiClient.customers.downloadPassbook(id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `passbook-${customer.fullName.replace(/\s+/g, '_')}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download passbook', error);
+      alert('Failed to download passbook. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   if (isLoading || !customer) {
+
     return (
       <div className="flex h-full items-center justify-center min-h-[400px]">
         <LoadingSpinner className="w-8 h-8 text-primary" />
@@ -43,13 +67,29 @@ export const CustomerDetailPage = () => {
           </h1>
           <p className="text-muted-foreground mt-1 text-zinc-400">Customer ID: {customer.id}</p>
         </div>
-        <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
-          <Link to={`/app/customers/${customer.id}/edit`}>
-            <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
-              Edit Profile
-            </Button>
-          </Link>
-        </RoleGate>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+            onClick={handleDownloadPassbook}
+            disabled={isDownloading}
+          >
+            {isDownloading ? (
+              <LoadingSpinner className="w-4 h-4 mr-2" />
+            ) : (
+              <Download className="w-4 h-4 mr-2" />
+            )}
+            Download Passbook
+          </Button>
+          <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+            <Link to={`/app/customers/${customer.id}/edit`}>
+              <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
+                Edit Profile
+              </Button>
+            </Link>
+          </RoleGate>
+        </div>
+
       </div>
 
       <div className="flex border-b border-zinc-800">

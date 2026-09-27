@@ -1,11 +1,35 @@
+import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui/card';
-import { Wallet, CreditCard, Clock, Activity, FileText } from 'lucide-react';
+import { Wallet, CreditCard, Activity, FileText, Download } from 'lucide-react';
 import { usePortalDashboard } from '../hooks/use-portal';
 import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
+import { Button } from '@/shared/components/ui/button';
 import { Link } from 'react-router-dom';
+import { apiClient } from '@/shared/lib/api-client';
 
 export function PortalDashboardPage() {
   const { data: dashboard, isLoading } = usePortalDashboard();
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadPassbook = async () => {
+    try {
+      setIsDownloading(true);
+      const blob = await apiClient.portal.downloadPassbook();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `my-passbook.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download passbook', error);
+      alert('Failed to download passbook. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -40,12 +64,28 @@ export function PortalDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Customer Portal</h1>
-        <p className="text-muted-foreground mt-2">
-          Welcome back, {customer?.fullName || 'User'}! Here's an overview of your accounts.
-        </p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Customer Portal</h1>
+          <p className="text-muted-foreground mt-2">
+            Welcome back, {customer?.fullName || 'User'}! Here's an overview of your accounts.
+          </p>
+        </div>
+        <Button 
+          variant="outline" 
+          className="border-white/10 bg-white/5 hover:bg-white/10"
+          onClick={handleDownloadPassbook}
+          disabled={isDownloading}
+        >
+          {isDownloading ? (
+            <LoadingSpinner className="w-4 h-4 mr-2" />
+          ) : (
+            <Download className="w-4 h-4 mr-2" />
+          )}
+          Download My Passbook
+        </Button>
       </div>
+
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {STATS.map((stat, index) => {
