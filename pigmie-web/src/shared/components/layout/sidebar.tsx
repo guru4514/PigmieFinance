@@ -1,11 +1,13 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, Users, CreditCard, Banknote, FileText, Settings, UserCog, LogOut, X, ShieldAlert, Calculator } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, Banknote, FileText, Settings, UserCog, LogOut, X, ShieldAlert, Calculator, ClipboardCheck } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { useAuth } from '@/shared/hooks/use-auth';
 import { useUIStore } from '@/shared/stores/app-store';
 import { supabase } from '@/shared/lib/supabase';
 import { StaffRole } from '@/shared/types';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/shared/lib/api-client';
 
 interface NavItem {
   title: string;
@@ -21,6 +23,7 @@ const navItems: NavItem[] = [
   { title: 'Loans', href: '/app/loans', icon: CreditCard, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.loans' },
   { title: 'EMI Calculator', href: '/app/emi-calculator', icon: Calculator, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'EMI Calculator' },
   { title: 'Collections', href: '/app/collections/today', icon: Banknote, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.collections' },
+  { title: 'Approvals', href: '/app/approvals', icon: ClipboardCheck, roles: ['org_admin', 'branch_manager'], translationKey: 'Approvals' },
   { title: 'Reports', href: '/app/reports', icon: FileText, roles: ['org_admin', 'branch_manager', 'accountant'], translationKey: 'nav.reports' },
   { title: 'Staff', href: '/app/staff', icon: UserCog, roles: ['org_admin'], translationKey: 'nav.staff' },
   { title: 'Audit Logs', href: '/app/audit-logs', icon: ShieldAlert, roles: ['org_admin', 'accountant'], translationKey: 'nav.auditLogs' },
@@ -38,6 +41,19 @@ export function Sidebar() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
+
+  const { data: pendingApprovals } = useQuery({
+    queryKey: ['pending-approvals-count'],
+    queryFn: async () => {
+      if (userRole === 'org_admin' || userRole === 'branch_manager') {
+        const res = await apiClient.get('/approvals/pending/count');
+        return res.data?.count || 0;
+      }
+      return 0;
+    },
+    enabled: userRole === 'org_admin' || userRole === 'branch_manager',
+    refetchInterval: 60000,
+  });
 
   return (
     <>
@@ -72,14 +88,21 @@ export function Sidebar() {
               key={item.href}
               to={item.href}
               className={({ isActive }) => cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all group",
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all group justify-between",
                 isActive 
                   ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" 
                   : "text-zinc-400 hover:text-white hover:bg-white/5"
               )}
             >
-              <item.icon className="w-5 h-5" />
-              {t(item.translationKey)}
+              <div className="flex items-center gap-3">
+                <item.icon className="w-5 h-5" />
+                {t(item.translationKey) || item.translationKey}
+              </div>
+              {item.title === 'Approvals' && pendingApprovals > 0 && (
+                <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                  {pendingApprovals}
+                </span>
+              )}
             </NavLink>
           ))}
         </div>

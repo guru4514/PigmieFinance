@@ -29,6 +29,7 @@ import { StaffFormPage } from '@/features/staff/pages/staff-form-page';
 import { AuditLogsPage } from '@/features/audit-logs/pages/audit-logs-page';
 import { ReportsPage } from '@/features/reports/pages/reports-page';
 import { SettingsPage } from '@/features/settings/pages/settings-page';
+import { ApprovalsPage } from '@/features/approvals/pages/approvals-page';
 import { PortalDashboardPage } from '@/features/portal/pages/portal-dashboard-page';
 import { PortalLoanDetailPage } from '@/features/portal/pages/portal-loan-detail-page';
 
@@ -78,6 +79,7 @@ export function App() {
         <Route path="loan-products/new" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager']}><NewLoanProductPage /></ProtectedRoute>} />
         <Route path="loan-products" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager']}><LoanProductsPage /></ProtectedRoute>} />
         <Route path="reports" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'accountant']}><ReportsPage /></ProtectedRoute>} />
+        <Route path="approvals" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager']}><ApprovalsPage /></ProtectedRoute>} />
         <Route path="staff" element={<ProtectedRoute allowedRoles={['org_admin']}><StaffPage /></ProtectedRoute>} />
         <Route path="staff/new" element={<ProtectedRoute allowedRoles={['org_admin']}><StaffFormPage /></ProtectedRoute>} />
         <Route path="audit-logs" element={<ProtectedRoute allowedRoles={['org_admin', 'accountant']}><AuditLogsPage /></ProtectedRoute>} />

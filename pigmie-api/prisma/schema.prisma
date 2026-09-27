@@ -104,6 +104,20 @@ enum DocumentRelatedType {
   @@map("document_related_type")
 }
 
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+}
+
+enum ApprovalActionType {
+  delete_customer
+  reverse_collection
+  close_loan
+  write_off_loan
+  restructure_loan
+}
+
 enum NotificationRecipientType {
   staff
   customer
@@ -134,6 +148,7 @@ model Organization {
   documents     Document[]
   notifications Notification[]
   auditLogs     AuditLog[]
+  approvalRequests ApprovalRequest[]
 
   @@map("organizations")
 }
@@ -186,6 +201,8 @@ model Staff {
   uploadedDocuments     Document[]     @relation("DocumentUploader")
   receivedNotifications Notification[] @relation("NotificationStaffRecipient")
   auditLogs             AuditLog[]     @relation("AuditLogActor")
+  submittedApprovals    ApprovalRequest[] @relation("SubmittedApprovals")
+  reviewedApprovals     ApprovalRequest[] @relation("ReviewedApprovals")
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId])
@@ -468,3 +485,25 @@ model PushSubscription {
   @@index([authUserId])
   @@map("push_subscriptions")
 }
+  
+model ApprovalRequest {  
+  id              String             @id @default(uuid()) @db.Uuid  
+  organizationId  String             @db.Uuid  
+  organization    Organization       @relation(fields: [organizationId], references: [id])  
+  actionType      ApprovalActionType  
+  status          ApprovalStatus     @default(pending)  
+  payload         Json  
+  reason          String?  
+  entityType      String  
+  entityId        String             @db.Uuid  
+  submittedById   String             @db.Uuid  
+  submittedBy     Staff              @relation("SubmittedApprovals", fields: [submittedById], references: [id])  
+  reviewedById    String?            @db.Uuid  
+  reviewedBy      Staff?             @relation("ReviewedApprovals", fields: [reviewedById], references: [id])  
+  reviewNote      String?  
+  createdAt       DateTime           @default(now())  
+  updatedAt       DateTime           @updatedAt  
+  reviewedAt      DateTime?  
+  
+  @@map("approval_requests")  
+} 
