@@ -18,6 +18,12 @@ export function DashboardPage() {
   const { data: collectionsRaw } = useCollectionsToday();
   const dueCollections = Array.isArray(collectionsRaw) ? collectionsRaw : collectionsRaw?.data || [];
 
+  const { data: activityRes } = useQuery({
+    queryKey: ['dashboard', 'recent-activity'],
+    queryFn: () => apiClient.get('/audit-logs?limit=5').then(res => res.data).catch(() => []),
+  });
+  const activities = activityRes?.data || activityRes || [];
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -101,15 +107,33 @@ export function DashboardPage() {
                 </TableRow>
               ) : (
                 dueCollections.slice(0, 5).map((loan: any) => {
-                  const amountDue = loan.dueItems?.reduce((acc: number, item: any) => acc + Number(item.remaining), 0) || 0;
+                  const hasDueItems = loan.dueItems && loan.dueItems.length > 0;
+                  const amountDue = hasDueItems ? loan.dueItems.reduce((acc: number, item: any) => acc + Number(item.remaining), 0) : 0;
+                  
+                  let statusLabel = 'N/A';
+                  let statusColor = 'text-zinc-500';
+                  
+                  if (hasDueItems) {
+                    if (amountDue <= 0) {
+                      statusLabel = 'Collected';
+                      statusColor = 'text-emerald-500';
+                    } else {
+                      statusLabel = 'Pending';
+                      statusColor = 'text-amber-500';
+                    }
+                  } else {
+                    statusLabel = 'No Due';
+                    statusColor = 'text-zinc-500';
+                  }
+
                   return (
                     <TableRow key={loan.loanId}>
                       <TableCell className="font-medium">{loan.customer?.fullName}</TableCell>
                       <TableCell>{loan.customer?.phone}</TableCell>
                       <TableCell>{formatCurrency(amountDue)}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={amountDue <= 0 ? 'text-emerald-500' : 'text-amber-500'}>
-                          {amountDue <= 0 ? 'Collected' : 'Pending'}
+                        <Badge variant="outline" className={statusColor}>
+                          {statusLabel}
                         </Badge>
                       </TableCell>
                     </TableRow>
@@ -122,9 +146,23 @@ export function DashboardPage() {
         
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-white">Recent Activity</h3>
-          <div className="glass rounded-xl p-4 text-center text-zinc-400 py-8">
-            No recent activity.
-          </div>
+          {activities.length > 0 ? (
+            <div className="space-y-3">
+              {activities.map((activity: any) => (
+                <div key={activity.id} className="glass rounded-xl p-3 flex flex-col gap-1 border border-zinc-800 bg-zinc-900/50">
+                  <div className="flex justify-between items-start">
+                    <span className="text-sm font-medium text-white">{activity.action}</span>
+                    <span className="text-xs text-zinc-400">{new Date(activity.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  <span className="text-xs text-zinc-400">Entity: {activity.entityType}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="glass rounded-xl p-4 text-center text-zinc-400 py-8">
+              No recent activity.
+            </div>
+          )}
         </div>
       </div>
     </div>

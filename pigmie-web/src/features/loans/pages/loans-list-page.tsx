@@ -16,6 +16,17 @@ export const LoansListPage: React.FC = () => {
   const { data: loansResponse, isLoading: loading } = useLoans();
   const loans = loansResponse?.data || [];
 
+  const [searchQuery, setSearchQuery] = React.useState('');
+
+  const filteredLoans = React.useMemo(() => {
+    if (!searchQuery) return loans;
+    const lower = searchQuery.toLowerCase();
+    return loans.filter((l: any) => 
+      l.id?.toLowerCase().includes(lower) || 
+      (l.customer?.fullName || l.customerId)?.toLowerCase().includes(lower)
+    );
+  }, [loans, searchQuery]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -44,24 +55,23 @@ export const LoansListPage: React.FC = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input 
                   placeholder="Search loans..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 w-full sm:w-64 bg-white/5 border-white/10 text-white placeholder:text-gray-500"
                 />
               </div>
-              <Button variant="outline" size="icon" className="border-white/10 bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white">
-                <Filter className="h-4 w-4" />
-              </Button>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
             <div className="p-8 text-center text-gray-500">Loading loans...</div>
-          ) : loans.length === 0 ? (
+          ) : filteredLoans.length === 0 ? (
             <div className="p-6">
               <EmptyState
                 icon={FileText}
                 title="No active loans"
-                description="There are no loans in the system. Create a new loan to get started."
+                description="There are no loans matching your criteria."
                 actionLabel={isAccountant ? undefined : "New Loan"}
                 actionHref={isAccountant ? undefined : "/app/loans/new"}
               />
@@ -80,7 +90,7 @@ export const LoansListPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/10">
-                  {loans.map((loan: any) => (
+                  {filteredLoans.map((loan: any) => (
                     <tr key={loan.id} className="hover:bg-white/5 transition-colors">
                       <td className="px-6 py-4 font-medium text-white">{loan.id.slice(0, 8)}</td>
                       <td className="px-6 py-4">{loan.customer?.fullName || loan.customerId}</td>

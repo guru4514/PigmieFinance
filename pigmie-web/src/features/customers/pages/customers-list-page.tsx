@@ -16,6 +16,17 @@ export const CustomersListPage = () => {
   const { data: customersResponse, isLoading } = useCustomers();
   const customers = customersResponse?.data || [];
 
+  const [searchQuery, setSearchQuery] = React.useState('');
+  
+  const filteredCustomers = React.useMemo(() => {
+    if (!searchQuery) return customers;
+    const lower = searchQuery.toLowerCase();
+    return customers.filter((c: any) => 
+      c.fullName?.toLowerCase().includes(lower) || 
+      c.phone?.includes(lower)
+    );
+  }, [customers, searchQuery]);
+
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center min-h-[400px]">
@@ -52,15 +63,14 @@ export const CustomersListPage = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
           <Input 
             placeholder="Search customers..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 bg-zinc-800/50 border-zinc-700 text-white w-full max-w-md"
           />
         </div>
-        <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
-          Filter
-        </Button>
       </div>
 
-        {customers.length === 0 ? (
+        {filteredCustomers.length === 0 ? (
           <EmptyState 
             icon={Users} 
             title="No customers yet" 
@@ -81,7 +91,7 @@ export const CustomersListPage = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {customers.map((customer: any) => (
+                {filteredCustomers.map((customer: any) => (
                   <TableRow key={customer.id} className="border-zinc-800 hover:bg-zinc-800/50">
                     <TableCell className="font-medium text-white">
                       {customer.fullName}
