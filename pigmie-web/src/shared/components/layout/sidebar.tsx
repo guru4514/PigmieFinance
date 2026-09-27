@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, Users, CreditCard, Banknote, FileText, Settings, UserCog, LogOut, X, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, Banknote, FileText, Settings, UserCog, LogOut, X, ShieldAlert, Calculator } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { useAuth } from '@/shared/hooks/use-auth';
 import { useUIStore } from '@/shared/stores/app-store';
@@ -19,6 +19,7 @@ const navItems: NavItem[] = [
   { title: 'Dashboard', href: '/app/dashboard', icon: LayoutDashboard, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.dashboard' },
   { title: 'Customers', href: '/app/customers', icon: Users, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.customers' },
   { title: 'Loans', href: '/app/loans', icon: CreditCard, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.loans' },
+  { title: 'EMI Calculator', href: '/app/emi-calculator', icon: Calculator, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'EMI Calculator' },
   { title: 'Collections', href: '/app/collections/today', icon: Banknote, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.collections' },
   { title: 'Reports', href: '/app/reports', icon: FileText, roles: ['org_admin', 'branch_manager', 'accountant'], translationKey: 'nav.reports' },
   { title: 'Staff', href: '/app/staff', icon: UserCog, roles: ['org_admin'], translationKey: 'nav.staff' },
