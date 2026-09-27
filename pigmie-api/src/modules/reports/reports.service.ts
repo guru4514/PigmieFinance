@@ -149,7 +149,7 @@ export class ReportsService {
         LEFT JOIN "loan_schedule" ls ON ls.loan_id = l.id
           AND ls.due_date <= CURRENT_DATE
         WHERE s.organization_id = ${organizationId}::uuid
-          AND s.role = 'collection_agent'
+          AND s.role = 'agent'
           AND s.is_active = true
           ${user.role === 'branch_manager' && user.branchId ? Prisma.sql`AND c.branch_id = ${user.branchId}::uuid` : Prisma.empty}
         GROUP BY s.id, s.full_name
@@ -170,11 +170,11 @@ export class ReportsService {
           COUNT(DISTINCT c.id)::int as customers_assigned
         FROM "staff" s
         LEFT JOIN "customers" c ON c.assigned_agent_id = s.id AND c.organization_id = s.organization_id
-        LEFT JOIN "collections" c2 ON c2.collected_by_id = s.id
+        LEFT JOIN "collections" c2 ON c2.collected_by = s.id
           AND c2.organization_id = s.organization_id
           AND c2.status IN ('recorded', 'verified')
         WHERE s.organization_id = ${organizationId}::uuid
-          AND s.role = 'collection_agent'
+          AND s.role = 'agent'
           AND s.is_active = true
           ${user.role === 'branch_manager' && user.branchId ? Prisma.sql`AND c.branch_id = ${user.branchId}::uuid` : Prisma.empty}
         GROUP BY s.id, s.full_name
