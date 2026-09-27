@@ -4,6 +4,7 @@ import { Button } from '../../../shared/components/ui/button';
 import { Input } from '../../../shared/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../../../shared/components/ui/card';
 import { useNavigate, Link } from 'react-router-dom';
+import { GoogleIcon } from '@/shared/components/icons/google-icon';
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
@@ -32,6 +33,28 @@ export function LoginPage() {
       } else {
         navigate('/app/dashboard');
       }
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/app/dashboard',
+        },
+      });
+      
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to sign in with Google');
+      setLoading(false);
     }
   };
 
@@ -81,6 +104,22 @@ export function LoginPage() {
               {loading ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
+
+          <div className="flex items-center my-4 gap-3">
+            <div className="flex-1 border-t border-white/10" />
+            <span className="text-xs uppercase text-zinc-400">or</span>
+            <div className="flex-1 border-t border-white/10" />
+          </div>
+
+          <Button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={loading}
+            className="w-full bg-white hover:bg-zinc-100 text-zinc-900 font-medium border-0 shadow-sm transition-colors flex items-center justify-center gap-2"
+          >
+            <GoogleIcon className="w-5 h-5 shrink-0" />
+            Sign in with Google
+          </Button>
         </CardContent>
         <CardFooter className="flex justify-center border-t border-white/5 pt-6 text-sm text-zinc-400">
           Don't have an account? 

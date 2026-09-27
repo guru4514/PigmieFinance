@@ -7,6 +7,8 @@ import { PiggyBank, ArrowRight, Building2, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/shared/lib/supabase';
 import { apiClient } from '@/shared/lib/api-client';
 
+import { GoogleIcon } from '@/shared/components/icons/google-icon';
+
 export function SignupPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(false);
@@ -17,6 +19,26 @@ export function SignupPage() {
   const [adminFullName, setAdminFullName] = useState('');
   const [orgName, setOrgName] = useState('');
   const [currency, setCurrency] = useState('INR');
+
+  const handleGoogleSignIn = async () => {
+    setErrorMsg('');
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/app/dashboard',
+        },
+      });
+      if (error) {
+        setErrorMsg(error.message);
+        setLoading(false);
+      }
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Failed to sign in with Google');
+      setLoading(false);
+    }
+  };
 
   const handleStep1 = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,25 +103,43 @@ export function SignupPage() {
           </CardHeader>
           <CardContent>
             {step === 1 && (
-              <form onSubmit={handleStep1} className="space-y-4">
-                {errorMsg && <div className="text-red-500 text-sm font-medium">{errorMsg}</div>}
-                <div className="space-y-2">
-                  <Label htmlFor="fullName">Full Name</Label>
-                  <Input id="fullName" value={adminFullName} onChange={e => setAdminFullName(e.target.value)} placeholder="John Doe" required className="bg-background/50" />
+              <>
+                <form onSubmit={handleStep1} className="space-y-4">
+                  {errorMsg && <div className="text-red-500 text-sm font-medium">{errorMsg}</div>}
+                  <div className="space-y-2">
+                    <Label htmlFor="fullName">Full Name</Label>
+                    <Input id="fullName" value={adminFullName} onChange={e => setAdminFullName(e.target.value)} placeholder="John Doe" required className="bg-background/50" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="m@example.com" required className="bg-background/50" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required className="bg-background/50" />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? 'Creating account...' : 'Continue'}
+                    {!loading && <ArrowRight className="w-4 h-4 ml-2" />}
+                  </Button>
+                </form>
+
+                <div className="flex items-center my-4 gap-3">
+                  <div className="flex-1 border-t border-white/10" />
+                  <span className="text-xs uppercase text-muted-foreground">or</span>
+                  <div className="flex-1 border-t border-white/10" />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="m@example.com" required className="bg-background/50" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required className="bg-background/50" />
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? 'Creating account...' : 'Continue'}
-                  {!loading && <ArrowRight className="w-4 h-4 ml-2" />}
+
+                <Button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  disabled={loading}
+                  className="w-full bg-white hover:bg-zinc-100 text-zinc-900 font-medium border-0 shadow-sm transition-colors flex items-center justify-center gap-2"
+                >
+                  <GoogleIcon className="w-5 h-5 shrink-0" />
+                  Sign in with Google
                 </Button>
-              </form>
+              </>
             )}
 
             {step === 2 && (
