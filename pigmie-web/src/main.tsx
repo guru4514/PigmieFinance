@@ -5,7 +5,9 @@ import { BrowserRouter } from 'react-router-dom';
 import { App } from './App.tsx';
 import './index.css';
 import '@/shared/lib/i18n';
+import { initTheme } from '@/shared/lib/theme';
 
+initTheme();
 
 const queryClient = new QueryClient({
   defaultOptions: {

@@ -2,10 +2,11 @@ import React from 'react';
 import { useCollectionsToday } from '../hooks/use-collections';
 import { Card, CardContent } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
-import { MapPin, Phone, User, IndianRupee, ListX } from 'lucide-react';
+import { MapPin, Phone, User, IndianRupee, ListX, MessageCircle } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { useAuth } from '@/shared/hooks/use-auth';
+import { openWhatsApp, generateReminderMessage } from '@/shared/lib/whatsapp';
 
 export function CollectionsTodayPage() {
   const { user } = useAuth();
@@ -84,11 +85,31 @@ export function CollectionsTodayPage() {
                   {item.location}
                 </div>
                 
-                {!isAccountant && item.status !== 'collected' && (
-                  <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                    Record
-                  </Button>
-                )}
+                <div className="flex gap-2">
+                  {item.status !== 'collected' && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      className="border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/10 hover:text-[#25D366]"
+                      onClick={() => {
+                        const msg = generateReminderMessage({
+                          customerName: item.customerName,
+                          dueAmount: item.amountDue,
+                          dueDate: new Date().toLocaleDateString(),
+                          daysOverdue: item.daysOverdue || 0,
+                        });
+                        openWhatsApp(item.phone || '9999999999', msg);
+                      }}
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                    </Button>
+                  )}
+                  {!isAccountant && item.status !== 'collected' && (
+                    <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                      Record
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>

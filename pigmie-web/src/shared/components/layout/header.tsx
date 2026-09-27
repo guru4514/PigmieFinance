@@ -4,6 +4,7 @@ import { useUIStore, useOfflineQueueStore } from '@/shared/stores/app-store';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { NotificationBell } from '@/features/notifications/components/notification-bell';
+import { ThemeToggle } from '../theme-toggle';
 
 export function Header() {
   const { user } = useAuth();
@@ -31,8 +32,9 @@ export function Header() {
       </div>
       
       <div className="flex items-center gap-4">
+        <ThemeToggle />
         <NotificationBell />
-        <div className="flex items-center gap-3 pl-4 border-l border-white/10">
+        <div className="flex items-center gap-3 pl-4 border-l border-white/10 dark:border-white/10 border-black/10">
           <div className="text-right hidden sm:block">
             <p className="text-sm font-medium text-white">{user?.fullName}</p>
             <p className="text-xs text-zinc-400 capitalize">{user?.userType === 'staff' ? user.role.replace('_', ' ') : 'Customer'}</p>

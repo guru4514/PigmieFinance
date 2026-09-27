@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
-import { Download, AlertTriangle, TrendingUp, Users } from 'lucide-react';
+import { Download, AlertTriangle, TrendingUp, Users, MessageCircle } from 'lucide-react';
 import { usePortfolioAtRisk, useCollectionEfficiency, useAgentPerformance, useExportReport } from '../hooks/use-reports';
 import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/shared/components/ui/table';
+import { openWhatsApp, generateReminderMessage } from '@/shared/lib/whatsapp';
 
 export function ReportsPage() {
   const [activeTab, setActiveTab] = useState<'par' | 'collections' | 'agents'>('par');
@@ -84,12 +85,13 @@ export function ReportsPage() {
                         <TableHead>Principal</TableHead>
                         <TableHead>Outstanding Balance</TableHead>
                         <TableHead>Days Overdue</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {parQuery.data?.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={5} className="text-center p-8 text-zinc-500">No overdue loans found.</TableCell>
+                          <TableCell colSpan={6} className="text-center p-8 text-zinc-500">No overdue loans found.</TableCell>
                         </TableRow>
                       ) : (
                         parQuery.data?.map((item: any) => (
@@ -99,6 +101,25 @@ export function ReportsPage() {
                             <TableCell>₹{item.principalAmount.toLocaleString()}</TableCell>
                             <TableCell className="text-rose-400 font-medium">₹{item.outstandingBalance.toLocaleString()}</TableCell>
                             <TableCell>{item.daysOverdue}</TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/10 hover:text-[#25D366]"
+                                onClick={() => {
+                                  const msg = generateReminderMessage({
+                                    customerName: item.customerName,
+                                    dueAmount: item.outstandingBalance, // Since amount is outstanding
+                                    dueDate: new Date(Date.now() - item.daysOverdue * 24 * 60 * 60 * 1000).toLocaleDateString(),
+                                    daysOverdue: item.daysOverdue,
+                                  });
+                                  openWhatsApp(item.customerPhone || '9999999999', msg);
+                                }}
+                              >
+                                <MessageCircle className="w-4 h-4 mr-1" />
+                                Remind
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         ))
                       )}

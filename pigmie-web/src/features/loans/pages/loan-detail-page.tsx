@@ -6,11 +6,12 @@ import { LoanScheduleTable } from '../components/loan-schedule-table';
 import { RestructureLoanDialog } from '../components/restructure-loan-dialog';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
-import { ArrowLeft, CheckCircle, AlertTriangle, FileText, Download, User, Play, RefreshCw } from 'lucide-react';
+import { ArrowLeft, CheckCircle, AlertTriangle, FileText, Download, User, Play, RefreshCw, MessageCircle } from 'lucide-react';
 import { RoleGate } from '@/shared/components/auth/role-gate';
 import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
 import { apiClient } from '@/shared/lib/api-client';
 import { toast } from 'sonner';
+import { openWhatsApp, generateReceiptMessage } from '@/shared/lib/whatsapp';
 
 type Tab = 'overview' | 'schedule' | 'collections' | 'documents';
 
@@ -50,6 +51,20 @@ export const LoanDetailPage: React.FC = () => {
     }
   };
 
+  const handleShareReceipt = () => {
+    if (!loan) return;
+    // Fallback to loan info if collections data isn't available
+    const msg = generateReceiptMessage({
+      customerName: loan.customer?.fullName || loan.customerId,
+      amount: loan.nextPaymentAmount || 0,
+      date: new Date().toLocaleDateString(),
+      loanId: loan.id,
+      outstandingBalance: loan.remainingBalance || 0,
+    });
+    const phone = loan.customer?.phone || loan.customer?.phoneNumber || '9999999999';
+    openWhatsApp(phone, msg);
+  };
+
   if (loading) {
     return <div className="p-8 flex justify-center"><LoadingSpinner className="w-8 h-8 text-primary" /></div>;
   }
@@ -79,6 +94,13 @@ export const LoanDetailPage: React.FC = () => {
 
         <div className="flex gap-2 flex-wrap">
           <RoleGate allowedRoles={['org_admin', 'branch_manager', 'accountant', 'agent']}>
+            <Button
+              onClick={handleShareReceipt}
+              className="bg-[#25D366]/20 text-[#25D366] hover:bg-[#25D366]/30 border border-[#25D366]/30 gap-2"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Share Receipt
+            </Button>
             <Button
               onClick={handleDownloadStatement}
               disabled={downloadingStatement}
