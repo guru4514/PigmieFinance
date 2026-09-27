@@ -168,7 +168,24 @@ export function CollectionsTodayPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   
-  const collections = collectionsResponse?.data || [];
+  // The API returns an array directly, not a paginated { data: [] } object
+  const collectionsRaw = Array.isArray(collectionsResponse) ? collectionsResponse : collectionsResponse?.data || [];
+  
+  const collections = useMemo(() => {
+    return collectionsRaw.map((loan: any) => {
+      const amountDue = loan.dueItems?.reduce((acc: number, item: any) => acc + Number(item.remaining), 0) || 0;
+      return {
+        id: loan.loanId,
+        loanId: loan.loanId,
+        customerName: loan.customer?.fullName,
+        phone: loan.customer?.phone,
+        location: loan.customer?.address || 'N/A',
+        amountDue: amountDue,
+        status: amountDue <= 0 ? 'collected' : 'pending',
+        daysOverdue: 0,
+      };
+    });
+  }, [collectionsRaw]);
 
   const filteredCollections = useMemo(() => {
     if (!searchQuery) return collections;

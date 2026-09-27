@@ -6,6 +6,7 @@ import { ReportSummary } from '../../../shared/types';
 import { LoadingSpinner } from '../../../shared/components/ui/loading-spinner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../shared/components/ui/table';
 import { Badge } from '../../../shared/components/ui/badge';
+import { useCollectionsToday } from '../../collections/hooks/use-collections';
 
 export function DashboardPage() {
   const { data: summaryRes, isLoading } = useQuery({
@@ -13,6 +14,9 @@ export function DashboardPage() {
     queryFn: () => apiClient.get('/reports/dashboard-summary').then(res => res.data),
   });
   const summary = summaryRes?.data || summaryRes;
+
+  const { data: collectionsRaw } = useCollectionsToday();
+  const dueCollections = Array.isArray(collectionsRaw) ? collectionsRaw : collectionsRaw?.data || [];
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -89,11 +93,29 @@ export function DashboardPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableRow>
-                <TableCell colSpan={4} className="text-center text-zinc-400 py-8">
-                  No due collections today.
-                </TableCell>
-              </TableRow>
+              {dueCollections.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-zinc-400 py-8">
+                    No due collections today.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                dueCollections.slice(0, 5).map((loan: any) => {
+                  const amountDue = loan.dueItems?.reduce((acc: number, item: any) => acc + Number(item.remaining), 0) || 0;
+                  return (
+                    <TableRow key={loan.loanId}>
+                      <TableCell className="font-medium">{loan.customer?.fullName}</TableCell>
+                      <TableCell>{loan.customer?.phone}</TableCell>
+                      <TableCell>{formatCurrency(amountDue)}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={amountDue <= 0 ? 'text-emerald-500' : 'text-amber-500'}>
+                          {amountDue <= 0 ? 'Collected' : 'Pending'}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
             </TableBody>
           </Table>
         </div>
