@@ -4,7 +4,7 @@ import { LoanStatusBadge } from '../components/loan-status-badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
-import { Plus, Search, Filter, FileText } from 'lucide-react';
+import { Plus, Search, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { RoleGate } from '@/shared/components/auth/role-gate';
 import { EmptyState } from '@/shared/components/ui/empty-state';
@@ -13,7 +13,8 @@ import { useAuth } from '@/shared/hooks/use-auth';
 export const LoansListPage: React.FC = () => {
   const { user } = useAuth();
   const isAccountant = user?.userType === 'staff' && user.role === 'accountant';
-  const { data: loansResponse, isLoading: loading } = useLoans();
+  const [filterMode, setFilterMode] = React.useState<'all' | 'my'>('all');
+  const { data: loansResponse, isLoading: loading } = useLoans(filterMode === 'my' ? { assignedAgentId: (user as any)?.id } : undefined);
   const loans = loansResponse?.data || [];
 
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -51,13 +52,29 @@ export const LoansListPage: React.FC = () => {
               All Loans
             </CardTitle>
             <div className="flex items-center gap-2">
-              <div className="relative">
+              <Button 
+                variant={filterMode === 'all' ? 'default' : 'outline'} 
+                onClick={() => setFilterMode('all')}
+                size="sm"
+                className={filterMode === 'all' ? '' : 'border-white/10 text-gray-300'}
+              >
+                All
+              </Button>
+              <Button 
+                variant={filterMode === 'my' ? 'default' : 'outline'} 
+                onClick={() => setFilterMode('my')}
+                size="sm"
+                className={filterMode === 'my' ? '' : 'border-white/10 text-gray-300'}
+              >
+                My Assignments
+              </Button>
+              <div className="relative ml-2">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input 
                   placeholder="Search loans..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 w-full sm:w-64 bg-white/5 border-white/10 text-white placeholder:text-gray-500"
+                  className="pl-9 w-full sm:w-64 bg-white/5 border-white/10 text-white placeholder:text-gray-500 h-9"
                 />
               </div>
             </div>

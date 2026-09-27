@@ -12,7 +12,7 @@ export interface Customer {
   totalLoans?: number;
 }
 
-export const useCustomers = (params?: { page?: number; search?: string }) => {
+export const useCustomers = (params?: any) => {
   return useQuery({
     queryKey: ['customers', params],
     queryFn: () => apiClient.get('/customers', { params }).then(r => r.data),

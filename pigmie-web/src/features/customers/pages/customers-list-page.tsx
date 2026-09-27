@@ -13,7 +13,8 @@ import { useAuth } from '@/shared/hooks/use-auth';
 export const CustomersListPage = () => {
   const { user } = useAuth();
   const isAccountant = user?.userType === 'staff' && user.role === 'accountant';
-  const { data: customersResponse, isLoading } = useCustomers();
+  const [filterMode, setFilterMode] = React.useState<'all' | 'my'>('all');
+  const { data: customersResponse, isLoading } = useCustomers(filterMode === 'my' ? { assignedAgentId: (user as any)?.id } : undefined);
   const customers = customersResponse?.data || [];
 
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -58,8 +59,8 @@ export const CustomersListPage = () => {
         )}
       </div>
 
-      <div className="flex items-center gap-4 bg-zinc-900/50 p-4 rounded-lg border border-zinc-800">
-        <div className="relative flex-1">
+      <div className="flex flex-col sm:flex-row items-center gap-4 bg-zinc-900/50 p-4 rounded-lg border border-zinc-800">
+        <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
           <Input 
             placeholder="Search customers..." 
@@ -67,6 +68,22 @@ export const CustomersListPage = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 bg-zinc-800/50 border-zinc-700 text-white w-full max-w-md"
           />
+        </div>
+        <div className="flex gap-2">
+          <Button 
+            variant={filterMode === 'all' ? 'default' : 'outline'} 
+            onClick={() => setFilterMode('all')}
+            className={filterMode === 'all' ? '' : 'border-zinc-700 text-zinc-300'}
+          >
+            All
+          </Button>
+          <Button 
+            variant={filterMode === 'my' ? 'default' : 'outline'} 
+            onClick={() => setFilterMode('my')}
+            className={filterMode === 'my' ? '' : 'border-zinc-700 text-zinc-300'}
+          >
+            My Assignments
+          </Button>
         </div>
       </div>
 

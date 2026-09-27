@@ -9,8 +9,10 @@ import { apiClient } from '@/shared/lib/api-client';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
-import { Save, Building2, Bell, ShieldCheck, Loader2 } from 'lucide-react';
+import { Save, Building2, Bell, ShieldCheck, Loader2, KeyRound, Smartphone, LogOut } from 'lucide-react';
 import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
+import { Switch } from '@/shared/components/ui/switch';
+import { useAuth } from '@/shared/hooks/use-auth';
 
 const organizationSchema = z.object({
   name: z.string().min(2, 'Organization name is required'),
@@ -21,8 +23,47 @@ const organizationSchema = z.object({
 type OrganizationFormValues = z.infer<typeof organizationSchema>;
 
 export function SettingsPage() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'organization' | 'notifications' | 'security'>('organization');
   const queryClient = useQueryClient();
+  
+  const [notifyEmail, setNotifyEmail] = useState(() => localStorage.getItem('notify_email') !== 'false');
+  const [notifyPush, setNotifyPush] = useState(() => localStorage.getItem('notify_push') !== 'false');
+  const [notifyOverdue, setNotifyOverdue] = useState(() => localStorage.getItem('notify_overdue') !== 'false');
+  const [notifyCollection, setNotifyCollection] = useState(() => localStorage.getItem('notify_collection') !== 'false');
+
+  const handleNotifyToggle = (key: string, setter: (val: boolean) => void, val: boolean) => {
+    setter(val);
+    localStorage.setItem(key, String(val));
+    toast.success('Preference saved locally');
+  };
+
+  const [tfaSetup, setTfaSetup] = useState<any>(null);
+  const [tfaCode, setTfaCode] = useState('');
+  
+  const setup2Fa = useMutation({
+    mutationFn: () => apiClient.post('/auth/2fa/setup').then(res => res.data),
+    onSuccess: (data) => setTfaSetup(data),
+    onError: () => toast.error('Failed to setup 2FA'),
+  });
+
+  const enable2Fa = useMutation({
+    mutationFn: () => apiClient.post('/auth/2fa/enable', { code: tfaCode }).then(res => res.data),
+    onSuccess: () => {
+      toast.success('2FA enabled successfully');
+      setTfaSetup(null);
+    },
+    onError: () => toast.error('Failed to enable 2FA'),
+  });
+
+  const handleResetPassword = async () => {
+    try {
+      await apiClient.post('/auth/reset-password', { email: (user as any)?.email });
+      toast.success('Password reset email sent');
+    } catch {
+      toast.error('Failed to send reset email');
+    }
+  };
   
   const { data: orgData, isLoading } = useQuery({
     queryKey: ['organization', 'me'],
@@ -171,8 +212,47 @@ export function SettingsPage() {
                   Configure how you receive alerts and updates.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-400">Notification settings are coming soon.</p>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium text-white">Email Notifications</h3>
+                    <p className="text-xs text-gray-400">Receive system alerts via email.</p>
+                  </div>
+                  <Switch 
+                    checked={notifyEmail} 
+                    onCheckedChange={(val) => handleNotifyToggle('notify_email', setNotifyEmail, val)} 
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium text-white">Push Notifications</h3>
+                    <p className="text-xs text-gray-400">Receive alerts on your mobile device.</p>
+                  </div>
+                  <Switch 
+                    checked={notifyPush} 
+                    onCheckedChange={(val) => handleNotifyToggle('notify_push', setNotifyPush, val)} 
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium text-white">Overdue Alerts</h3>
+                    <p className="text-xs text-gray-400">Get notified when a loan payment is overdue.</p>
+                  </div>
+                  <Switch 
+                    checked={notifyOverdue} 
+                    onCheckedChange={(val) => handleNotifyToggle('notify_overdue', setNotifyOverdue, val)} 
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium text-white">Collection Reminders</h3>
+                    <p className="text-xs text-gray-400">Daily reminders for scheduled collections.</p>
+                  </div>
+                  <Switch 
+                    checked={notifyCollection} 
+                    onCheckedChange={(val) => handleNotifyToggle('notify_collection', setNotifyCollection, val)} 
+                  />
+                </div>
               </CardContent>
             </Card>
           )}
@@ -185,8 +265,67 @@ export function SettingsPage() {
                   Manage your organization's security preferences.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-400">Security settings are coming soon.</p>
+              <CardContent className="space-y-8">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-medium text-white flex items-center gap-2">
+                      <KeyRound className="h-5 w-5 text-primary" /> Password
+                    </h3>
+                    <p className="text-sm text-gray-400 mt-1">Change your account password.</p>
+                  </div>
+                  <Button onClick={handleResetPassword} variant="outline" className="border-white/10 hover:bg-white/5">
+                    Send Password Reset Email
+                  </Button>
+                </div>
+
+                <div className="h-px bg-white/10" />
+
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-medium text-white flex items-center gap-2">
+                      <Smartphone className="h-5 w-5 text-primary" /> Two-Factor Authentication (2FA)
+                    </h3>
+                    <p className="text-sm text-gray-400 mt-1">Add an extra layer of security to your account.</p>
+                  </div>
+                  
+                  {!tfaSetup ? (
+                    <Button onClick={() => setup2Fa.mutate()} disabled={setup2Fa.isPending} className="bg-primary/20 text-primary hover:bg-primary/30">
+                      {setup2Fa.isPending ? <LoadingSpinner className="w-4 h-4 mr-2" /> : null}
+                      Setup 2FA
+                    </Button>
+                  ) : (
+                    <div className="space-y-4 p-4 border border-white/10 rounded-lg bg-black/20">
+                      <p className="text-sm text-gray-300">Scan this QR code with your authenticator app, then enter the code below.</p>
+                      <div className="flex justify-center bg-white p-2 rounded w-max">
+                        <img src={tfaSetup.qrCode} alt="2FA QR Code" className="w-32 h-32" />
+                      </div>
+                      <div className="flex gap-2 max-w-sm">
+                        <Input 
+                          placeholder="Enter 6-digit code" 
+                          value={tfaCode}
+                          onChange={(e) => setTfaCode(e.target.value)}
+                          className="bg-white/5 border-white/10"
+                        />
+                        <Button onClick={() => enable2Fa.mutate()} disabled={enable2Fa.isPending || tfaCode.length < 6}>
+                          {enable2Fa.isPending ? <LoadingSpinner className="w-4 h-4 mr-2" /> : null}
+                          Verify
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="h-px bg-white/10" />
+
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-medium text-white flex items-center gap-2">
+                      <LogOut className="h-5 w-5 text-primary" /> Active Sessions
+                    </h3>
+                    <p className="text-sm text-gray-400 mt-1">Manage your active login sessions.</p>
+                  </div>
+                  <p className="text-sm text-gray-500 italic">Session management coming soon.</p>
+                </div>
               </CardContent>
             </Card>
           )}

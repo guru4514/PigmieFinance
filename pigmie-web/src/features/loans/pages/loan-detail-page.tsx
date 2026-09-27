@@ -177,8 +177,16 @@ export const LoanDetailPage: React.FC = () => {
                     </Button>
                   } 
                 />
-                <Button className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border border-yellow-500/30 gap-2">
-                  <AlertTriangle className="h-4 w-4" />
+                <Button 
+                  onClick={() => {
+                    if (window.confirm('Are you sure you want to mark this loan as defaulted?')) {
+                      markDefaultLoan.mutate(loan.id);
+                    }
+                  }}
+                  disabled={markDefaultLoan.isPending}
+                  className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border border-yellow-500/30 gap-2"
+                >
+                  {markDefaultLoan.isPending ? <LoadingSpinner className="w-4 h-4" /> : <AlertTriangle className="h-4 w-4" />}
                   Mark Default
                 </Button>
               </>
@@ -381,25 +389,76 @@ export const LoanDetailPage: React.FC = () => {
         )}
 
         {activeTab === 'documents' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {['ID Proof', 'Address Proof', 'Loan Agreement', 'Promissory Note'].map((doc, idx) => (
-              <Card key={idx} className="border-white/10 bg-white/5 hover:bg-white/10 transition-colors cursor-pointer group">
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                      <FileText className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-white group-hover:text-primary transition-colors">{doc}</p>
-                      <p className="text-xs text-gray-500">PDF Document</p>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white rounded-full">
-                    <Download className="h-4 w-4" />
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-medium text-white">Loan Documents</h2>
+              <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+                <input
+                  type="file"
+                  className="hidden"
+                  ref={fileInputRef}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      uploadDocument.mutate({ file, documentType: 'other' });
+                      e.target.value = ''; // Reset input
+                    }
+                  }}
+                />
+                <Button 
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadDocument.isPending}
+                  className="bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30 gap-2"
+                >
+                  {uploadDocument.isPending ? <LoadingSpinner className="w-4 h-4" /> : <Upload className="h-4 w-4" />}
+                  Upload Document
+                </Button>
+              </RoleGate>
+            </div>
+            {documentsLoading ? (
+              <div className="flex justify-center p-8"><LoadingSpinner className="w-6 h-6 text-primary" /></div>
+            ) : documents.length === 0 ? (
+              <div className="text-center py-12 text-gray-500 border border-dashed border-white/10 rounded-xl">
+                <FileText className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                <p>No documents uploaded yet.</p>
+                <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+                  <Button 
+                    variant="link" 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-primary mt-2"
+                  >
+                    Upload your first document
                   </Button>
-                </CardContent>
-              </Card>
-            ))}
+                </RoleGate>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {documents.map((doc: any) => (
+                  <Card key={doc.id} className="border-white/10 bg-white/5 hover:bg-white/10 transition-colors group">
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
+                          <FileText className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-white truncate">{doc.originalName || doc.documentType}</p>
+                          <p className="text-xs text-gray-500">{new Date(doc.createdAt).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => downloadDocument.mutate(doc.id)}
+                        disabled={downloadDocument.isPending}
+                        className="text-gray-400 hover:text-white rounded-full shrink-0"
+                      >
+                        {downloadDocument.isPending ? <LoadingSpinner className="w-4 h-4" /> : <Download className="h-4 w-4" />}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
