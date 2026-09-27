@@ -4,14 +4,15 @@ import { Button } from '@/shared/components/ui/button';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/shared/components/ui/table';
 import { Badge } from '@/shared/components/ui/badge';
 import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
-import { Plus, MoreVertical, Shield, User, Users } from 'lucide-react';
+import { Plus, MoreVertical, Shield, User, Users, Calculator } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 
 const roleIcons: Record<string, React.ElementType> = {
   org_admin: Shield,
   branch_manager: Users,
-  collection_agent: User,
+  agent: User,
+  accountant: Calculator,
 };
 
 const statusColors: Record<StaffStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {

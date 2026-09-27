@@ -84,8 +84,8 @@ export const LoansListPage: React.FC = () => {
                     <tr key={loan.id} className="hover:bg-white/5 transition-colors">
                       <td className="px-6 py-4 font-medium text-white">{loan.id.slice(0, 8)}</td>
                       <td className="px-6 py-4">{loan.customer?.fullName || loan.customerId}</td>
-                      <td className="px-6 py-4 font-medium">₹{(loan.principalAmount || loan.amount || 0).toLocaleString()}</td>
-                      <td className="px-6 py-4">₹{(loan.remainingBalance || 0).toLocaleString()}</td>
+                      <td className="px-6 py-4 font-medium">₹{(loan.principalAmount || loan.amount || 0).toLocaleString('en-IN')}</td>
+                      <td className="px-6 py-4">₹{(loan.remainingBalance || 0).toLocaleString('en-IN')}</td>
                       <td className="px-6 py-4">
                         <LoanStatusBadge status={loan.status} />
                       </td>

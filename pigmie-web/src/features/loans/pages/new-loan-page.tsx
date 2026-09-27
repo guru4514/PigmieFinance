@@ -83,7 +83,7 @@ export const NewLoanPage: React.FC = () => {
               >
                 <option value="">Select a customer...</option>
                 {customers.map(c => (
-                  <option key={c.id} value={c.id}>{c.firstName} {c.lastName} ({c.phone})</option>
+                  <option key={c.id} value={c.id}>{c.fullName} ({c.phone})</option>
                 ))}
               </select>
               {errors.customerId && <p className="text-sm text-red-400">{errors.customerId.message}</p>}

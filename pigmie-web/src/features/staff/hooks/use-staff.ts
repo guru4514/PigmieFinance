@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/shared/lib/api-client';
 
-export type StaffRole = 'admin' | 'manager' | 'agent';
+export type StaffRole = 'org_admin' | 'branch_manager' | 'agent' | 'accountant';
 export type StaffStatus = 'active' | 'inactive' | 'suspended';
 
 export interface StaffMember {

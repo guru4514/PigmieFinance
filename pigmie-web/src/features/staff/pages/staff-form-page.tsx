@@ -14,7 +14,7 @@ import { Link } from 'react-router-dom';
 const staffSchema = z.object({
   name: z.string().min(2, 'Name is required'),
   email: z.string().email('Valid email is required'),
-  role: z.enum(['admin', 'manager', 'agent']),
+  role: z.enum(['org_admin', 'branch_manager', 'agent', 'accountant']),
   status: z.enum(['active', 'inactive', 'suspended']).default('active'),
 });
 
@@ -92,9 +92,10 @@ export function StaffFormPage() {
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Administrator (Full Access)</SelectItem>
-                    <SelectItem value="manager">Branch Manager (Approve Loans)</SelectItem>
-                    <SelectItem value="agent">Field Agent (Record Collections)</SelectItem>
+                    <SelectItem value="org_admin">Org Admin</SelectItem>
+                    <SelectItem value="branch_manager">Branch Manager</SelectItem>
+                    <SelectItem value="agent">Agent</SelectItem>
+                    <SelectItem value="accountant">Accountant</SelectItem>
                   </SelectContent>
                 </Select>
                 {errors.role && <p className="text-xs text-red-400">{errors.role.message}</p>}

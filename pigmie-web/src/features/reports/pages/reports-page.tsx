@@ -98,22 +98,25 @@ export function ReportsPage() {
                           <TableRow key={item.loanId} className="border-white/10">
                             <TableCell className="font-medium text-white">{item.loanId.slice(0, 8)}</TableCell>
                             <TableCell>{item.customerName}</TableCell>
-                            <TableCell>₹{item.principalAmount.toLocaleString()}</TableCell>
-                            <TableCell className="text-rose-400 font-medium">₹{item.outstandingBalance.toLocaleString()}</TableCell>
+                            <TableCell>₹{item.principalAmount.toLocaleString('en-IN')}</TableCell>
+                            <TableCell className="text-rose-400 font-medium">₹{item.outstandingBalance.toLocaleString('en-IN')}</TableCell>
                             <TableCell>{item.daysOverdue}</TableCell>
                             <TableCell className="text-right">
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/10 hover:text-[#25D366]"
+                                disabled={!item.customerPhone}
+                                title={!item.customerPhone ? 'No phone number available' : undefined}
+                                className="border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/10 hover:text-[#25D366] disabled:opacity-50 disabled:cursor-not-allowed"
                                 onClick={() => {
+                                  if (!item.customerPhone) return;
                                   const msg = generateReminderMessage({
                                     customerName: item.customerName,
                                     dueAmount: item.outstandingBalance, // Since amount is outstanding
                                     dueDate: new Date(Date.now() - item.daysOverdue * 24 * 60 * 60 * 1000).toLocaleDateString(),
                                     daysOverdue: item.daysOverdue,
                                   });
-                                  openWhatsApp(item.customerPhone || '9999999999', msg);
+                                  openWhatsApp(item.customerPhone, msg);
                                 }}
                               >
                                 <MessageCircle className="w-4 h-4 mr-1" />
@@ -159,8 +162,8 @@ export function ReportsPage() {
                         collectionsQuery.data?.map((item: any, i: number) => (
                           <TableRow key={i} className="border-white/10">
                             <TableCell className="font-medium text-white">{item.date}</TableCell>
-                            <TableCell>₹{item.expected.toLocaleString()}</TableCell>
-                            <TableCell className="text-emerald-400">₹{item.actual.toLocaleString()}</TableCell>
+                            <TableCell>₹{item.expected.toLocaleString('en-IN')}</TableCell>
+                            <TableCell className="text-emerald-400">₹{item.actual.toLocaleString('en-IN')}</TableCell>
                             <TableCell>
                               <span className={`px-2 py-1 rounded-full text-xs ${item.efficiency >= 90 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
                                 {item.efficiency.toFixed(1)}%
@@ -205,7 +208,7 @@ export function ReportsPage() {
                           <TableRow key={item.agentId} className="border-white/10">
                             <TableCell className="font-medium text-white">{item.agentName}</TableCell>
                             <TableCell>{item.totalCollections}</TableCell>
-                            <TableCell className="text-indigo-400 font-medium">₹{item.amountCollected.toLocaleString()}</TableCell>
+                            <TableCell className="text-indigo-400 font-medium">₹{item.amountCollected.toLocaleString('en-IN')}</TableCell>
                           </TableRow>
                         ))
                       )}

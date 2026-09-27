@@ -50,13 +50,13 @@ export function PortalDashboardPage() {
     },
     {
       title: 'Total Disbursed',
-      value: `₹${(stats?.totalDisbursed || 0).toLocaleString()}`,
+      value: `₹${(stats?.totalDisbursed || 0).toLocaleString('en-IN')}`,
       icon: Wallet,
       color: 'text-purple-500',
     },
     {
       title: 'Total Outstanding',
-      value: `₹${(stats?.totalOutstanding || 0).toLocaleString()}`,
+      value: `₹${(stats?.totalOutstanding || 0).toLocaleString('en-IN')}`,
       icon: Activity,
       color: 'text-rose-500',
     }
@@ -129,9 +129,9 @@ export function PortalDashboardPage() {
                     </div>
                     <div className="flex flex-col items-end mr-4">
                       <span className="font-semibold text-rose-400">
-                        ₹{loan.remainingBalance.toLocaleString()} Left
+                        ₹{loan.remainingBalance.toLocaleString('en-IN')} Left
                       </span>
-                      <span className="text-xs text-zinc-400">of ₹{loan.amount.toLocaleString()}</span>
+                      <span className="text-xs text-zinc-400">of ₹{loan.amount.toLocaleString('en-IN')}</span>
                     </div>
                     <Link to={`/app/portal/loans/${loan.id}`}>
                       <button className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-md text-sm font-medium transition-colors">

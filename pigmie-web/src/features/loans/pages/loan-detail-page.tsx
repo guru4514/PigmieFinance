@@ -56,6 +56,8 @@ export const LoanDetailPage: React.FC = () => {
 
   const handleShareReceipt = () => {
     if (!loan) return;
+    const phone = loan.customer?.phone || loan.customer?.phoneNumber;
+    if (!phone) return;
     // Fallback to loan info if collections data isn't available
     const msg = generateReceiptMessage({
       customerName: loan.customer?.fullName || loan.customerId,
@@ -64,7 +66,6 @@ export const LoanDetailPage: React.FC = () => {
       loanId: loan.id,
       outstandingBalance: loan.remainingBalance || 0,
     });
-    const phone = loan.customer?.phone || loan.customer?.phoneNumber || '9999999999';
     openWhatsApp(phone, msg);
   };
 
@@ -120,7 +121,9 @@ export const LoanDetailPage: React.FC = () => {
             </Button>
             <Button
               onClick={handleShareReceipt}
-              className="bg-[#25D366]/20 text-[#25D366] hover:bg-[#25D366]/30 border border-[#25D366]/30 gap-2"
+              disabled={!loan.customer?.phone && !loan.customer?.phoneNumber}
+              title={(!loan.customer?.phone && !loan.customer?.phoneNumber) ? 'No phone number available' : undefined}
+              className="bg-[#25D366]/20 text-[#25D366] hover:bg-[#25D366]/30 border border-[#25D366]/30 gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <MessageCircle className="h-4 w-4" />
               Share Receipt

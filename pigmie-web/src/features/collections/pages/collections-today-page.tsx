@@ -139,16 +139,19 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
             <Button 
               size="sm" 
               variant="ghost"
-              className="h-8 text-[#25D366] hover:bg-[#25D366]/10 hover:text-[#25D366]"
+              disabled={!item.phone}
+              title={!item.phone ? 'No phone number available' : undefined}
+              className="h-8 text-[#25D366] hover:bg-[#25D366]/10 hover:text-[#25D366] disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={(e) => {
                 e.stopPropagation();
+                if (!item.phone) return;
                 const msg = generateReminderMessage({
                   customerName: item.customerName,
                   dueAmount: item.amountDue,
                   dueDate: new Date().toLocaleDateString(),
                   daysOverdue: item.daysOverdue || 0,
                 });
-                openWhatsApp(item.phone || '9999999999', msg);
+                openWhatsApp(item.phone, msg);
               }}
             >
               <MessageCircle className="w-4 h-4 mr-1.5" />
