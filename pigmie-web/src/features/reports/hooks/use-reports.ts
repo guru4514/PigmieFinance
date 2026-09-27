@@ -4,7 +4,10 @@ import { apiClient } from '@/shared/lib/api-client';
 export const usePortfolioAtRisk = () => {
   return useQuery({
     queryKey: ['reports', 'portfolio-at-risk'],
-    queryFn: () => apiClient.get('/reports/portfolio-at-risk').then(r => r.data),
+    queryFn: () => apiClient.get('/reports/portfolio-at-risk').then(r => {
+      const d = r.data;
+      return Array.isArray(d) ? d : (d?.data ?? []);
+    }),
   });
 };
 
@@ -15,7 +18,10 @@ export const useCollectionEfficiency = (startDate?: string, endDate?: string) =>
       const params = new URLSearchParams();
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
-      return apiClient.get(`/reports/collection-efficiency?${params.toString()}`).then(r => r.data);
+      return apiClient.get(`/reports/collection-efficiency?${params.toString()}`).then(r => {
+        const d = r.data;
+        return Array.isArray(d) ? d : (d?.data ?? []);
+      });
     },
   });
 };
@@ -23,7 +29,10 @@ export const useCollectionEfficiency = (startDate?: string, endDate?: string) =>
 export const useAgentPerformance = () => {
   return useQuery({
     queryKey: ['reports', 'agent-performance'],
-    queryFn: () => apiClient.get('/reports/agent-performance').then(r => r.data),
+    queryFn: () => apiClient.get('/reports/agent-performance').then(r => {
+      const d = r.data;
+      return Array.isArray(d) ? d : (d?.data ?? []);
+    }),
   });
 };
 
