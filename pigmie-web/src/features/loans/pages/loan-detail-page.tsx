@@ -6,12 +6,13 @@ import { LoanScheduleTable } from '../components/loan-schedule-table';
 import { RestructureLoanDialog } from '../components/restructure-loan-dialog';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
-import { ArrowLeft, CheckCircle, AlertTriangle, FileText, Download, User, Play, RefreshCw, MessageCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, AlertTriangle, FileText, Download, User, Play, RefreshCw, MessageCircle, Receipt } from 'lucide-react';
 import { RoleGate } from '@/shared/components/auth/role-gate';
 import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
 import { apiClient } from '@/shared/lib/api-client';
 import { toast } from 'sonner';
 import { openWhatsApp, generateReceiptMessage } from '@/shared/lib/whatsapp';
+import { ReceiptModal, ReceiptCollection } from '@/features/collections/components/receipt-modal';
 
 type Tab = 'overview' | 'schedule' | 'collections' | 'documents';
 
@@ -28,6 +29,8 @@ export const LoanDetailPage: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [downloadingStatement, setDownloadingStatement] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState<ReceiptCollection | null>(null);
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
 
   const handleDownloadStatement = async () => {
     if (!loan) return;
@@ -94,6 +97,27 @@ export const LoanDetailPage: React.FC = () => {
 
         <div className="flex gap-2 flex-wrap">
           <RoleGate allowedRoles={['org_admin', 'branch_manager', 'accountant', 'agent']}>
+            <Button
+              onClick={() => {
+                const latestCol = loan.collections?.[0];
+                setSelectedReceipt({
+                  id: latestCol?.id || loan.id,
+                  amount: latestCol ? Number(latestCol.amount) : (loan.nextPaymentAmount || loan.principalAmount || 0),
+                  collectionDate: latestCol?.collectionDate || latestCol?.collectedAt || new Date().toISOString(),
+                  collectionMethod: latestCol?.collectionMethod || 'cash',
+                  customerName: loan.customer?.fullName || loan.customerId,
+                  customerPhone: loan.customer?.phone || loan.customer?.phoneNumber,
+                  loanId: loan.id,
+                  outstandingBalance: Number(loan.remainingBalance || 0),
+                  receiptNumber: latestCol?.receiptNumber || undefined,
+                });
+                setReceiptModalOpen(true);
+              }}
+              className="bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30 gap-2"
+            >
+              <Receipt className="h-4 w-4" />
+              View Receipt
+            </Button>
             <Button
               onClick={handleShareReceipt}
               className="bg-[#25D366]/20 text-[#25D366] hover:bg-[#25D366]/30 border border-[#25D366]/30 gap-2"
@@ -249,15 +273,98 @@ export const LoanDetailPage: React.FC = () => {
 
         {activeTab === 'collections' && (
           <Card className="border-white/10 bg-black/40 backdrop-blur-xl">
-            <CardHeader>
-              <CardTitle className="text-white text-lg">Collection History</CardTitle>
-              <CardDescription className="text-gray-400">Recent collections for this loan.</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-white text-lg">Collection History</CardTitle>
+                <CardDescription className="text-gray-400">Recent collections for this loan.</CardDescription>
+              </div>
+              <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+                <Link to={`/app/collections/record/${loan.id}`}>
+                  <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                    Record Payment
+                  </Button>
+                </Link>
+              </RoleGate>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-12 text-gray-500">
-                <User className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                <p>No collection records yet.</p>
-              </div>
+              {loan.collections && loan.collections.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="border-b border-white/10 text-xs text-gray-400 uppercase">
+                      <tr>
+                        <th className="pb-3 font-medium">Receipt #</th>
+                        <th className="pb-3 font-medium">Date</th>
+                        <th className="pb-3 font-medium">Method</th>
+                        <th className="pb-3 font-medium">Amount</th>
+                        <th className="pb-3 font-medium">Collected By</th>
+                        <th className="pb-3 font-medium">Status</th>
+                        <th className="pb-3 font-medium text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {loan.collections.map((col: any) => (
+                        <tr key={col.id} className="hover:bg-white/5 transition-colors">
+                          <td className="py-3 font-mono text-xs text-gray-300">
+                            {col.receiptNumber || `COL-${col.id.replace(/-/g, '').slice(0, 5).toUpperCase()}`}
+                          </td>
+                          <td className="py-3 text-gray-300">
+                            {col.collectionDate || col.collectedAt
+                              ? new Date(col.collectionDate || col.collectedAt!).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                              : 'N/A'}
+                          </td>
+                          <td className="py-3 text-gray-300 capitalize">
+                            {col.collectionMethod || 'Cash'}
+                          </td>
+                          <td className="py-3 font-semibold text-emerald-400">
+                            ₹{Number(col.amount).toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-3 text-gray-400 text-xs">
+                            {col.collectedBy?.fullName || 'Staff'}
+                          </td>
+                          <td className="py-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                              col.status === 'reversed'
+                                ? 'bg-red-500/20 text-red-400'
+                                : 'bg-emerald-500/20 text-emerald-400'
+                            }`}>
+                              {(col.status || 'recorded').toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="py-3 text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedReceipt({
+                                  id: col.id,
+                                  amount: Number(col.amount),
+                                  collectionDate: col.collectionDate || col.collectedAt || new Date().toISOString(),
+                                  collectionMethod: col.collectionMethod || 'cash',
+                                  customerName: loan.customer?.fullName || loan.customerId,
+                                  customerPhone: loan.customer?.phone || loan.customer?.phoneNumber,
+                                  loanId: loan.id,
+                                  outstandingBalance: Number(loan.remainingBalance || 0),
+                                  receiptNumber: col.receiptNumber || undefined,
+                                });
+                                setReceiptModalOpen(true);
+                              }}
+                              className="h-8 border-white/10 hover:bg-white/10 text-white gap-1.5"
+                            >
+                              <Receipt className="h-3.5 w-3.5" />
+                              View Receipt
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  <User className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                  <p>No collection records yet.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -285,6 +392,12 @@ export const LoanDetailPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      <ReceiptModal
+        open={receiptModalOpen}
+        onClose={() => setReceiptModalOpen(false)}
+        collection={selectedReceipt}
+      />
     </div>
   );
 };

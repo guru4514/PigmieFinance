@@ -17,11 +17,27 @@ export interface Loan {
   nextPaymentAmount?: number;
   customer?: {
     fullName: string;
+    phone?: string;
+    phoneNumber?: string;
   };
   loanProduct?: {
     interestRateAnnual: number;
   };
   amount?: number; // fallback
+  collections?: Array<{
+    id: string;
+    amount: number;
+    collectionDate?: string;
+    collectedAt?: string;
+    collectionMethod?: string;
+    receiptNumber?: string;
+    status?: string;
+    notes?: string;
+    collectedBy?: {
+      id: string;
+      fullName: string;
+    };
+  }>;
 }
 
 export const useLoans = (params?: any) => {

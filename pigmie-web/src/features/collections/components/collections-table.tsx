@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -17,9 +17,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu';
-import { MoreHorizontal, Undo } from 'lucide-react';
+import { MoreHorizontal, Undo, Receipt } from 'lucide-react';
 import { useAuth } from '@/shared/hooks/use-auth';
 import { CollectionReversalDialog } from './collection-reversal-dialog';
+import { ReceiptModal, ReceiptCollection } from './receipt-modal';
 
 export interface Collection {
   id: string;
@@ -29,6 +30,11 @@ export interface Collection {
   status: 'PENDING' | 'COMPLETED' | 'collected' | 'REVERSED' | string;
   collectedAt?: string;
   createdAt?: string;
+  loanId?: string;
+  customerPhone?: string;
+  collectionMethod?: string;
+  receiptNumber?: string;
+  outstandingBalance?: number;
 }
 
 interface CollectionsTableProps {
@@ -38,8 +44,10 @@ interface CollectionsTableProps {
 export function CollectionsTable({ collections }: CollectionsTableProps) {
   const { user } = useAuth();
   const [reversalCollectionId, setReversalCollectionId] = useState<string | null>(null);
+  const [selectedReceipt, setSelectedReceipt] = useState<ReceiptCollection | null>(null);
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
 
-  const canReverse = user?.role === 'org_admin' || user?.role === 'branch_manager';
+  const canReverse = user?.userType === 'staff' && (user.role === 'org_admin' || user.role === 'branch_manager');
 
   const isCompleted = (status: string) => {
     return status.toLowerCase() === 'completed' || status.toLowerCase() === 'collected';
@@ -101,6 +109,26 @@ export function CollectionsTable({ collections }: CollectionsTableProps) {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSelectedReceipt({
+                              id: collection.id,
+                              amount: collection.amount,
+                              collectionDate: collection.collectedAt || collection.createdAt || new Date().toISOString(),
+                              collectionMethod: collection.collectionMethod || 'cash',
+                              customerName: collection.customerName,
+                              customerPhone: collection.customerPhone,
+                              loanId: collection.loanId || collection.id,
+                              outstandingBalance: collection.outstandingBalance || 0,
+                              receiptNumber: collection.receiptNumber,
+                            });
+                            setReceiptModalOpen(true);
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <Receipt className="mr-2 h-4 w-4" />
+                          View Receipt
+                        </DropdownMenuItem>
                         {canReverse && isCompleted(collection.status) && (
                           <DropdownMenuItem
                             onClick={() => setReversalCollectionId(collection.id)}
@@ -108,11 +136,6 @@ export function CollectionsTable({ collections }: CollectionsTableProps) {
                           >
                             <Undo className="mr-2 h-4 w-4" />
                             Reverse Collection
-                          </DropdownMenuItem>
-                        )}
-                        {!canReverse && isCompleted(collection.status) && (
-                          <DropdownMenuItem disabled>
-                            No actions available
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>
@@ -129,6 +152,12 @@ export function CollectionsTable({ collections }: CollectionsTableProps) {
         collectionId={reversalCollectionId || ''}
         open={!!reversalCollectionId}
         onOpenChange={(open) => !open && setReversalCollectionId(null)}
+      />
+
+      <ReceiptModal
+        open={receiptModalOpen}
+        onClose={() => setReceiptModalOpen(false)}
+        collection={selectedReceipt}
       />
     </>
   );
