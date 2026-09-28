@@ -64,7 +64,7 @@ export const SmsDialog: React.FC<SmsDialogProps> = ({ customerName, customerPhon
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground/80">Template</label>
             <Select value={template} onValueChange={handleTemplateChange}>
-              <SelectTrigger className="bg-zinc-950 border-border text-foreground">
+              <SelectTrigger className="bg-card border-border text-foreground">
                 <SelectValue placeholder="Select a template" />
               </SelectTrigger>
               <SelectContent className="bg-card border-border text-foreground">
@@ -80,7 +80,7 @@ export const SmsDialog: React.FC<SmsDialogProps> = ({ customerName, customerPhon
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground/80">Message Preview</label>
             <Textarea
-              className="min-h-[100px] bg-zinc-950 border-border text-foreground"
+              className="min-h-[100px] bg-card border-border text-foreground"
               placeholder="Type your message here..."
               value={message}
               onChange={(e) => setMessage(e.target.value)}

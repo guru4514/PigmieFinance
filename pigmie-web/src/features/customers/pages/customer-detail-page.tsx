@@ -129,7 +129,7 @@ export const CustomerDetailPage = () => {
         <button
           onClick={() => setActiveTab('profile')}
           className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'profile' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-zinc-200 hover:border-border'
+            activeTab === 'profile' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
           }`}
         >
           <div className="flex items-center gap-2"><User className="w-4 h-4" /> Profile</div>
@@ -137,7 +137,7 @@ export const CustomerDetailPage = () => {
         <button
           onClick={() => setActiveTab('loans')}
           className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'loans' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-zinc-200 hover:border-border'
+            activeTab === 'loans' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
           }`}
         >
           <div className="flex items-center gap-2"><CreditCard className="w-4 h-4" /> Loans</div>
@@ -145,7 +145,7 @@ export const CustomerDetailPage = () => {
         <button
           onClick={() => setActiveTab('documents')}
           className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'documents' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-zinc-200 hover:border-border'
+            activeTab === 'documents' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
           }`}
         >
           <div className="flex items-center gap-2"><FileText className="w-4 h-4" /> Documents</div>

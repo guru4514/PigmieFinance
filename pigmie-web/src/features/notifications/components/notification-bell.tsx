@@ -76,7 +76,7 @@ export function NotificationBell() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 p-0 border-border bg-zinc-950 text-foreground">
+      <DropdownMenuContent align="end" className="w-80 p-0 border-border bg-card text-foreground">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <span className="font-semibold text-sm">Notifications</span>
           {unreadCount > 0 && (
@@ -122,7 +122,7 @@ export function NotificationBell() {
         </div>
       </DropdownMenuContent>
       {permissionState === 'default' && (
-        <DropdownMenuContent align="end" className="w-80 p-3 mt-2 border-border bg-zinc-950 text-foreground">
+        <DropdownMenuContent align="end" className="w-80 p-3 mt-2 border-border bg-card text-foreground">
           <Button onClick={handleEnablePush} className="w-full bg-indigo-600 hover:bg-indigo-700 text-foreground">
             Enable Push Notifications
           </Button>

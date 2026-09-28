@@ -145,7 +145,7 @@ export function ReceiptModal({ open, onClose, collection }: ReceiptModalProps) {
       `}</style>
 
       <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-        <DialogContent className="sm:max-w-md bg-card/90 border-border text-zinc-100 backdrop-blur-md p-6">
+        <DialogContent className="sm:max-w-md bg-card/90 border-border text-foreground backdrop-blur-md p-6">
           <DialogHeader className="sr-only">
             <DialogTitle>Payment Receipt</DialogTitle>
             <DialogDescription>Payment receipt details and options</DialogDescription>
@@ -154,7 +154,7 @@ export function ReceiptModal({ open, onClose, collection }: ReceiptModalProps) {
           {/* Styled Paper Receipt */}
           <div
             id="printable-receipt"
-            className="font-mono text-xs sm:text-sm bg-zinc-950/80 border-2 border-dashed border-border rounded-lg p-5 sm:p-6 text-zinc-100 shadow-inner select-text"
+            className="font-mono text-xs sm:text-sm bg-card border-2 border-dashed border-border rounded-lg p-5 sm:p-6 text-foreground shadow-inner select-text"
           >
             <div className="text-center font-bold tracking-widest text-muted-foreground receipt-divider select-none">
               ============================

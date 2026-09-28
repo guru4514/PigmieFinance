@@ -214,7 +214,7 @@ export const LoanDetailPage: React.FC = () => {
             className={`px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
               activeTab === tab
                 ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-gray-200 hover:border-white/20'
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
             }`}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -249,11 +249,11 @@ export const LoanDetailPage: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Start Date</p>
-                  <p className="text-base text-gray-200">{loan.startDate ? new Date(loan.startDate).toLocaleDateString() : 'N/A'}</p>
+                  <p className="text-base text-foreground">{loan.startDate ? new Date(loan.startDate).toLocaleDateString() : 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">End Date</p>
-                  <p className="text-base text-gray-200">{loan.endDate ? new Date(loan.endDate).toLocaleDateString() : 'N/A'}</p>
+                  <p className="text-base text-foreground">{loan.endDate ? new Date(loan.endDate).toLocaleDateString() : 'N/A'}</p>
                 </div>
               </CardContent>
             </Card>

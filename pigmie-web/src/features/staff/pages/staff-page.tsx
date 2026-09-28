@@ -83,7 +83,7 @@ function StaffRowActions({ member }: { member: StaffMember }) {
       </DropdownMenu>
 
       <Dialog open={isEditRoleOpen} onOpenChange={setIsEditRoleOpen}>
-        <DialogContent className="sm:max-w-[425px] bg-zinc-950 border-border text-foreground">
+        <DialogContent className="sm:max-w-[425px] bg-card border-border text-foreground">
           <DialogHeader>
             <DialogTitle>Edit Role for {member.fullName}</DialogTitle>
           </DialogHeader>

@@ -65,7 +65,7 @@ const ProductCard = ({ product }: { product: any }) => {
       </Card>
 
       <Dialog open={showEdit} onOpenChange={setShowEdit}>
-        <DialogContent className="sm:max-w-[425px] bg-zinc-950 border-border text-foreground">
+        <DialogContent className="sm:max-w-[425px] bg-card border-border text-foreground">
           <DialogHeader>
             <DialogTitle>Edit Loan Product</DialogTitle>
           </DialogHeader>
@@ -100,7 +100,7 @@ const ProductCard = ({ product }: { product: any }) => {
       </Dialog>
 
       <Dialog open={showDetails} onOpenChange={setShowDetails}>
-        <DialogContent className="sm:max-w-[425px] bg-zinc-950 border-border text-foreground">
+        <DialogContent className="sm:max-w-[425px] bg-card border-border text-foreground">
           <DialogHeader>
             <DialogTitle>Product Details</DialogTitle>
           </DialogHeader>
