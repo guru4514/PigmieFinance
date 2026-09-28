@@ -182,7 +182,6 @@ export const EMICalculatorPage: React.FC = () => {
             </CardContent>
           </Card>
         </div>
-        </div>
       </div>
 
       <div className="mt-8 border-t border-zinc-800/50 pt-8">
@@ -278,8 +277,6 @@ export const EMICalculatorPage: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-        </div>
-      </div>
         </div>
       </div>
     </div>
