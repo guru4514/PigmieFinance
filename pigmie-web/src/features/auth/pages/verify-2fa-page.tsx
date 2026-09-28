@@ -37,7 +37,7 @@ export function Verify2FAPage() {
     <div className="min-h-screen flex items-center justify-center bg-background bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-900/20 via-background to-background p-4">
       <Card className="w-full max-w-md glass-card border-border">
         <CardHeader className="space-y-2 text-center pb-8">
-          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent">Two-Factor Authentication</CardTitle>
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-zinc-400 bg-clip-text text-transparent">Two-Factor Authentication</CardTitle>
           <CardDescription className="text-muted-foreground">Enter the 6-digit code from your authenticator app</CardDescription>
         </CardHeader>
         <CardContent>

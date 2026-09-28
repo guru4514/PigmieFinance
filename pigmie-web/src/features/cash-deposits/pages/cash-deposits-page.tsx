@@ -95,7 +95,7 @@ export function CashDepositsPage() {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Cash Deposits</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Cash Deposits</h1>
           <p className="text-muted-foreground">Manage and verify daily cash handovers</p>
         </div>
         {!isAdmin && (

@@ -66,7 +66,7 @@ export function PortalDashboardPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Customer Portal</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Customer Portal</h1>
           <p className="text-muted-foreground mt-2">
             Welcome back, {customer?.fullName || 'User'}! Here's an overview of your accounts.
           </p>

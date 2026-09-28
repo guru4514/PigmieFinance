@@ -99,7 +99,7 @@ export function BranchesPage() {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Branches</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Branches</h1>
           <p className="text-muted-foreground">Manage your organization's branches</p>
         </div>
         <Button onClick={() => handleOpenDialog()} className="gap-2">
