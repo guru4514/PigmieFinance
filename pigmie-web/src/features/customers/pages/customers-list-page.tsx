@@ -47,13 +47,13 @@ export const CustomersListPage = () => {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">Customers</h1>
-          <p className="text-muted-foreground mt-1 text-zinc-400">Manage your customer base and view their details.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Customers</h1>
+          <p className="text-muted-foreground mt-1 text-muted-foreground">Manage your customer base and view their details.</p>
         </div>
         {!isAccountant && (
           <div className="flex gap-2">
             <Link to="/app/customers/import">
-              <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
+              <Button variant="outline" className="border-border text-foreground/80 hover:bg-muted hover:text-foreground">
                 Import CSV
               </Button>
             </Link>
@@ -66,19 +66,19 @@ export const CustomersListPage = () => {
         )}
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center gap-4 bg-zinc-900/50 p-4 rounded-lg border border-zinc-800">
+      <div className="flex flex-col sm:flex-row items-center gap-4 bg-card p-4 rounded-lg border border-border">
         <div className="relative flex-1 w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
             placeholder="Search customers..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-zinc-800/50 border-zinc-700 text-white w-full max-w-md"
+            className="pl-9 bg-muted border-border text-foreground w-full max-w-md"
           />
         </div>
         <div className="flex gap-2 items-center">
           <select 
-            className="bg-zinc-800 border border-zinc-700 text-white rounded-md px-3 py-2 text-sm max-w-xs"
+            className="bg-muted border border-border text-foreground rounded-md px-3 py-2 text-sm max-w-xs"
             value={kycFilter}
             onChange={(e) => setKycFilter(e.target.value)}
           >
@@ -91,14 +91,14 @@ export const CustomersListPage = () => {
           <Button 
             variant={filterMode === 'all' ? 'default' : 'outline'} 
             onClick={() => setFilterMode('all')}
-            className={filterMode === 'all' ? '' : 'border-zinc-700 text-zinc-300'}
+            className={filterMode === 'all' ? '' : 'border-border text-foreground/80'}
           >
             All
           </Button>
           <Button 
             variant={filterMode === 'my' ? 'default' : 'outline'} 
             onClick={() => setFilterMode('my')}
-            className={filterMode === 'my' ? '' : 'border-zinc-700 text-zinc-300'}
+            className={filterMode === 'my' ? '' : 'border-border text-foreground/80'}
           >
             My Assignments
           </Button>
@@ -114,27 +114,27 @@ export const CustomersListPage = () => {
             actionHref={isAccountant ? undefined : "/app/customers/new"} 
           />
         ) : (
-          <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-900/50">
+          <div className="border border-border rounded-lg overflow-hidden bg-card">
             <Table>
-              <TableHeader className="bg-zinc-800/50">
-                <TableRow className="border-zinc-800 hover:bg-transparent">
-                  <TableHead className="text-zinc-400">Name</TableHead>
-                  <TableHead className="text-zinc-400">Contact</TableHead>
-                  <TableHead className="text-zinc-400">Status</TableHead>
-                  <TableHead className="text-zinc-400">KYC</TableHead>
-                  <TableHead className="text-zinc-400">Join Date</TableHead>
-                  <TableHead className="text-zinc-400 text-right">Actions</TableHead>
+              <TableHeader className="bg-muted">
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="text-muted-foreground">Name</TableHead>
+                  <TableHead className="text-muted-foreground">Contact</TableHead>
+                  <TableHead className="text-muted-foreground">Status</TableHead>
+                  <TableHead className="text-muted-foreground">KYC</TableHead>
+                  <TableHead className="text-muted-foreground">Join Date</TableHead>
+                  <TableHead className="text-muted-foreground text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredCustomers.map((customer: any) => (
-                  <TableRow key={customer.id} className="border-zinc-800 hover:bg-zinc-800/50">
-                    <TableCell className="font-medium text-white">
+                  <TableRow key={customer.id} className="border-border hover:bg-muted">
+                    <TableCell className="font-medium text-foreground">
                       {customer.fullName}
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm text-zinc-300">{customer.email || 'N/A'}</div>
-                      <div className="text-xs text-zinc-500">{customer.phone}</div>
+                      <div className="text-sm text-foreground/80">{customer.email || 'N/A'}</div>
+                      <div className="text-xs text-muted-foreground">{customer.phone}</div>
                     </TableCell>
                     <TableCell>
                       <Badge 
@@ -142,7 +142,7 @@ export const CustomersListPage = () => {
                         className={
                           customer.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' : 
                           customer.status === 'pending' ? 'border-amber-500/50 text-amber-500' :
-                          'bg-zinc-800 text-zinc-400'
+                          'bg-muted text-muted-foreground'
                         }
                       >
                         {customer.status}
@@ -155,16 +155,16 @@ export const CustomersListPage = () => {
                           customer.kycStatus === 'verified' ? 'border-emerald-500 text-emerald-500' :
                           customer.kycStatus === 'rejected' ? 'border-red-500 text-red-500' :
                           customer.kycStatus === 'submitted' ? 'border-amber-500 text-amber-500' :
-                          'border-zinc-500 text-zinc-500'
+                          'border-zinc-500 text-muted-foreground'
                         }
                       >
                         {customer.kycStatus?.replace('_', ' ').toUpperCase() || 'NOT SUBMITTED'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-zinc-400">{customer.createdAt ? new Date(customer.createdAt).toLocaleDateString() : 'N/A'}</TableCell>
+                    <TableCell className="text-muted-foreground">{customer.createdAt ? new Date(customer.createdAt).toLocaleDateString() : 'N/A'}</TableCell>
                     <TableCell className="text-right">
                       <Link to={`/app/customers/${customer.id}`}>
-                        <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+                        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground hover:bg-muted">
                           <MoreHorizontal className="w-4 h-4" />
                         </Button>
                       </Link>

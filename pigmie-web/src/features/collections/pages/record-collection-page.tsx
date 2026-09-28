@@ -102,7 +102,7 @@ export function RecordCollectionPage() {
 
   return (
     <div className="container mx-auto p-4 max-w-md">
-      <Card className="glassmorphism bg-card/50 backdrop-blur-md border-white/10 dark:text-white">
+      <Card className="glassmorphism bg-card/50 backdrop-blur-md border-border dark:text-foreground">
         <CardHeader>
           <CardTitle className="text-2xl font-bold flex items-center justify-between">
             Record Collection
@@ -122,7 +122,7 @@ export function RecordCollectionPage() {
                 type="number" 
                 step="0.01"
                 {...register('amount', { valueAsNumber: true })} 
-                className="text-lg bg-background/50 border-white/10 focus:border-primary/50"
+                className="text-lg bg-background/50 border-border focus:border-primary/50"
               />
               {errors.amount && (
                 <p className="text-destructive text-sm">{errors.amount.message}</p>
@@ -135,7 +135,7 @@ export function RecordCollectionPage() {
                 defaultValue="cash" 
                 onValueChange={(val: any) => setValue('collectionMethod', val)}
               >
-                <SelectTrigger className="bg-background/50 border-white/10">
+                <SelectTrigger className="bg-background/50 border-border">
                   <SelectValue placeholder="Select method" />
                 </SelectTrigger>
                 <SelectContent>
@@ -155,7 +155,7 @@ export function RecordCollectionPage() {
                 id="notes" 
                 {...register('notes')} 
                 placeholder="Any additional details..."
-                className="bg-background/50 border-white/10"
+                className="bg-background/50 border-border"
               />
             </div>
 
@@ -172,7 +172,7 @@ export function RecordCollectionPage() {
                 <Button 
                   type="button" 
                   variant="outline" 
-                  className="flex-1 bg-background/30 border-white/10 hover:bg-white/10"
+                  className="flex-1 bg-background/30 border-border hover:bg-white/10"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Camera className="w-4 h-4 mr-2" />
@@ -181,7 +181,7 @@ export function RecordCollectionPage() {
                 <Button 
                   type="button" 
                   variant="outline" 
-                  className="flex-1 bg-background/30 border-white/10 hover:bg-white/10"
+                  className="flex-1 bg-background/30 border-border hover:bg-white/10"
                   onClick={handleCaptureLocation}
                 >
                   <MapPin className="w-4 h-4 mr-2" />
@@ -190,7 +190,7 @@ export function RecordCollectionPage() {
               </div>
               {location && (
                 <div className="text-xs text-muted-foreground text-center">
-                  Coordinates: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                  Coordinates: {((location.latitude) || 0).toFixed(6)}, {((location.longitude) || 0).toFixed(6)}
                 </div>
               )}
             </div>

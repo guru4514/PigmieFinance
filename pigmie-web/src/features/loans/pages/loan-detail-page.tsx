@@ -98,7 +98,7 @@ export const LoanDetailPage: React.FC = () => {
           </Link>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-white tracking-tight">Loan {loan.id.slice(0, 8)}</h1>
+              <h1 className="text-2xl font-bold text-foreground tracking-tight">Loan {loan.id.slice(0, 8)}</h1>
               <LoanStatusBadge status={loan.status} />
             </div>
             <p className="text-sm text-gray-400 mt-1">Borrower: {loan.customer?.fullName || loan.customerId}</p>
@@ -140,7 +140,7 @@ export const LoanDetailPage: React.FC = () => {
             <Button
               onClick={handleDownloadStatement}
               disabled={downloadingStatement}
-              className="bg-zinc-800/50 text-white hover:bg-zinc-800 border border-zinc-700 gap-2"
+              className="bg-muted text-foreground hover:bg-muted border border-border gap-2"
             >
               {downloadingStatement ? <LoadingSpinner className="w-4 h-4" /> : <Download className="h-4 w-4" />}
               Statement
@@ -206,7 +206,7 @@ export const LoanDetailPage: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-1 border-b border-white/10 overflow-x-auto no-scrollbar">
+      <div className="flex space-x-1 border-b border-border overflow-x-auto no-scrollbar">
         {(['overview', 'schedule', 'collections', 'documents'] as Tab[]).map((tab) => (
           <button
             key={tab}
@@ -226,26 +226,26 @@ export const LoanDetailPage: React.FC = () => {
       <div className="mt-6">
         {activeTab === 'overview' && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="md:col-span-2 border-white/10 bg-black/40 backdrop-blur-xl">
+            <Card className="md:col-span-2 border-border bg-black/40 backdrop-blur-xl">
               <CardHeader>
-                <CardTitle className="text-white text-lg">Loan Details</CardTitle>
+                <CardTitle className="text-foreground text-lg">Loan Details</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-y-6 gap-x-4">
                 <div>
                   <p className="text-sm text-gray-500">Principal Amount</p>
-                  <p className="text-xl font-semibold text-white">₹{loan.principalAmount?.toLocaleString() || loan.amount?.toLocaleString()}</p>
+                  <p className="text-xl font-semibold text-foreground">₹{((loan.principalAmount) || 0).toLocaleString() || ((loan.amount) || 0).toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Remaining Balance</p>
-                  <p className="text-xl font-semibold text-white">₹{loan.remainingBalance?.toLocaleString() || '0'}</p>
+                  <p className="text-xl font-semibold text-foreground">₹{((loan.remainingBalance) || 0).toLocaleString() || '0'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Interest Rate</p>
-                  <p className="text-lg font-medium text-white">{loan.loanProduct?.interestRateAnnual}% p.a.</p>
+                  <p className="text-lg font-medium text-foreground">{loan.loanProduct?.interestRateAnnual}% p.a.</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Tenure</p>
-                  <p className="text-lg font-medium text-white">{loan.tenure} Installments</p>
+                  <p className="text-lg font-medium text-foreground">{loan.tenure} Installments</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Start Date</p>
@@ -258,18 +258,18 @@ export const LoanDetailPage: React.FC = () => {
               </CardContent>
             </Card>
 
-            <Card className="border-white/10 bg-black/40 backdrop-blur-xl">
+            <Card className="border-border bg-black/40 backdrop-blur-xl">
               <CardHeader>
-                <CardTitle className="text-white text-lg">Next Payment</CardTitle>
+                <CardTitle className="text-foreground text-lg">Next Payment</CardTitle>
               </CardHeader>
               <CardContent>
                 {loan.nextPaymentDate ? (
                   <div className="space-y-4">
-                    <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                    <div className="p-4 rounded-xl bg-white/5 border border-border">
                       <p className="text-sm text-gray-400 mb-1">Due Date</p>
-                      <p className="text-lg font-medium text-white mb-3">{new Date(loan.nextPaymentDate).toLocaleDateString()}</p>
+                      <p className="text-lg font-medium text-foreground mb-3">{new Date(loan.nextPaymentDate).toLocaleDateString()}</p>
                       <p className="text-sm text-gray-400 mb-1">Amount</p>
-                      <p className="text-2xl font-bold text-primary">₹{loan.nextPaymentAmount?.toLocaleString()}</p>
+                      <p className="text-2xl font-bold text-primary">₹{((loan.nextPaymentAmount) || 0).toLocaleString()}</p>
                     </div>
                     <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
                       <Link to={`/app/collections/record/${loan.id}`}>
@@ -291,7 +291,7 @@ export const LoanDetailPage: React.FC = () => {
 
         {activeTab === 'schedule' && (
           <div className="space-y-4">
-            <h2 className="text-lg font-medium text-white">Repayment Schedule</h2>
+            <h2 className="text-lg font-medium text-foreground">Repayment Schedule</h2>
             {scheduleLoading ? (
               <div className="flex justify-center p-8"><LoadingSpinner className="w-6 h-6 text-primary" /></div>
             ) : (
@@ -301,10 +301,10 @@ export const LoanDetailPage: React.FC = () => {
         )}
 
         {activeTab === 'collections' && (
-          <Card className="border-white/10 bg-black/40 backdrop-blur-xl">
+          <Card className="border-border bg-black/40 backdrop-blur-xl">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-white text-lg">Collection History</CardTitle>
+                <CardTitle className="text-foreground text-lg">Collection History</CardTitle>
                 <CardDescription className="text-gray-400">Recent collections for this loan.</CardDescription>
               </div>
               <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
@@ -319,7 +319,7 @@ export const LoanDetailPage: React.FC = () => {
               {loan.collections && loan.collections.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
-                    <thead className="border-b border-white/10 text-xs text-gray-400 uppercase">
+                    <thead className="border-b border-border text-xs text-gray-400 uppercase">
                       <tr>
                         <th className="pb-3 font-medium">Receipt #</th>
                         <th className="pb-3 font-medium">Date</th>
@@ -332,7 +332,7 @@ export const LoanDetailPage: React.FC = () => {
                     </thead>
                     <tbody className="divide-y divide-white/5">
                       {loan.collections.map((col: any) => (
-                        <tr key={col.id} className="hover:bg-white/5 transition-colors">
+                        <tr key={col.id} className="hover:bg-muted transition-colors">
                           <td className="py-3 font-mono text-xs text-gray-300">
                             {col.receiptNumber || `COL-${col.id.replace(/-/g, '').slice(0, 5).toUpperCase()}`}
                           </td>
@@ -377,7 +377,7 @@ export const LoanDetailPage: React.FC = () => {
                                 });
                                 setReceiptModalOpen(true);
                               }}
-                              className="h-8 border-white/10 hover:bg-white/10 text-white gap-1.5"
+                              className="h-8 border-border hover:bg-white/10 text-foreground gap-1.5"
                             >
                               <Receipt className="h-3.5 w-3.5" />
                               View Receipt
@@ -401,7 +401,7 @@ export const LoanDetailPage: React.FC = () => {
         {activeTab === 'documents' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <h2 className="text-lg font-medium text-white">Loan Documents</h2>
+              <h2 className="text-lg font-medium text-foreground">Loan Documents</h2>
               <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
                 <input
                   type="file"
@@ -428,7 +428,7 @@ export const LoanDetailPage: React.FC = () => {
             {documentsLoading ? (
               <div className="flex justify-center p-8"><LoadingSpinner className="w-6 h-6 text-primary" /></div>
             ) : documents.length === 0 ? (
-              <div className="text-center py-12 text-gray-500 border border-dashed border-white/10 rounded-xl">
+              <div className="text-center py-12 text-gray-500 border border-dashed border-border rounded-xl">
                 <FileText className="h-12 w-12 mx-auto mb-3 opacity-20" />
                 <p>No documents uploaded yet.</p>
                 <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
@@ -444,14 +444,14 @@ export const LoanDetailPage: React.FC = () => {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {documents.map((doc: any) => (
-                  <Card key={doc.id} className="border-white/10 bg-white/5 hover:bg-white/10 transition-colors group">
+                  <Card key={doc.id} className="border-border bg-white/5 hover:bg-white/10 transition-colors group">
                     <CardContent className="p-4 flex items-center justify-between">
                       <div className="flex items-center gap-3 overflow-hidden">
                         <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
                           <FileText className="h-5 w-5" />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-white truncate">{doc.originalName || doc.documentType}</p>
+                          <p className="text-sm font-medium text-foreground truncate">{doc.originalName || doc.documentType}</p>
                           <p className="text-xs text-gray-500">{new Date(doc.createdAt).toLocaleDateString()}</p>
                         </div>
                       </div>
@@ -460,7 +460,7 @@ export const LoanDetailPage: React.FC = () => {
                         size="icon" 
                         onClick={() => downloadDocument.mutate(doc.id)}
                         disabled={downloadDocument.isPending}
-                        className="text-gray-400 hover:text-white rounded-full shrink-0"
+                        className="text-gray-400 hover:text-foreground rounded-full shrink-0"
                       >
                         {downloadDocument.isPending ? <LoadingSpinner className="w-4 h-4" /> : <Download className="h-4 w-4" />}
                       </Button>

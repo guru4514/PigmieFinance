@@ -24,7 +24,7 @@ export const EMICalculatorPage: React.FC = () => {
   }, [principal, interestRate, tenure, tenurePeriod, collectionFrequency, interestType]);
 
   const formatCurrency = (val: number) => {
-    return val.toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
+    return ((val) || 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
   };
 
   return (
@@ -34,54 +34,54 @@ export const EMICalculatorPage: React.FC = () => {
           <Calculator className="h-6 w-6 text-indigo-400" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">EMI Calculator</h1>
-          <p className="text-sm text-zinc-400 mt-1">Preview loan repayment schedule based on terms.</p>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">EMI Calculator</h1>
+          <p className="text-sm text-muted-foreground mt-1">Preview loan repayment schedule based on terms.</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-6">
-          <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
+          <Card className="bg-card border-border backdrop-blur-sm">
             <CardHeader>
-              <CardTitle className="text-xl text-white">Loan Parameters</CardTitle>
+              <CardTitle className="text-xl text-foreground">Loan Parameters</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-300">Loan Amount (₹)</label>
+                <label className="text-sm font-medium text-foreground/80">Loan Amount (₹)</label>
                 <Input
                   type="number"
                   value={principal}
                   onChange={(e) => setPrincipal(Number(e.target.value))}
-                  className="bg-zinc-800/50 border-zinc-700 text-white"
+                  className="bg-muted border-border text-foreground"
                   min={0}
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-300">Annual Interest Rate (%)</label>
+                <label className="text-sm font-medium text-foreground/80">Annual Interest Rate (%)</label>
                 <Input
                   type="number"
                   value={interestRate}
                   onChange={(e) => setInterestRate(Number(e.target.value))}
-                  className="bg-zinc-800/50 border-zinc-700 text-white"
+                  className="bg-muted border-border text-foreground"
                   min={0}
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-300">Tenure</label>
+                <label className="text-sm font-medium text-foreground/80">Tenure</label>
                 <div className="flex gap-2">
                   <Input
                     type="number"
                     value={tenure}
                     onChange={(e) => setTenure(Number(e.target.value))}
-                    className="bg-zinc-800/50 border-zinc-700 text-white flex-1"
+                    className="bg-muted border-border text-foreground flex-1"
                     min={1}
                   />
                   <select
                     value={tenurePeriod}
                     onChange={(e) => setTenurePeriod(e.target.value as TenurePeriod)}
-                    className="flex h-10 w-28 rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="flex h-10 w-28 rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="days">Days</option>
                     <option value="weeks">Weeks</option>
@@ -91,11 +91,11 @@ export const EMICalculatorPage: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-300">Collection Frequency</label>
+                <label className="text-sm font-medium text-foreground/80">Collection Frequency</label>
                 <select
                   value={collectionFrequency}
                   onChange={(e) => setCollectionFrequency(e.target.value as CollectionFrequency)}
-                  className="flex h-10 w-full rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="flex h-10 w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
@@ -105,11 +105,11 @@ export const EMICalculatorPage: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-300">Interest Type</label>
+                <label className="text-sm font-medium text-foreground/80">Interest Type</label>
                 <select
                   value={interestType}
                   onChange={(e) => setInterestType(e.target.value as InterestType)}
-                  className="flex h-10 w-full rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="flex h-10 w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="flat">Flat</option>
                   <option value="reducing_balance">Reducing Balance</option>
@@ -121,38 +121,38 @@ export const EMICalculatorPage: React.FC = () => {
 
         <div className="lg:col-span-2 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
+            <Card className="bg-card border-border backdrop-blur-sm">
               <CardContent className="p-6">
-                <div className="text-sm font-medium text-zinc-400">Total Payable</div>
-                <div className="text-2xl font-bold text-white mt-2">{formatCurrency(result.totalPayable)}</div>
+                <div className="text-sm font-medium text-muted-foreground">Total Payable</div>
+                <div className="text-2xl font-bold text-foreground mt-2">{formatCurrency(result.totalPayable)}</div>
               </CardContent>
             </Card>
-            <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
+            <Card className="bg-card border-border backdrop-blur-sm">
               <CardContent className="p-6">
-                <div className="text-sm font-medium text-zinc-400">Total Interest</div>
+                <div className="text-sm font-medium text-muted-foreground">Total Interest</div>
                 <div className="text-2xl font-bold text-indigo-400 mt-2">{formatCurrency(result.totalInterest)}</div>
               </CardContent>
             </Card>
-            <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
+            <Card className="bg-card border-border backdrop-blur-sm">
               <CardContent className="p-6">
-                <div className="text-sm font-medium text-zinc-400">EMI / Installment</div>
+                <div className="text-sm font-medium text-muted-foreground">EMI / Installment</div>
                 <div className="text-2xl font-bold text-emerald-400 mt-2">{formatCurrency(result.emi)}</div>
               </CardContent>
             </Card>
           </div>
 
-          <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
+          <Card className="bg-card border-border backdrop-blur-sm">
             <CardHeader>
-              <CardTitle className="text-xl text-white">Repayment Schedule</CardTitle>
-              <CardDescription className="text-zinc-400">
+              <CardTitle className="text-xl text-foreground">Repayment Schedule</CardTitle>
+              <CardDescription className="text-muted-foreground">
                 Detailed breakdown of each installment over the loan period.
               </CardDescription>
             </CardHeader>
             <CardContent>
               {result.schedule.length > 0 ? (
-                <div className="overflow-auto max-h-[500px] border border-zinc-800 rounded-md">
+                <div className="overflow-auto max-h-[500px] border border-border rounded-md">
                   <table className="w-full text-sm text-left">
-                    <thead className="text-xs text-zinc-400 bg-zinc-900/80 sticky top-0 uppercase">
+                    <thead className="text-xs text-muted-foreground bg-card/80 sticky top-0 uppercase">
                       <tr>
                         <th className="px-4 py-3">#</th>
                         <th className="px-4 py-3">Principal</th>
@@ -163,19 +163,19 @@ export const EMICalculatorPage: React.FC = () => {
                     </thead>
                     <tbody>
                       {result.schedule.map((item) => (
-                        <tr key={item.installmentNumber} className="border-b border-zinc-800/50 hover:bg-zinc-800/20">
-                          <td className="px-4 py-3 font-medium text-zinc-300">{item.installmentNumber}</td>
-                          <td className="px-4 py-3 text-white">{formatCurrency(item.principal)}</td>
-                          <td className="px-4 py-3 text-white">{formatCurrency(item.interest)}</td>
-                          <td className="px-4 py-3 text-white font-medium">{formatCurrency(item.total)}</td>
-                          <td className="px-4 py-3 text-white">{formatCurrency(item.balance)}</td>
+                        <tr key={item.installmentNumber} className="border-b border-border/50 hover:bg-muted/20">
+                          <td className="px-4 py-3 font-medium text-foreground/80">{item.installmentNumber}</td>
+                          <td className="px-4 py-3 text-foreground">{formatCurrency(item.principal)}</td>
+                          <td className="px-4 py-3 text-foreground">{formatCurrency(item.interest)}</td>
+                          <td className="px-4 py-3 text-foreground font-medium">{formatCurrency(item.total)}</td>
+                          <td className="px-4 py-3 text-foreground">{formatCurrency(item.balance)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               ) : (
-                <div className="py-8 text-center text-zinc-500">
+                <div className="py-8 text-center text-muted-foreground">
                   Enter valid parameters to see the schedule.
                 </div>
               )}
@@ -184,22 +184,22 @@ export const EMICalculatorPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="mt-8 border-t border-zinc-800/50 pt-8">
-        <h2 className="text-2xl font-bold text-white tracking-tight mb-4">Pre-Closure Calculator</h2>
+      <div className="mt-8 border-t border-border/50 pt-8">
+        <h2 className="text-2xl font-bold text-foreground tracking-tight mb-4">Pre-Closure Calculator</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
+          <Card className="bg-card border-border backdrop-blur-sm">
             <CardHeader>
-              <CardTitle className="text-xl text-white">Pre-Closure Parameters</CardTitle>
-              <CardDescription className="text-zinc-400">Manual pre-closure calculation for hypothetical scenarios.</CardDescription>
+              <CardTitle className="text-xl text-foreground">Pre-Closure Parameters</CardTitle>
+              <CardDescription className="text-muted-foreground">Manual pre-closure calculation for hypothetical scenarios.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-300">Outstanding Principal (₹)</label>
+                <label className="text-sm font-medium text-foreground/80">Outstanding Principal (₹)</label>
                 <Input
                   type="number"
                   id="pc-principal"
                   defaultValue="10000"
-                  className="bg-zinc-800/50 border-zinc-700 text-white"
+                  className="bg-muted border-border text-foreground"
                   min={0}
                   onChange={(e) => {
                     const val = Number(e.target.value) || 0;
@@ -216,12 +216,12 @@ export const EMICalculatorPage: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-300">Accrued Interest (₹)</label>
+                <label className="text-sm font-medium text-foreground/80">Accrued Interest (₹)</label>
                 <Input
                   type="number"
                   id="pc-accrued"
                   defaultValue="200"
-                  className="bg-zinc-800/50 border-zinc-700 text-white"
+                  className="bg-muted border-border text-foreground"
                   min={0}
                   onChange={(e) => {
                     const accrued = Number(e.target.value) || 0;
@@ -236,12 +236,12 @@ export const EMICalculatorPage: React.FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-300">Penalty Rate (%)</label>
+                <label className="text-sm font-medium text-foreground/80">Penalty Rate (%)</label>
                 <Input
                   type="number"
                   id="pc-penalty-rate"
                   defaultValue="2"
-                  className="bg-zinc-800/50 border-zinc-700 text-white"
+                  className="bg-muted border-border text-foreground"
                   min={0}
                   onChange={(e) => {
                     const penaltyRate = Number(e.target.value) || 0;
@@ -260,17 +260,17 @@ export const EMICalculatorPage: React.FC = () => {
             </CardContent>
           </Card>
           
-          <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
+          <Card className="bg-card border-border backdrop-blur-sm">
             <CardHeader>
-              <CardTitle className="text-xl text-white">Pre-Closure Amount</CardTitle>
+              <CardTitle className="text-xl text-foreground">Pre-Closure Amount</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex justify-between items-center py-2 border-b border-zinc-800/50">
-                <span className="text-zinc-400">Pre-closure Penalty</span>
+              <div className="flex justify-between items-center py-2 border-b border-border/50">
+                <span className="text-muted-foreground">Pre-closure Penalty</span>
                 <span className="font-medium text-yellow-400" id="pc-penalty-out">{formatCurrency(10000 * 2 / 100)}</span>
               </div>
-              <div className="flex justify-between items-center py-4 bg-zinc-800/30 rounded-lg px-4 border border-zinc-800/50">
-                <span className="font-medium text-lg text-white">Total Payoff Amount</span>
+              <div className="flex justify-between items-center py-4 bg-muted/30 rounded-lg px-4 border border-border/50">
+                <span className="font-medium text-lg text-foreground">Total Payoff Amount</span>
                 <span className="font-bold text-2xl text-primary" id="pc-total-out">
                   {formatCurrency(10000 + 200 + (10000 * 2 / 100))}
                 </span>

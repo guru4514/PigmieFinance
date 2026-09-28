@@ -81,7 +81,7 @@ export function ApprovalCard({ request, onApprove, onReject, canReview }: Approv
       {request.status === 'pending' && canReview && (
         <CardFooter className="flex gap-2 pt-0">
           <Button 
-            className="w-full bg-green-600 hover:bg-green-700 text-white" 
+            className="w-full bg-green-600 hover:bg-green-700 text-foreground" 
             onClick={() => onApprove?.(request.id)}
           >
             Approve

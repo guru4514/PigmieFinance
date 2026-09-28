@@ -20,7 +20,7 @@ export function ThemeToggle() {
       variant="ghost" 
       size="icon" 
       onClick={handleToggle} 
-      className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white" 
+      className="text-muted-foreground hover:text-zinc-900 dark:hover:text-foreground" 
       title="Toggle theme"
     >
       {theme === 'dark' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}

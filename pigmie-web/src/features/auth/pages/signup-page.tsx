@@ -88,7 +88,7 @@ export function SignupPage() {
           <span className="text-2xl font-bold tracking-tight">Pigmie</span>
         </div>
 
-        <Card className="glassmorphism bg-card/60 border-white/10 shadow-2xl backdrop-blur-xl">
+        <Card className="glassmorphism bg-card/60 border-border shadow-2xl backdrop-blur-xl">
           <CardHeader>
             <CardTitle className="text-xl">
               {step === 1 && "Create your account"}
@@ -125,9 +125,9 @@ export function SignupPage() {
                 </form>
 
                 <div className="flex items-center my-4 gap-3">
-                  <div className="flex-1 border-t border-white/10" />
+                  <div className="flex-1 border-t border-border" />
                   <span className="text-xs uppercase text-muted-foreground">or</span>
-                  <div className="flex-1 border-t border-white/10" />
+                  <div className="flex-1 border-t border-border" />
                 </div>
 
                 <Button

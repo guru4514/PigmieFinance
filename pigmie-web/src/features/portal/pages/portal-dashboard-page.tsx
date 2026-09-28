@@ -73,7 +73,7 @@ export function PortalDashboardPage() {
         </div>
         <Button 
           variant="outline" 
-          className="border-white/10 bg-white/5 hover:bg-white/10"
+          className="border-border bg-white/5 hover:bg-white/10"
           onClick={handleDownloadPassbook}
           disabled={isDownloading}
         >
@@ -91,7 +91,7 @@ export function PortalDashboardPage() {
         {STATS.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <Card key={index} className="border-white/10 bg-black/40 backdrop-blur-xl">
+            <Card key={index} className="border-border bg-black/40 backdrop-blur-xl">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -109,14 +109,14 @@ export function PortalDashboardPage() {
       </div>
 
       <div className="grid gap-6">
-        <Card className="border-white/10 bg-black/40 backdrop-blur-xl">
+        <Card className="border-border bg-black/40 backdrop-blur-xl">
           <CardHeader>
             <CardTitle>Your Active Loans</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {loans.length === 0 ? (
-                <div className="text-center py-8 text-zinc-500">
+                <div className="text-center py-8 text-muted-foreground">
                   <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>You have no active loans at the moment.</p>
                 </div>
@@ -124,17 +124,17 @@ export function PortalDashboardPage() {
                 loans.map((loan: any) => (
                   <div key={loan.id} className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
                     <div className="flex flex-col">
-                      <span className="font-medium text-white">{loan.loanProduct?.name || 'Loan'}</span>
+                      <span className="font-medium text-foreground">{loan.loanProduct?.name || 'Loan'}</span>
                       <span className="text-xs text-muted-foreground">ID: {loan.id.slice(0, 8)}</span>
                     </div>
                     <div className="flex flex-col items-end mr-4">
                       <span className="font-semibold text-rose-400">
-                        ₹{loan.remainingBalance.toLocaleString('en-IN')} Left
+                        ₹{((loan.remainingBalance) || 0).toLocaleString('en-IN')} Left
                       </span>
-                      <span className="text-xs text-zinc-400">of ₹{loan.amount.toLocaleString('en-IN')}</span>
+                      <span className="text-xs text-muted-foreground">of ₹{((loan.amount) || 0).toLocaleString('en-IN')}</span>
                     </div>
                     <Link to={`/app/portal/loans/${loan.id}`}>
-                      <button className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-md text-sm font-medium transition-colors">
+                      <button className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-foreground rounded-md text-sm font-medium transition-colors">
                         View Details
                       </button>
                     </Link>

@@ -43,8 +43,8 @@ export function DashboardPage() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Dashboard</h1>
-        <p className="text-zinc-400">Overview of your micro-finance operations.</p>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">Dashboard</h1>
+        <p className="text-muted-foreground">Overview of your micro-finance operations.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
@@ -53,14 +53,14 @@ export function DashboardPage() {
           value={formatCurrency(summary?.totalOutstanding || 0)} 
           icon={Banknote} 
           className="border-indigo-500/20 bg-indigo-500/5"
-          valueClassName="text-indigo-100"
+          valueClassName="text-indigo-600 dark:text-indigo-400"
         />
         <KPICard 
           title="Collected Today" 
           value={formatCurrency(summary?.collectedToday || 0)} 
           icon={TrendingUp} 
           className="border-emerald-500/20 bg-emerald-500/5"
-          valueClassName="text-emerald-100"
+          valueClassName="text-emerald-600 dark:text-emerald-400"
         />
         <KPICard 
           title="Due Today" 
@@ -77,7 +77,7 @@ export function DashboardPage() {
           value={summary?.overdueCount || 0} 
           icon={AlertCircle} 
           className="border-rose-500/20 bg-rose-500/5"
-          valueClassName="text-rose-100"
+          valueClassName="text-rose-600 dark:text-rose-400"
         />
         <KPICard 
           title="PAR30" 
@@ -88,7 +88,7 @@ export function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
-          <h3 className="text-lg font-medium text-white">Today's Due Collections</h3>
+          <h3 className="text-lg font-medium text-foreground">Today's Due Collections</h3>
           <Table>
             <TableHeader>
               <TableRow>
@@ -101,7 +101,7 @@ export function DashboardPage() {
             <TableBody>
               {dueCollections.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-zinc-400 py-8">
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                     No due collections today.
                   </TableCell>
                 </TableRow>
@@ -111,7 +111,7 @@ export function DashboardPage() {
                   const amountDue = hasDueItems ? loan.dueItems.reduce((acc: number, item: any) => acc + Number(item.remaining), 0) : 0;
                   
                   let statusLabel = 'N/A';
-                  let statusColor = 'text-zinc-500';
+                  let statusColor = 'text-muted-foreground';
                   
                   if (hasDueItems) {
                     if (amountDue <= 0) {
@@ -123,7 +123,7 @@ export function DashboardPage() {
                     }
                   } else {
                     statusLabel = 'No Due';
-                    statusColor = 'text-zinc-500';
+                    statusColor = 'text-muted-foreground';
                   }
 
                   return (
@@ -145,21 +145,21 @@ export function DashboardPage() {
         </div>
         
         <div className="space-y-4">
-          <h3 className="text-lg font-medium text-white">Recent Activity</h3>
+          <h3 className="text-lg font-medium text-foreground">Recent Activity</h3>
           {activities.length > 0 ? (
             <div className="space-y-3">
               {activities.map((activity: any) => (
-                <div key={activity.id} className="glass rounded-xl p-3 flex flex-col gap-1 border border-zinc-800 bg-zinc-900/50">
+                <div key={activity.id} className="glass rounded-xl p-3 flex flex-col gap-1 border border-border bg-card">
                   <div className="flex justify-between items-start">
-                    <span className="text-sm font-medium text-white">{activity.action}</span>
-                    <span className="text-xs text-zinc-400">{new Date(activity.createdAt).toLocaleDateString()}</span>
+                    <span className="text-sm font-medium text-foreground">{activity.action}</span>
+                    <span className="text-xs text-muted-foreground">{new Date(activity.createdAt).toLocaleDateString()}</span>
                   </div>
-                  <span className="text-xs text-zinc-400">Entity: {activity.entityType}</span>
+                  <span className="text-xs text-muted-foreground">Entity: {activity.entityType}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="glass rounded-xl p-4 text-center text-zinc-400 py-8">
+            <div className="glass rounded-xl p-4 text-center text-muted-foreground py-8">
               No recent activity.
             </div>
           )}

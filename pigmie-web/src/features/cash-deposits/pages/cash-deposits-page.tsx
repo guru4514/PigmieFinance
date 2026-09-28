@@ -108,30 +108,30 @@ export function CashDepositsPage() {
 
       {isAdmin && summary && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="glass border-white/10">
+          <Card className="glass border-border">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Pending Verification</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">₹{summary.totalPending.toLocaleString()}</div>
+              <div className="text-2xl font-bold">₹{((summary.totalPending) || 0).toLocaleString()}</div>
             </CardContent>
           </Card>
-          <Card className="glass border-white/10">
+          <Card className="glass border-border">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Verified Today</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-emerald-400">₹{summary.totalVerifiedToday.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-emerald-400">₹{((summary.totalVerifiedToday) || 0).toLocaleString()}</div>
             </CardContent>
           </Card>
         </div>
       )}
 
-      <Card className="glass border-white/10">
+      <Card className="glass border-border">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow className="border-white/10 hover:bg-transparent">
+              <TableRow className="border-border hover:bg-transparent">
                 <TableHead>Date</TableHead>
                 {isAdmin && <TableHead>Agent</TableHead>}
                 <TableHead>Amount</TableHead>
@@ -154,10 +154,10 @@ export function CashDepositsPage() {
                 </TableRow>
               ) : (
                 deposits.map((deposit) => (
-                  <TableRow key={deposit.id} className="border-white/10 hover:bg-white/5">
+                  <TableRow key={deposit.id} className="border-border hover:bg-muted">
                     <TableCell>{format(new Date(deposit.depositedAt), 'MMM dd, yyyy HH:mm')}</TableCell>
                     {isAdmin && <TableCell>{deposit.agentName || 'Unknown Agent'}</TableCell>}
-                    <TableCell className="font-medium">₹{deposit.amount.toLocaleString()}</TableCell>
+                    <TableCell className="font-medium">₹{((deposit.amount) || 0).toLocaleString()}</TableCell>
                     <TableCell>
                       <Badge 
                         variant="outline" 
@@ -193,7 +193,7 @@ export function CashDepositsPage() {
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="glass border-white/10">
+        <DialogContent className="glass border-border">
           <DialogHeader>
             <DialogTitle>Record Cash Deposit</DialogTitle>
           </DialogHeader>
@@ -204,7 +204,7 @@ export function CashDepositsPage() {
                 type="number"
                 {...register('amount', { valueAsNumber: true })}
                 placeholder="Enter amount"
-                className="bg-black/20 border-white/10"
+                className="bg-black/20 border-border"
               />
               {errors.amount && <p className="text-sm text-rose-500">{errors.amount.message}</p>}
             </div>
@@ -213,7 +213,7 @@ export function CashDepositsPage() {
               <Input
                 {...register('notes')}
                 placeholder="Any additional notes..."
-                className="bg-black/20 border-white/10"
+                className="bg-black/20 border-border"
               />
             </div>
             <div className="flex justify-end gap-3 pt-4">

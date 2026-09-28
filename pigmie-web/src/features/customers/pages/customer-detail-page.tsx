@@ -72,16 +72,16 @@ export const CustomerDetailPage = () => {
     <div className="space-y-6 p-6 max-w-6xl mx-auto">
       <div className="flex items-center gap-4">
         <Link to="/app/customers">
-          <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground hover:bg-muted">
             <ArrowLeft className="w-5 h-5" />
           </Button>
         </Link>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
             {customer.fullName}
             <Badge 
               variant="default"
-              className={customer.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' : 'bg-zinc-800 text-zinc-400'}
+              className={customer.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' : 'bg-muted text-muted-foreground'}
             >
               {customer.status}
             </Badge>
@@ -91,19 +91,19 @@ export const CustomerDetailPage = () => {
                 customer.kycStatus === 'verified' ? 'border-emerald-500 text-emerald-500' :
                 customer.kycStatus === 'rejected' ? 'border-red-500 text-red-500' :
                 customer.kycStatus === 'submitted' ? 'border-amber-500 text-amber-500' :
-                'border-zinc-500 text-zinc-500'
+                'border-zinc-500 text-muted-foreground'
               }
             >
               KYC: {customer.kycStatus?.replace('_', ' ').toUpperCase()}
             </Badge>
           </h1>
-          <p className="text-muted-foreground mt-1 text-zinc-400">Customer ID: {customer.id}</p>
+          <p className="text-muted-foreground mt-1 text-muted-foreground">Customer ID: {customer.id}</p>
         </div>
         <div className="flex gap-2">
           <SmsDialog customerName={customer.fullName} customerPhone={customer.phone} />
           <Button 
             variant="outline" 
-            className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+            className="border-border text-foreground/80 hover:bg-muted hover:text-foreground"
             onClick={handleDownloadPassbook}
             disabled={isDownloading}
           >
@@ -116,7 +116,7 @@ export const CustomerDetailPage = () => {
           </Button>
           <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
             <Link to={`/app/customers/${customer.id}/edit`}>
-              <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
+              <Button variant="outline" className="border-border text-foreground/80 hover:bg-muted hover:text-foreground">
                 Edit Profile
               </Button>
             </Link>
@@ -125,11 +125,11 @@ export const CustomerDetailPage = () => {
 
       </div>
 
-      <div className="flex border-b border-zinc-800">
+      <div className="flex border-b border-border">
         <button
           onClick={() => setActiveTab('profile')}
           className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'profile' ? 'border-primary text-primary' : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+            activeTab === 'profile' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-zinc-200 hover:border-border'
           }`}
         >
           <div className="flex items-center gap-2"><User className="w-4 h-4" /> Profile</div>
@@ -137,7 +137,7 @@ export const CustomerDetailPage = () => {
         <button
           onClick={() => setActiveTab('loans')}
           className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'loans' ? 'border-primary text-primary' : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+            activeTab === 'loans' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-zinc-200 hover:border-border'
           }`}
         >
           <div className="flex items-center gap-2"><CreditCard className="w-4 h-4" /> Loans</div>
@@ -145,7 +145,7 @@ export const CustomerDetailPage = () => {
         <button
           onClick={() => setActiveTab('documents')}
           className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'documents' ? 'border-primary text-primary' : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+            activeTab === 'documents' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-zinc-200 hover:border-border'
           }`}
         >
           <div className="flex items-center gap-2"><FileText className="w-4 h-4" /> Documents</div>
@@ -155,46 +155,46 @@ export const CustomerDetailPage = () => {
       <div className="mt-6">
         {activeTab === 'profile' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="bg-zinc-900/50 border-zinc-800">
+            <Card className="bg-card border-border">
               <CardHeader>
-                <CardTitle className="text-lg text-white">Contact Information</CardTitle>
+                <CardTitle className="text-lg text-foreground">Contact Information</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center gap-3 text-zinc-300">
-                  <Mail className="w-5 h-5 text-zinc-500" />
+                <div className="flex items-center gap-3 text-foreground/80">
+                  <Mail className="w-5 h-5 text-muted-foreground" />
                   <span>{customer.email || 'N/A'}</span>
                 </div>
-                <div className="flex items-center gap-3 text-zinc-300">
-                  <Phone className="w-5 h-5 text-zinc-500" />
+                <div className="flex items-center gap-3 text-foreground/80">
+                  <Phone className="w-5 h-5 text-muted-foreground" />
                   <span>{customer.phone}</span>
                 </div>
-                <div className="flex items-center gap-3 text-zinc-300">
-                  <MapPin className="w-5 h-5 text-zinc-500" />
+                <div className="flex items-center gap-3 text-foreground/80">
+                  <MapPin className="w-5 h-5 text-muted-foreground" />
                   <span>{customer.address || 'N/A'}</span>
                 </div>
-                <div className="flex items-center gap-3 text-zinc-300">
-                  <Calendar className="w-5 h-5 text-zinc-500" />
+                <div className="flex items-center gap-3 text-foreground/80">
+                  <Calendar className="w-5 h-5 text-muted-foreground" />
                   <span>Joined {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString() : 'N/A'}</span>
                 </div>
               </CardContent>
             </Card>
             
-            <Card className="bg-zinc-900/50 border-zinc-800">
+            <Card className="bg-card border-border">
               <CardHeader>
-                <CardTitle className="text-lg text-white">Financial Summary</CardTitle>
+                <CardTitle className="text-lg text-foreground">Financial Summary</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex justify-between py-2 border-b border-zinc-800/50">
-                    <span className="text-zinc-400">Total Loans</span>
-                    <span className="text-white font-medium">{customer.totalLoans || 0}</span>
+                  <div className="flex justify-between py-2 border-b border-border/50">
+                    <span className="text-muted-foreground">Total Loans</span>
+                    <span className="text-foreground font-medium">{customer.totalLoans || 0}</span>
                   </div>
-                  <div className="flex justify-between py-2 border-b border-zinc-800/50">
-                    <span className="text-zinc-400">Outstanding Balance</span>
-                    <span className="text-white font-medium">₹0</span>
+                  <div className="flex justify-between py-2 border-b border-border/50">
+                    <span className="text-muted-foreground">Outstanding Balance</span>
+                    <span className="text-foreground font-medium">₹0</span>
                   </div>
                   <div className="flex justify-between py-2">
-                    <span className="text-zinc-400">Credit Score</span>
+                    <span className="text-muted-foreground">Credit Score</span>
                     <span className="text-emerald-400 font-medium">N/A</span>
                   </div>
                 </div>
@@ -202,16 +202,16 @@ export const CustomerDetailPage = () => {
             </Card>
 
             <RoleGate allowedRoles={['org_admin', 'branch_manager']}>
-              <Card className="bg-zinc-900/50 border-zinc-800">
+              <Card className="bg-card border-border">
                 <CardHeader>
-                  <CardTitle className="text-lg text-white">KYC Status</CardTitle>
+                  <CardTitle className="text-lg text-foreground">KYC Status</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <p className="text-zinc-400 text-sm">Update the customer's KYC verification status.</p>
+                    <p className="text-muted-foreground text-sm">Update the customer's KYC verification status.</p>
                     <div className="flex gap-2">
                       <select 
-                        className="flex-1 bg-zinc-800 border border-zinc-700 text-white rounded-md px-3 py-2 text-sm"
+                        className="flex-1 bg-muted border border-border text-foreground rounded-md px-3 py-2 text-sm"
                         value={kycStatusInput}
                         onChange={(e) => setKycStatusInput(e.target.value)}
                       >
@@ -235,13 +235,13 @@ export const CustomerDetailPage = () => {
         )}
 
         {activeTab === 'loans' && (
-          <Card className="bg-zinc-900/50 border-zinc-800">
-            <CardContent className="p-12 text-center text-zinc-500">
+          <Card className="bg-card border-border">
+            <CardContent className="p-12 text-center text-muted-foreground">
               <CreditCard className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>No active loans found for this customer.</p>
               <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
                 <Link to="/app/loans/new">
-                  <Button variant="outline" className="mt-4 border-zinc-700 text-zinc-300">Issue New Loan</Button>
+                  <Button variant="outline" className="mt-4 border-border text-foreground/80">Issue New Loan</Button>
                 </Link>
               </RoleGate>
             </CardContent>

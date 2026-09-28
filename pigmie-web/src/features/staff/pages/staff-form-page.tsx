@@ -45,16 +45,16 @@ export function StaffFormPage() {
       <div className="flex items-center gap-4">
         <Link to="/app/staff">
           <Button variant="ghost" size="icon" className="hover:bg-white/10">
-            <ArrowLeft className="w-5 h-5 text-zinc-400" />
+            <ArrowLeft className="w-5 h-5 text-muted-foreground" />
           </Button>
         </Link>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Add Staff Member</h1>
-          <p className="text-sm text-zinc-400">Provision a new user for your organization.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Add Staff Member</h1>
+          <p className="text-sm text-muted-foreground">Provision a new user for your organization.</p>
         </div>
       </div>
 
-      <Card className="border-white/10 bg-black/40 backdrop-blur-xl">
+      <Card className="border-border bg-black/40 backdrop-blur-xl">
         <CardHeader>
           <CardTitle>Staff Details</CardTitle>
           <CardDescription>Enter the staff member's information and assign a role.</CardDescription>
@@ -67,7 +67,7 @@ export function StaffFormPage() {
                 <Input 
                   id="name" 
                   {...register('name')} 
-                  className="bg-white/5 border-white/10" 
+                  className="bg-white/5 border-border" 
                   placeholder="e.g. Jane Doe"
                 />
                 {errors.name && <p className="text-xs text-red-400">{errors.name.message}</p>}
@@ -79,7 +79,7 @@ export function StaffFormPage() {
                   id="email" 
                   type="email"
                   {...register('email')} 
-                  className="bg-white/5 border-white/10" 
+                  className="bg-white/5 border-border" 
                   placeholder="e.g. jane@pigmie.com"
                 />
                 {errors.email && <p className="text-xs text-red-400">{errors.email.message}</p>}
@@ -88,7 +88,7 @@ export function StaffFormPage() {
               <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>
                 <Select onValueChange={(val: any) => setValue('role', val)}>
-                  <SelectTrigger className="bg-white/5 border-white/10">
+                  <SelectTrigger className="bg-white/5 border-border">
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
@@ -104,7 +104,7 @@ export function StaffFormPage() {
               <div className="space-y-2">
                 <Label htmlFor="status">Initial Status</Label>
                 <Select defaultValue="active" onValueChange={(val: any) => setValue('status', val)}>
-                  <SelectTrigger className="bg-white/5 border-white/10">
+                  <SelectTrigger className="bg-white/5 border-border">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -115,7 +115,7 @@ export function StaffFormPage() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-4 pt-4 border-t border-white/10">
+            <div className="flex justify-end gap-4 pt-4 border-t border-border">
               <Link to="/app/staff">
                 <Button type="button" variant="ghost">Cancel</Button>
               </Link>

@@ -126,8 +126,8 @@
 
 /* Glassmorphism utilities */
 .glass {
-  @apply bg-background/60 backdrop-blur-md border border-white/10;
+  @apply bg-background/80 backdrop-blur-md border border-border;
 }
 .glass-card {
-  @apply bg-zinc-900/50 backdrop-blur-xl border border-white/10 shadow-xl;
+  @apply bg-card backdrop-blur-xl border border-border shadow-xl;
 }

@@ -26,64 +26,64 @@ const ProductCard = ({ product }: { product: any }) => {
 
   return (
     <>
-      <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm overflow-hidden hover:border-primary/50 transition-colors">
+      <Card className="bg-card border-border backdrop-blur-sm overflow-hidden hover:border-primary/50 transition-colors">
         <CardHeader className="pb-4">
           <div className="flex justify-between items-start">
-            <CardTitle className="text-xl text-white">{product.name}</CardTitle>
-            <Badge variant={product.status === 'active' ? 'default' : 'secondary'} className={product.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' : 'bg-zinc-800 text-zinc-400'}>
+            <CardTitle className="text-xl text-foreground">{product.name}</CardTitle>
+            <Badge variant={product.status === 'active' ? 'default' : 'secondary'} className={product.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' : 'bg-muted text-muted-foreground'}>
               {product.status}
             </Badge>
           </div>
-          <p className="text-sm text-zinc-400 mt-2 min-h-[40px]">{product.description}</p>
+          <p className="text-sm text-muted-foreground mt-2 min-h-[40px]">{product.description}</p>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center text-zinc-400 gap-2">
+              <div className="flex items-center text-muted-foreground gap-2">
                 <DollarSign className="w-4 h-4" /> Max Amount
               </div>
-              <span className="font-medium text-white">${(product.maxAmount || 0).toLocaleString()}</span>
+              <span className="font-medium text-foreground">${(product.maxAmount || 0).toLocaleString()}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center text-zinc-400 gap-2">
+              <div className="flex items-center text-muted-foreground gap-2">
                 <Percent className="w-4 h-4" /> Interest Rate
               </div>
-              <span className="font-medium text-white">{product.interestRate || product.interestRateAnnual || 0}%</span>
+              <span className="font-medium text-foreground">{product.interestRate || product.interestRateAnnual || 0}%</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center text-zinc-400 gap-2">
+              <div className="flex items-center text-muted-foreground gap-2">
                 <Clock className="w-4 h-4" /> Duration
               </div>
-              <span className="font-medium text-white">{product.durationMonths || product.maxTenure || 0} months</span>
+              <span className="font-medium text-foreground">{product.durationMonths || product.maxTenure || 0} months</span>
             </div>
           </div>
-          <div className="mt-6 pt-4 border-t border-zinc-800/50 flex gap-3">
-            <Button onClick={() => setShowEdit(true)} variant="outline" className="w-full border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">Edit</Button>
-            <Button onClick={() => setShowDetails(true)} variant="outline" className="w-full border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">Details</Button>
+          <div className="mt-6 pt-4 border-t border-border/50 flex gap-3">
+            <Button onClick={() => setShowEdit(true)} variant="outline" className="w-full border-border text-foreground/80 hover:bg-muted hover:text-foreground">Edit</Button>
+            <Button onClick={() => setShowDetails(true)} variant="outline" className="w-full border-border text-foreground/80 hover:bg-muted hover:text-foreground">Details</Button>
           </div>
         </CardContent>
       </Card>
 
       <Dialog open={showEdit} onOpenChange={setShowEdit}>
-        <DialogContent className="sm:max-w-[425px] bg-zinc-950 border-white/10 text-white">
+        <DialogContent className="sm:max-w-[425px] bg-zinc-950 border-border text-foreground">
           <DialogHeader>
             <DialogTitle>Edit Loan Product</DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-300">Name</label>
+              <label className="text-sm font-medium text-foreground/80">Name</label>
               <Input 
                 value={editForm.name} 
                 onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-                className="bg-zinc-900 border-white/10 text-white"
+                className="bg-card border-border text-foreground"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-300">Status</label>
+              <label className="text-sm font-medium text-foreground/80">Status</label>
               <select 
                 value={editForm.status} 
                 onChange={e => setEditForm({ ...editForm, status: e.target.value as any })}
-                className="w-full p-2 bg-zinc-900 border border-white/10 text-white rounded-md"
+                className="w-full p-2 bg-card border border-border text-foreground rounded-md"
               >
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
@@ -100,15 +100,15 @@ const ProductCard = ({ product }: { product: any }) => {
       </Dialog>
 
       <Dialog open={showDetails} onOpenChange={setShowDetails}>
-        <DialogContent className="sm:max-w-[425px] bg-zinc-950 border-white/10 text-white">
+        <DialogContent className="sm:max-w-[425px] bg-zinc-950 border-border text-foreground">
           <DialogHeader>
             <DialogTitle>Product Details</DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-4">
             {Object.entries(product).map(([key, value]) => (
-              <div key={key} className="flex justify-between border-b border-zinc-800 pb-2">
-                <span className="text-zinc-400 capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
-                <span className="text-white font-medium">{String(value)}</span>
+              <div key={key} className="flex justify-between border-b border-border pb-2">
+                <span className="text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
+                <span className="text-foreground font-medium">{String(value)}</span>
               </div>
             ))}
           </div>
@@ -134,8 +134,8 @@ export const LoanProductsPage = () => {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">Loan Products</h1>
-          <p className="text-muted-foreground mt-1 text-zinc-400">Manage available loan products and terms.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Loan Products</h1>
+          <p className="text-muted-foreground mt-1 text-muted-foreground">Manage available loan products and terms.</p>
         </div>
         <Link to="/app/loan-products/new">
           <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">

@@ -49,7 +49,7 @@ export function AuditLogsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <ShieldAlert className="w-6 h-6 text-indigo-400" />
           Audit Logs
         </h1>
@@ -58,30 +58,30 @@ export function AuditLogsPage() {
       <div className="glass p-4 rounded-xl space-y-4">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
               placeholder="Filter by Action..."
               value={actionFilter}
               onChange={(e) => setActionFilter(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-black/20 border border-white/10 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
+              className="w-full pl-10 pr-4 py-2 bg-black/20 border border-border rounded-lg text-foreground placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
             />
           </div>
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
               placeholder="Filter by Entity Type..."
               value={entityTypeFilter}
               onChange={(e) => setEntityTypeFilter(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-black/20 border border-white/10 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
+              className="w-full pl-10 pr-4 py-2 bg-black/20 border border-border rounded-lg text-foreground placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
             />
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="text-xs text-zinc-400 bg-black/20">
+            <thead className="text-xs text-muted-foreground bg-black/20">
               <tr>
                 <th className="px-4 py-3 rounded-tl-lg">Date</th>
                 <th className="px-4 py-3">Actor</th>
@@ -94,23 +94,23 @@ export function AuditLogsPage() {
             <tbody className="divide-y divide-white/5">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                     Loading logs...
                   </td>
                 </tr>
               ) : logs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                     No audit logs found.
                   </td>
                 </tr>
               ) : (
                 logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-white/5 transition-colors">
-                    <td className="px-4 py-3 text-zinc-300 whitespace-nowrap">
+                  <tr key={log.id} className="hover:bg-muted transition-colors">
+                    <td className="px-4 py-3 text-foreground/80 whitespace-nowrap">
                       {new Date(log.createdAt).toLocaleString()}
                     </td>
-                    <td className="px-4 py-3 text-zinc-300">
+                    <td className="px-4 py-3 text-foreground/80">
                       {log.actorStaff?.fullName || 'System'}
                     </td>
                     <td className="px-4 py-3">
@@ -118,7 +118,7 @@ export function AuditLogsPage() {
                         {log.action}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-zinc-400">
+                    <td className="px-4 py-3 text-muted-foreground">
                       {log.entityType}
                     </td>
                     <td className="px-4 py-3">
@@ -138,15 +138,15 @@ export function AuditLogsPage() {
           <button 
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="px-3 py-1 text-sm bg-white/5 border border-white/10 rounded disabled:opacity-50 text-zinc-300"
+            className="px-3 py-1 text-sm bg-white/5 border border-border rounded disabled:opacity-50 text-foreground/80"
           >
             Previous
           </button>
-          <span className="text-sm text-zinc-400">Page {page}</span>
+          <span className="text-sm text-muted-foreground">Page {page}</span>
           <button 
             onClick={() => setPage(p => p + 1)}
             disabled={logs.length < 20}
-            className="px-3 py-1 text-sm bg-white/5 border border-white/10 rounded disabled:opacity-50 text-zinc-300"
+            className="px-3 py-1 text-sm bg-white/5 border border-border rounded disabled:opacity-50 text-foreground/80"
           >
             Next
           </button>

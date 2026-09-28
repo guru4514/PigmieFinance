@@ -59,10 +59,10 @@ export const RestructureLoanDialog: React.FC<RestructureLoanDialogProps> = ({ lo
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px] bg-zinc-900 border-zinc-800 text-white">
+      <DialogContent className="sm:max-w-[425px] bg-card border-border text-foreground">
         <DialogHeader>
           <DialogTitle>Restructure Loan</DialogTitle>
-          <DialogDescription className="text-zinc-400">
+          <DialogDescription className="text-muted-foreground">
             Change the remaining tenure of this loan starting from a specific pending installment.
           </DialogDescription>
         </DialogHeader>
@@ -70,16 +70,16 @@ export const RestructureLoanDialog: React.FC<RestructureLoanDialogProps> = ({ lo
         {scheduleLoading ? (
           <div className="flex justify-center p-8"><LoadingSpinner className="w-6 h-6 text-primary" /></div>
         ) : pendingInstallments.length === 0 ? (
-          <div className="p-4 text-center text-zinc-400">
+          <div className="p-4 text-center text-muted-foreground">
             No pending installments available to restructure.
           </div>
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-300">Start from Installment</label>
+              <label className="text-sm font-medium text-foreground/80">Start from Installment</label>
               <select
                 {...register('fromInstallmentNumber', { valueAsNumber: true })}
-                className="flex h-10 w-full rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                className="flex h-10 w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value={0}>Select installment...</option>
                 {pendingInstallments.map((inst: any) => (
@@ -92,28 +92,28 @@ export const RestructureLoanDialog: React.FC<RestructureLoanDialogProps> = ({ lo
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-300">New Remaining Tenure</label>
+              <label className="text-sm font-medium text-foreground/80">New Remaining Tenure</label>
               <Input
                 type="number"
                 {...register('newTenure', { valueAsNumber: true })}
-                className="bg-zinc-800/50 border-zinc-700 text-white"
+                className="bg-muted border-border text-foreground"
                 placeholder="e.g. 10"
               />
               {errors.newTenure && <p className="text-sm text-red-400">{errors.newTenure.message}</p>}
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-300">Reason (Optional)</label>
+              <label className="text-sm font-medium text-foreground/80">Reason (Optional)</label>
               <textarea
                 {...register('reason')}
-                className="flex min-h-[80px] w-full rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                className="flex min-h-[80px] w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="Why is this loan being restructured?"
               />
               {errors.reason && <p className="text-sm text-red-400">{errors.reason.message}</p>}
             </div>
 
             <DialogFooter className="pt-4">
-              <Button type="button" variant="ghost" onClick={() => setOpen(false)} className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground hover:bg-muted">
                 Cancel
               </Button>
               <Button type="submit" disabled={restructureLoan.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">

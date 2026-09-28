@@ -9,7 +9,7 @@ export function AppLayout() {
       <Sidebar />
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto bg-background dark:bg-gradient-to-b dark:from-background dark:to-zinc-950 p-4 pb-20 lg:p-8 lg:pb-8">
+        <main className="flex-1 overflow-y-auto bg-background p-4 pb-20 lg:p-8 lg:pb-8">
           <Outlet />
         </main>
         <MobileBottomNav />

@@ -56,30 +56,30 @@ export const NewLoanPage: React.FC = () => {
     <div className="space-y-6 max-w-3xl mx-auto p-6">
       <div className="flex items-center gap-4">
         <Link to="/app/loans">
-          <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground hover:bg-muted">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Create New Loan</h1>
-          <p className="text-sm text-zinc-400 mt-1">Issue a new loan to a registered customer.</p>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">Create New Loan</h1>
+          <p className="text-sm text-muted-foreground mt-1">Issue a new loan to a registered customer.</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)}>
-        <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
+        <Card className="bg-card border-border backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-xl text-white">Loan Details</CardTitle>
-            <CardDescription className="text-zinc-400">
+            <CardTitle className="text-xl text-foreground">Loan Details</CardTitle>
+            <CardDescription className="text-muted-foreground">
               Select a customer and a loan product to determine the terms.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-300">Customer</label>
+              <label className="text-sm font-medium text-foreground/80">Customer</label>
               <select
                 {...register('customerId')}
-                className="flex h-10 w-full rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                className="flex h-10 w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">Select a customer...</option>
                 {customers.map(c => (
@@ -90,10 +90,10 @@ export const NewLoanPage: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-300">Loan Product</label>
+              <label className="text-sm font-medium text-foreground/80">Loan Product</label>
               <select
                 {...register('loanProductId')}
-                className="flex h-10 w-full rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                className="flex h-10 w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">Select a product...</option>
                 {products.map(p => (
@@ -105,22 +105,22 @@ export const NewLoanPage: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-300">Principal Amount (₹)</label>
+                <label className="text-sm font-medium text-foreground/80">Principal Amount (₹)</label>
                 <Input
                   type="number"
                   {...register('principalAmount', { valueAsNumber: true })}
-                  className="bg-zinc-800/50 border-zinc-700 text-white"
+                  className="bg-muted border-border text-foreground"
                   placeholder="10000"
                 />
                 {errors.principalAmount && <p className="text-sm text-red-400">{errors.principalAmount.message}</p>}
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-300">Tenure (Number of Installments)</label>
+                <label className="text-sm font-medium text-foreground/80">Tenure (Number of Installments)</label>
                 <Input
                   type="number"
                   {...register('tenure', { valueAsNumber: true })}
-                  className="bg-zinc-800/50 border-zinc-700 text-white"
+                  className="bg-muted border-border text-foreground"
                   placeholder="100"
                 />
                 {errors.tenure && <p className="text-sm text-red-400">{errors.tenure.message}</p>}
@@ -128,17 +128,17 @@ export const NewLoanPage: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-300">Notes (Optional)</label>
+              <label className="text-sm font-medium text-foreground/80">Notes (Optional)</label>
               <Input
                 {...register('notes')}
-                className="bg-zinc-800/50 border-zinc-700 text-white"
+                className="bg-muted border-border text-foreground"
                 placeholder="Any special notes..."
               />
             </div>
           </CardContent>
-          <CardFooter className="flex justify-end gap-3 border-t border-zinc-800/50 pt-6">
+          <CardFooter className="flex justify-end gap-3 border-t border-border/50 pt-6">
             <Link to="/app/loans">
-              <Button type="button" variant="ghost" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+              <Button type="button" variant="ghost" className="text-muted-foreground hover:text-foreground hover:bg-muted">
                 Cancel
               </Button>
             </Link>

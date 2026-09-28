@@ -69,15 +69,15 @@ export function NotificationBell() {
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white relative">
+        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground relative">
           <Bell className="w-5 h-5" />
           {unreadCount > 0 && (
             <span className="absolute top-2 right-2 w-2 h-2 bg-indigo-500 rounded-full"></span>
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 p-0 border-white/10 bg-zinc-950 text-white">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+      <DropdownMenuContent align="end" className="w-80 p-0 border-border bg-zinc-950 text-foreground">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <span className="font-semibold text-sm">Notifications</span>
           {unreadCount > 0 && (
             <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full">
@@ -87,7 +87,7 @@ export function NotificationBell() {
         </div>
         <div className="max-h-[350px] overflow-y-auto">
           {notifications.length === 0 ? (
-            <div className="p-8 text-center text-sm text-zinc-400">No notifications</div>
+            <div className="p-8 text-center text-sm text-muted-foreground">No notifications</div>
           ) : (
             notifications.map((notification) => (
               <DropdownMenuItem
@@ -105,13 +105,13 @@ export function NotificationBell() {
                     {!notification.read ? (
                       <span className="block w-2 h-2 bg-indigo-500 rounded-full"></span>
                     ) : (
-                      <span className="block w-2 h-2 rounded-full border border-zinc-700"></span>
+                      <span className="block w-2 h-2 rounded-full border border-border"></span>
                     )}
                   </div>
                   <div className="flex flex-col gap-1 w-full">
                     <span className="font-medium text-sm leading-none">{notification.title}</span>
-                    <p className="text-xs text-zinc-400 line-clamp-2">{notification.message}</p>
-                    <span className="text-[10px] text-zinc-500 mt-1">
+                    <p className="text-xs text-muted-foreground line-clamp-2">{notification.message}</p>
+                    <span className="text-[10px] text-muted-foreground mt-1">
                       {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
                     </span>
                   </div>
@@ -122,8 +122,8 @@ export function NotificationBell() {
         </div>
       </DropdownMenuContent>
       {permissionState === 'default' && (
-        <DropdownMenuContent align="end" className="w-80 p-3 mt-2 border-white/10 bg-zinc-950 text-white">
-          <Button onClick={handleEnablePush} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white">
+        <DropdownMenuContent align="end" className="w-80 p-3 mt-2 border-border bg-zinc-950 text-foreground">
+          <Button onClick={handleEnablePush} className="w-full bg-indigo-600 hover:bg-indigo-700 text-foreground">
             Enable Push Notifications
           </Button>
         </DropdownMenuContent>

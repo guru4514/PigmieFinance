@@ -16,10 +16,10 @@ export function generateReceiptMessage(data: {
 }) {
   return `🧾 *Payment Receipt*\n\n` +
     `Customer: ${data.customerName}\n` +
-    `Amount: ₹${data.amount.toLocaleString('en-IN')}\n` +
+    `Amount: ₹${((data.amount) || 0).toLocaleString('en-IN')}\n` +
     `Date: ${data.date}\n` +
     `Loan ID: ${data.loanId}\n` +
-    `Outstanding: ₹${data.outstandingBalance.toLocaleString('en-IN')}\n\n` +
+    `Outstanding: ₹${((data.outstandingBalance) || 0).toLocaleString('en-IN')}\n\n` +
     `${data.organizationName ? `— ${data.organizationName}` : ''}`;
 }
 
@@ -32,7 +32,7 @@ export function generateReminderMessage(data: {
 }) {
   return `🔔 *Payment Reminder*\n\n` +
     `Dear ${data.customerName},\n\n` +
-    `Your payment of ₹${data.dueAmount.toLocaleString('en-IN')} was due on ${data.dueDate} ` +
+    `Your payment of ₹${((data.dueAmount) || 0).toLocaleString('en-IN')} was due on ${data.dueDate} ` +
     `(${data.daysOverdue} days overdue).\n\n` +
     `Please make the payment at your earliest convenience.\n\n` +
     `${data.organizationName ? `— ${data.organizationName}` : ''}`;

@@ -83,27 +83,27 @@ export const CustomerFormPage = () => {
     <div className="space-y-6 p-6 max-w-3xl mx-auto">
       <div className="flex items-center gap-4">
         <Link to={isEditMode ? `/app/customers/${id}` : "/app/customers"}>
-          <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground hover:bg-muted">
             <ArrowLeft className="w-5 h-5" />
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">{isEditMode ? 'Edit Customer' : 'Add New Customer'}</h1>
-          <p className="text-muted-foreground mt-1 text-zinc-400">{isEditMode ? 'Update customer details.' : 'Enter customer details to register them in the system.'}</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">{isEditMode ? 'Edit Customer' : 'Add New Customer'}</h1>
+          <p className="text-muted-foreground mt-1 text-muted-foreground">{isEditMode ? 'Update customer details.' : 'Enter customer details to register them in the system.'}</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)}>
-        <Card className="bg-zinc-900/50 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-xl text-white">Personal Information</CardTitle>
+            <CardTitle className="text-xl text-foreground">Personal Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-300">Full Name</label>
+              <label className="text-sm font-medium text-foreground/80">Full Name</label>
               <Input 
                 {...register('fullName')} 
-                className="bg-zinc-800/50 border-zinc-700 text-white" 
+                className="bg-muted border-border text-foreground" 
                 placeholder="John Doe" 
               />
               {errors.fullName && <p className="text-sm text-red-400">{errors.fullName.message}</p>}
@@ -111,20 +111,20 @@ export const CustomerFormPage = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-300">Email Address (Optional)</label>
+                <label className="text-sm font-medium text-foreground/80">Email Address (Optional)</label>
                 <Input 
                   {...register('email')} 
                   type="email"
-                  className="bg-zinc-800/50 border-zinc-700 text-white" 
+                  className="bg-muted border-border text-foreground" 
                   placeholder="john.doe@example.com" 
                 />
                 {errors.email && <p className="text-sm text-red-400">{errors.email.message}</p>}
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-300">Phone Number</label>
+                <label className="text-sm font-medium text-foreground/80">Phone Number</label>
                 <Input 
                   {...register('phone')} 
-                  className="bg-zinc-800/50 border-zinc-700 text-white" 
+                  className="bg-muted border-border text-foreground" 
                   placeholder="+91 9876543210" 
                 />
                 {errors.phone && <p className="text-sm text-red-400">{errors.phone.message}</p>}
@@ -132,17 +132,17 @@ export const CustomerFormPage = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-300">Address (Optional)</label>
+              <label className="text-sm font-medium text-foreground/80">Address (Optional)</label>
               <Input 
                 {...register('address')}
-                className="bg-zinc-800/50 border-zinc-700 text-white" 
+                className="bg-muted border-border text-foreground" 
                 placeholder="123 Main St, City"
               />
             </div>
           </CardContent>
-          <CardFooter className="flex justify-end gap-3 border-t border-zinc-800/50 pt-6">
+          <CardFooter className="flex justify-end gap-3 border-t border-border/50 pt-6">
             <Link to={isEditMode ? `/app/customers/${id}` : "/app/customers"}>
-              <Button type="button" variant="ghost" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+              <Button type="button" variant="ghost" className="text-muted-foreground hover:text-foreground hover:bg-muted">
                 Cancel
               </Button>
             </Link>

@@ -56,27 +56,27 @@ export const NewLoanProductPage = () => {
     <div className="space-y-6 max-w-3xl mx-auto p-6">
       <div className="flex items-center gap-4">
         <Link to="/app/loan-products">
-          <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground hover:bg-muted">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Create Loan Product</h1>
-          <p className="text-sm text-zinc-400 mt-1">Configure terms for a new loan offering.</p>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">Create Loan Product</h1>
+          <p className="text-sm text-muted-foreground mt-1">Configure terms for a new loan offering.</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)}>
-        <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
+        <Card className="bg-card border-border backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-xl text-white">Product Configuration</CardTitle>
+            <CardTitle className="text-xl text-foreground">Product Configuration</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-300">Product Name</label>
+              <label className="text-sm font-medium text-foreground/80">Product Name</label>
               <Input 
                 {...register('name')} 
-                className="bg-zinc-800/50 border-zinc-700 text-white" 
+                className="bg-muted border-border text-foreground" 
                 placeholder="e.g. Daily Personal Loan" 
               />
               {errors.name && <p className="text-sm text-red-400">{errors.name.message}</p>}
@@ -84,10 +84,10 @@ export const NewLoanProductPage = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-300">Interest Type</label>
+                <label className="text-sm font-medium text-foreground/80">Interest Type</label>
                 <select
                   {...register('interestType')}
-                  className="flex h-10 w-full rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="flex h-10 w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="flat">Flat Rate</option>
                   <option value="reducing">Reducing Balance</option>
@@ -95,12 +95,12 @@ export const NewLoanProductPage = () => {
                 {errors.interestType && <p className="text-sm text-red-400">{errors.interestType.message}</p>}
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-300">Interest Rate (Annual %)</label>
+                <label className="text-sm font-medium text-foreground/80">Interest Rate (Annual %)</label>
                 <Input 
                   type="number"
                   step="0.1"
                   {...register('interestRateAnnual', { valueAsNumber: true })} 
-                  className="bg-zinc-800/50 border-zinc-700 text-white" 
+                  className="bg-muted border-border text-foreground" 
                 />
                 {errors.interestRateAnnual && <p className="text-sm text-red-400">{errors.interestRateAnnual.message}</p>}
               </div>
@@ -108,10 +108,10 @@ export const NewLoanProductPage = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-300">Collection Frequency</label>
+                <label className="text-sm font-medium text-foreground/80">Collection Frequency</label>
                 <select
                   {...register('collectionFrequency')}
-                  className="flex h-10 w-full rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="flex h-10 w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
@@ -120,56 +120,56 @@ export const NewLoanProductPage = () => {
                 {errors.collectionFrequency && <p className="text-sm text-red-400">{errors.collectionFrequency.message}</p>}
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-300">Processing Fee (Flat ₹)</label>
+                <label className="text-sm font-medium text-foreground/80">Processing Fee (Flat ₹)</label>
                 <Input 
                   type="number"
                   {...register('processingFee', { valueAsNumber: true })} 
-                  className="bg-zinc-800/50 border-zinc-700 text-white" 
+                  className="bg-muted border-border text-foreground" 
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-300">Min Amount (₹)</label>
+                <label className="text-sm font-medium text-foreground/80">Min Amount (₹)</label>
                 <Input 
                   type="number"
                   {...register('minAmount', { valueAsNumber: true })} 
-                  className="bg-zinc-800/50 border-zinc-700 text-white" 
+                  className="bg-muted border-border text-foreground" 
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-300">Max Amount (₹)</label>
+                <label className="text-sm font-medium text-foreground/80">Max Amount (₹)</label>
                 <Input 
                   type="number"
                   {...register('maxAmount', { valueAsNumber: true })} 
-                  className="bg-zinc-800/50 border-zinc-700 text-white" 
+                  className="bg-muted border-border text-foreground" 
                 />
               </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-300">Min Tenure (Installments)</label>
+                <label className="text-sm font-medium text-foreground/80">Min Tenure (Installments)</label>
                 <Input 
                   type="number"
                   {...register('minTenure', { valueAsNumber: true })} 
-                  className="bg-zinc-800/50 border-zinc-700 text-white" 
+                  className="bg-muted border-border text-foreground" 
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-300">Max Tenure (Installments)</label>
+                <label className="text-sm font-medium text-foreground/80">Max Tenure (Installments)</label>
                 <Input 
                   type="number"
                   {...register('maxTenure', { valueAsNumber: true })} 
-                  className="bg-zinc-800/50 border-zinc-700 text-white" 
+                  className="bg-muted border-border text-foreground" 
                 />
               </div>
             </div>
           </CardContent>
-          <CardFooter className="flex justify-end gap-3 border-t border-zinc-800/50 pt-6">
+          <CardFooter className="flex justify-end gap-3 border-t border-border/50 pt-6">
             <Link to="/app/loan-products">
-              <Button type="button" variant="ghost" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+              <Button type="button" variant="ghost" className="text-muted-foreground hover:text-foreground hover:bg-muted">
                 Cancel
               </Button>
             </Link>

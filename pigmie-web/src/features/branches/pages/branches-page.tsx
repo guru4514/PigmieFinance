@@ -108,11 +108,11 @@ export function BranchesPage() {
         </Button>
       </div>
 
-      <Card className="glass border-white/10">
+      <Card className="glass border-border">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow className="border-white/10 hover:bg-transparent">
+              <TableRow className="border-border hover:bg-transparent">
                 <TableHead>Name</TableHead>
                 <TableHead>Address</TableHead>
                 <TableHead>Staff Count</TableHead>
@@ -135,7 +135,7 @@ export function BranchesPage() {
                 </TableRow>
               ) : (
                 branches.map((branch) => (
-                  <TableRow key={branch.id} className="border-white/10 hover:bg-white/5">
+                  <TableRow key={branch.id} className="border-border hover:bg-muted">
                     <TableCell className="font-medium">{branch.name}</TableCell>
                     <TableCell>{branch.address}</TableCell>
                     <TableCell>{branch.staffCount || 0}</TableCell>
@@ -147,7 +147,7 @@ export function BranchesPage() {
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(branch)}>
-                          <Edit2 className="w-4 h-4 text-zinc-400" />
+                          <Edit2 className="w-4 h-4 text-muted-foreground" />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => toggleActive(branch)}>
                           {branch.isActive ? (
@@ -167,7 +167,7 @@ export function BranchesPage() {
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="glass border-white/10">
+        <DialogContent className="glass border-border">
           <DialogHeader>
             <DialogTitle>{editingBranch ? 'Edit Branch' : 'Add New Branch'}</DialogTitle>
           </DialogHeader>
@@ -177,7 +177,7 @@ export function BranchesPage() {
               <Input
                 {...register('name')}
                 placeholder="e.g. Main Branch"
-                className="bg-black/20 border-white/10"
+                className="bg-black/20 border-border"
               />
               {errors.name && <p className="text-sm text-rose-500">{errors.name.message}</p>}
             </div>
@@ -186,7 +186,7 @@ export function BranchesPage() {
               <Input
                 {...register('address')}
                 placeholder="Full address"
-                className="bg-black/20 border-white/10"
+                className="bg-black/20 border-border"
               />
               {errors.address && <p className="text-sm text-rose-500">{errors.address.message}</p>}
             </div>

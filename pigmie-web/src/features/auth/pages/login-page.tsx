@@ -65,14 +65,14 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#09090b] bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-900/20 via-background to-background p-4">
-      <Card className="w-full max-w-md glass-card border-white/10">
+    <div className="min-h-screen flex items-center justify-center bg-background bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-900/20 via-background to-background p-4">
+      <Card className="w-full max-w-md glass-card border-border">
         <CardHeader className="space-y-2 text-center pb-8">
           <div className="mx-auto w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center mb-4">
             <div className="w-6 h-6 bg-gradient-to-tr from-indigo-500 to-emerald-500 rounded-md"></div>
           </div>
           <CardTitle className="text-3xl font-bold bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent">Welcome back</CardTitle>
-          <CardDescription className="text-zinc-400">Sign in to your Pigmie account</CardDescription>
+          <CardDescription className="text-muted-foreground">Sign in to your Pigmie account</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
@@ -82,19 +82,19 @@ export function LoginPage() {
               </div>
             )}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-300">Email address</label>
+              <label className="text-sm font-medium text-foreground/80">Email address</label>
               <Input 
                 type="email" 
                 placeholder="name@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="bg-black/50 border-white/10"
+                className="bg-black/50 border-border"
               />
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-zinc-300">Password</label>
+                <label className="text-sm font-medium text-foreground/80">Password</label>
                 <a href="#" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">Forgot password?</a>
               </div>
               <Input 
@@ -103,18 +103,18 @@ export function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="bg-black/50 border-white/10"
+                className="bg-black/50 border-border"
               />
             </div>
-            <Button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white border-0" disabled={loading}>
+            <Button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-foreground border-0" disabled={loading}>
               {loading ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
 
           <div className="flex items-center my-4 gap-3">
-            <div className="flex-1 border-t border-white/10" />
-            <span className="text-xs uppercase text-zinc-400">or</span>
-            <div className="flex-1 border-t border-white/10" />
+            <div className="flex-1 border-t border-border" />
+            <span className="text-xs uppercase text-muted-foreground">or</span>
+            <div className="flex-1 border-t border-border" />
           </div>
 
           <Button
@@ -127,7 +127,7 @@ export function LoginPage() {
             Sign in with Google
           </Button>
         </CardContent>
-        <CardFooter className="flex justify-center border-t border-white/5 pt-6 text-sm text-zinc-400">
+        <CardFooter className="flex justify-center border-t border-white/5 pt-6 text-sm text-muted-foreground">
           Don't have an account? 
           <Link to="/signup" className="text-indigo-400 hover:text-indigo-300 ml-1 font-medium transition-colors">Sign up</Link>
         </CardFooter>

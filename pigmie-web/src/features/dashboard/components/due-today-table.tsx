@@ -23,10 +23,10 @@ export function DueTodayTable({ data = [] }: { data?: any[] }) {
         </Button>
       </div>
       
-      <div className="rounded-md border border-white/10 overflow-hidden bg-card/30 backdrop-blur-sm">
+      <div className="rounded-md border border-border overflow-hidden bg-card/30 backdrop-blur-sm">
         <Table>
           <TableHeader className="bg-card/50">
-            <TableRow className="hover:bg-transparent border-white/10">
+            <TableRow className="hover:bg-transparent border-border">
               <TableHead>Customer</TableHead>
               <TableHead>Amount</TableHead>
               <TableHead>Agent</TableHead>
@@ -43,7 +43,7 @@ export function DueTodayTable({ data = [] }: { data?: any[] }) {
               </TableRow>
             ) : (
             data.map((item) => (
-              <TableRow key={item.id} className="border-white/5 hover:bg-white/5 transition-colors">
+              <TableRow key={item.id} className="border-white/5 hover:bg-muted transition-colors">
                 <TableCell className="font-medium">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-8 w-8 bg-primary/20 text-primary border border-primary/20">

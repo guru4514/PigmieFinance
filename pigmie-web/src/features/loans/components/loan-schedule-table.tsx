@@ -15,9 +15,9 @@ interface LoanScheduleTableProps {
 
 export const LoanScheduleTable: React.FC<LoanScheduleTableProps> = ({ payments }) => {
   return (
-    <div className="overflow-x-auto rounded-xl border border-white/10 bg-white/5 backdrop-blur-md">
+    <div className="overflow-x-auto rounded-xl border border-border bg-white/5 backdrop-blur-md">
       <table className="w-full text-left text-sm text-gray-300">
-        <thead className="bg-white/5 text-xs uppercase text-gray-400 border-b border-white/10">
+        <thead className="bg-white/5 text-xs uppercase text-gray-400 border-b border-border">
           <tr>
             <th className="px-6 py-4 font-medium">Due Date</th>
             <th className="px-6 py-4 font-medium">Amount</th>
@@ -28,11 +28,11 @@ export const LoanScheduleTable: React.FC<LoanScheduleTableProps> = ({ payments }
         </thead>
         <tbody className="divide-y divide-white/10">
           {payments.map((payment) => (
-            <tr key={payment.id} className="hover:bg-white/5 transition-colors">
+            <tr key={payment.id} className="hover:bg-muted transition-colors">
               <td className="px-6 py-4">{new Date(payment.dueDate).toLocaleDateString()}</td>
-              <td className="px-6 py-4 font-medium">₹{payment.expectedAmount.toLocaleString()}</td>
-              <td className="px-6 py-4">₹{payment.principalAmount.toLocaleString()}</td>
-              <td className="px-6 py-4">₹{payment.interestAmount.toLocaleString()}</td>
+              <td className="px-6 py-4 font-medium">₹{((payment.expectedAmount) || 0).toLocaleString()}</td>
+              <td className="px-6 py-4">₹{((payment.principalAmount) || 0).toLocaleString()}</td>
+              <td className="px-6 py-4">₹{((payment.interestAmount) || 0).toLocaleString()}</td>
               <td className="px-6 py-4">
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border backdrop-blur-sm ${
                   payment.status === 'paid' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :

@@ -145,7 +145,7 @@ export function ReceiptModal({ open, onClose, collection }: ReceiptModalProps) {
       `}</style>
 
       <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-        <DialogContent className="sm:max-w-md bg-zinc-900/90 border-zinc-800 text-zinc-100 backdrop-blur-md p-6">
+        <DialogContent className="sm:max-w-md bg-card/90 border-border text-zinc-100 backdrop-blur-md p-6">
           <DialogHeader className="sr-only">
             <DialogTitle>Payment Receipt</DialogTitle>
             <DialogDescription>Payment receipt details and options</DialogDescription>
@@ -154,91 +154,91 @@ export function ReceiptModal({ open, onClose, collection }: ReceiptModalProps) {
           {/* Styled Paper Receipt */}
           <div
             id="printable-receipt"
-            className="font-mono text-xs sm:text-sm bg-zinc-950/80 border-2 border-dashed border-zinc-700 rounded-lg p-5 sm:p-6 text-zinc-100 shadow-inner select-text"
+            className="font-mono text-xs sm:text-sm bg-zinc-950/80 border-2 border-dashed border-border rounded-lg p-5 sm:p-6 text-zinc-100 shadow-inner select-text"
           >
-            <div className="text-center font-bold tracking-widest text-zinc-500 receipt-divider select-none">
+            <div className="text-center font-bold tracking-widest text-muted-foreground receipt-divider select-none">
               ============================
             </div>
             <div className="text-center py-1">
-              <h3 className="font-bold text-sm sm:text-base tracking-widest text-white receipt-text uppercase">
+              <h3 className="font-bold text-sm sm:text-base tracking-widest text-foreground receipt-text uppercase">
                 PAYMENT RECEIPT
               </h3>
             </div>
-            <div className="text-center font-bold tracking-widest text-zinc-500 receipt-divider select-none">
+            <div className="text-center font-bold tracking-widest text-muted-foreground receipt-divider select-none">
               ============================
             </div>
 
             <div className="py-2 space-y-1">
               <div className="flex justify-between items-baseline gap-2">
-                <span className="text-zinc-400 receipt-muted shrink-0">Date:</span>
-                <span className="font-medium text-right text-white receipt-text">{formattedDate}</span>
+                <span className="text-muted-foreground receipt-muted shrink-0">Date:</span>
+                <span className="font-medium text-right text-foreground receipt-text">{formattedDate}</span>
               </div>
               <div className="flex justify-between items-baseline gap-2">
-                <span className="text-zinc-400 receipt-muted shrink-0">Receipt #:</span>
-                <span className="font-medium text-right text-white receipt-text">{receiptNumber}</span>
+                <span className="text-muted-foreground receipt-muted shrink-0">Receipt #:</span>
+                <span className="font-medium text-right text-foreground receipt-text">{receiptNumber}</span>
               </div>
             </div>
 
-            <div className="text-center font-bold tracking-widest text-zinc-500 receipt-divider select-none">
+            <div className="text-center font-bold tracking-widest text-muted-foreground receipt-divider select-none">
               ----------------------------
             </div>
 
             <div className="py-2 space-y-1">
               <div className="flex justify-between items-baseline gap-2">
-                <span className="text-zinc-400 receipt-muted shrink-0">Customer:</span>
-                <span className="font-medium text-right text-white receipt-text truncate max-w-[200px]" title={collection.customerName}>
+                <span className="text-muted-foreground receipt-muted shrink-0">Customer:</span>
+                <span className="font-medium text-right text-foreground receipt-text truncate max-w-[200px]" title={collection.customerName}>
                   {collection.customerName}
                 </span>
               </div>
               <div className="flex justify-between items-baseline gap-2">
-                <span className="text-zinc-400 receipt-muted shrink-0">Phone:</span>
-                <span className="font-medium text-right text-white receipt-text">{collection.customerPhone || 'N/A'}</span>
+                <span className="text-muted-foreground receipt-muted shrink-0">Phone:</span>
+                <span className="font-medium text-right text-foreground receipt-text">{collection.customerPhone || 'N/A'}</span>
               </div>
               <div className="flex justify-between items-baseline gap-2">
-                <span className="text-zinc-400 receipt-muted shrink-0">Loan ID:</span>
-                <span className="font-medium text-right text-white receipt-text">{formattedLoanId}</span>
+                <span className="text-muted-foreground receipt-muted shrink-0">Loan ID:</span>
+                <span className="font-medium text-right text-foreground receipt-text">{formattedLoanId}</span>
               </div>
             </div>
 
-            <div className="text-center font-bold tracking-widest text-zinc-500 receipt-divider select-none">
+            <div className="text-center font-bold tracking-widest text-muted-foreground receipt-divider select-none">
               ----------------------------
             </div>
 
             <div className="py-2 space-y-1">
               <div className="flex justify-between items-baseline gap-2">
-                <span className="text-zinc-400 receipt-muted shrink-0">Amount Paid:</span>
+                <span className="text-muted-foreground receipt-muted shrink-0">Amount Paid:</span>
                 <span className="font-bold text-right text-emerald-400 receipt-amount text-sm sm:text-base">
                   {formattedAmount}
                 </span>
               </div>
               <div className="flex justify-between items-baseline gap-2">
-                <span className="text-zinc-400 receipt-muted shrink-0">Method:</span>
-                <span className="font-medium text-right text-white receipt-text">{formattedMethod}</span>
+                <span className="text-muted-foreground receipt-muted shrink-0">Method:</span>
+                <span className="font-medium text-right text-foreground receipt-text">{formattedMethod}</span>
               </div>
             </div>
 
-            <div className="text-center font-bold tracking-widest text-zinc-500 receipt-divider select-none">
+            <div className="text-center font-bold tracking-widest text-muted-foreground receipt-divider select-none">
               ----------------------------
             </div>
 
             <div className="py-2 space-y-1">
               <div className="flex justify-between items-baseline gap-2">
-                <span className="text-zinc-400 receipt-muted shrink-0">Outstanding:</span>
-                <span className="font-semibold text-right text-white receipt-text">
+                <span className="text-muted-foreground receipt-muted shrink-0">Outstanding:</span>
+                <span className="font-semibold text-right text-foreground receipt-text">
                   {formattedOutstanding}
                 </span>
               </div>
             </div>
 
-            <div className="text-center font-bold tracking-widest text-zinc-500 receipt-divider select-none">
+            <div className="text-center font-bold tracking-widest text-muted-foreground receipt-divider select-none">
               ----------------------------
             </div>
 
             <div className="text-center py-2">
-              <p className="font-semibold tracking-wider text-white receipt-text">Thank you!</p>
+              <p className="font-semibold tracking-wider text-foreground receipt-text">Thank you!</p>
             </div>
 
-            <div className="text-center font-bold tracking-widest text-zinc-500 receipt-divider select-none">
+            <div className="text-center font-bold tracking-widest text-muted-foreground receipt-divider select-none">
               ============================
             </div>
           </div>
@@ -247,7 +247,7 @@ export function ReceiptModal({ open, onClose, collection }: ReceiptModalProps) {
             <Button
               type="button"
               onClick={handleWhatsAppShare}
-              className="bg-[#25D366] hover:bg-[#20ba5a] text-white flex-1 gap-2 shadow-sm font-medium"
+              className="bg-[#25D366] hover:bg-[#20ba5a] text-foreground flex-1 gap-2 shadow-sm font-medium"
             >
               <MessageCircle className="h-4 w-4" />
               Share via WhatsApp
@@ -256,7 +256,7 @@ export function ReceiptModal({ open, onClose, collection }: ReceiptModalProps) {
               type="button"
               variant="outline"
               onClick={handlePrint}
-              className="border-zinc-700 hover:bg-zinc-800 text-white gap-2"
+              className="border-border hover:bg-muted text-foreground gap-2"
             >
               <Printer className="h-4 w-4" />
               Print
@@ -265,7 +265,7 @@ export function ReceiptModal({ open, onClose, collection }: ReceiptModalProps) {
               type="button"
               variant="ghost"
               onClick={onClose}
-              className="text-zinc-400 hover:text-white"
+              className="text-muted-foreground hover:text-foreground"
             >
               Close
             </Button>

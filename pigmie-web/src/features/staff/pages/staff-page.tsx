@@ -83,18 +83,18 @@ function StaffRowActions({ member }: { member: StaffMember }) {
       </DropdownMenu>
 
       <Dialog open={isEditRoleOpen} onOpenChange={setIsEditRoleOpen}>
-        <DialogContent className="sm:max-w-[425px] bg-zinc-950 border-white/10 text-white">
+        <DialogContent className="sm:max-w-[425px] bg-zinc-950 border-border text-foreground">
           <DialogHeader>
             <DialogTitle>Edit Role for {member.name}</DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-zinc-300">Select Role</label>
+              <label className="text-sm font-medium text-foreground/80">Select Role</label>
               <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as StaffRole)}>
-                <SelectTrigger className="w-full bg-zinc-900 border-white/10 text-white">
+                <SelectTrigger className="w-full bg-card border-border text-foreground">
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-white/10 text-white">
+                <SelectContent className="bg-card border-border text-foreground">
                   <SelectItem value="org_admin">Organization Admin</SelectItem>
                   <SelectItem value="branch_manager">Branch Manager</SelectItem>
                   <SelectItem value="agent">Agent</SelectItem>
@@ -152,7 +152,7 @@ export function StaffPage() {
         </Button>
       </div>
 
-      <Card className="border-white/10 bg-black/40 backdrop-blur-xl">
+      <Card className="border-border bg-black/40 backdrop-blur-xl">
         <CardHeader>
           <CardTitle>All Staff Members</CardTitle>
         </CardHeader>
@@ -166,10 +166,10 @@ export function StaffPage() {
               actionHref="/app/staff/new"
             />
           ) : (
-            <div className="rounded-md border border-white/10">
+            <div className="rounded-md border border-border">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-white/10 hover:bg-white/5">
+                  <TableRow className="border-border hover:bg-muted">
                     <TableHead>Name</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
@@ -181,7 +181,7 @@ export function StaffPage() {
                   {staff.map((member) => {
                     const RoleIcon = roleIcons[member.role] || User;
                     return (
-                      <TableRow key={member.id} className="border-white/10 hover:bg-white/5">
+                      <TableRow key={member.id} className="border-border hover:bg-muted">
                         <TableCell className="font-medium">
                           <div className="flex flex-col">
                             <span>{member.name}</span>

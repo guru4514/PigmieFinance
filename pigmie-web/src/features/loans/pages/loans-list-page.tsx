@@ -32,7 +32,7 @@ export const LoansListPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Loans</h1>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Loans</h1>
           <p className="text-sm text-gray-400 mt-1">Manage and track all loan accounts</p>
         </div>
         <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
@@ -45,10 +45,10 @@ export const LoansListPage: React.FC = () => {
         </RoleGate>
       </div>
 
-      <Card className="border-white/10 bg-black/40 backdrop-blur-xl">
+      <Card className="border-border bg-black/40 backdrop-blur-xl">
         <CardHeader className="border-b border-white/5 pb-4">
           <div className="flex flex-col sm:flex-row gap-4 justify-between">
-            <CardTitle className="text-lg font-medium text-white flex items-center gap-2">
+            <CardTitle className="text-lg font-medium text-foreground flex items-center gap-2">
               All Loans
             </CardTitle>
             <div className="flex items-center gap-2">
@@ -56,7 +56,7 @@ export const LoansListPage: React.FC = () => {
                 variant={filterMode === 'all' ? 'default' : 'outline'} 
                 onClick={() => setFilterMode('all')}
                 size="sm"
-                className={filterMode === 'all' ? '' : 'border-white/10 text-gray-300'}
+                className={filterMode === 'all' ? '' : 'border-border text-gray-300'}
               >
                 All
               </Button>
@@ -64,7 +64,7 @@ export const LoansListPage: React.FC = () => {
                 variant={filterMode === 'my' ? 'default' : 'outline'} 
                 onClick={() => setFilterMode('my')}
                 size="sm"
-                className={filterMode === 'my' ? '' : 'border-white/10 text-gray-300'}
+                className={filterMode === 'my' ? '' : 'border-border text-gray-300'}
               >
                 My Assignments
               </Button>
@@ -74,7 +74,7 @@ export const LoansListPage: React.FC = () => {
                   placeholder="Search loans..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 w-full sm:w-64 bg-white/5 border-white/10 text-white placeholder:text-gray-500 h-9"
+                  className="pl-9 w-full sm:w-64 bg-white/5 border-border text-foreground placeholder:text-gray-500 h-9"
                 />
               </div>
             </div>
@@ -96,7 +96,7 @@ export const LoansListPage: React.FC = () => {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm text-gray-300">
-                <thead className="bg-white/5 text-xs uppercase text-gray-400 border-b border-white/10">
+                <thead className="bg-white/5 text-xs uppercase text-gray-400 border-b border-border">
                   <tr>
                     <th className="px-6 py-4 font-medium">Loan ID</th>
                     <th className="px-6 py-4 font-medium">Borrower</th>
@@ -108,8 +108,8 @@ export const LoansListPage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-white/10">
                   {filteredLoans.map((loan: any) => (
-                    <tr key={loan.id} className="hover:bg-white/5 transition-colors">
-                      <td className="px-6 py-4 font-medium text-white">{loan.id.slice(0, 8)}</td>
+                    <tr key={loan.id} className="hover:bg-muted transition-colors">
+                      <td className="px-6 py-4 font-medium text-foreground">{loan.id.slice(0, 8)}</td>
                       <td className="px-6 py-4">{loan.customer?.fullName || loan.customerId}</td>
                       <td className="px-6 py-4 font-medium">₹{(loan.principalAmount || loan.amount || 0).toLocaleString('en-IN')}</td>
                       <td className="px-6 py-4">₹{(loan.remainingBalance || 0).toLocaleString('en-IN')}</td>

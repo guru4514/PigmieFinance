@@ -51,23 +51,23 @@ export const SmsDialog: React.FC<SmsDialogProps> = ({ customerName, customerPhon
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
+        <Button variant="outline" className="border-border text-foreground/80 hover:bg-muted hover:text-foreground">
           <MessageSquare className="w-4 h-4 mr-2" />
           Send SMS
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md bg-zinc-900 border-zinc-800 text-white">
+      <DialogContent className="sm:max-w-md bg-card border-border text-foreground">
         <DialogHeader>
           <DialogTitle>Send SMS to {customerName}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-zinc-300">Template</label>
+            <label className="text-sm font-medium text-foreground/80">Template</label>
             <Select value={template} onValueChange={handleTemplateChange}>
-              <SelectTrigger className="bg-zinc-950 border-zinc-800 text-white">
+              <SelectTrigger className="bg-zinc-950 border-border text-foreground">
                 <SelectValue placeholder="Select a template" />
               </SelectTrigger>
-              <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
+              <SelectContent className="bg-card border-border text-foreground">
                 <SelectItem value="custom">Custom Message</SelectItem>
                 <SelectItem value="collectionReminder">Collection Reminder</SelectItem>
                 <SelectItem value="collectionReceipt">Collection Receipt</SelectItem>
@@ -78,9 +78,9 @@ export const SmsDialog: React.FC<SmsDialogProps> = ({ customerName, customerPhon
           </div>
           
           <div className="space-y-2">
-            <label className="text-sm font-medium text-zinc-300">Message Preview</label>
+            <label className="text-sm font-medium text-foreground/80">Message Preview</label>
             <Textarea
-              className="min-h-[100px] bg-zinc-950 border-zinc-800 text-white"
+              className="min-h-[100px] bg-zinc-950 border-border text-foreground"
               placeholder="Type your message here..."
               value={message}
               onChange={(e) => setMessage(e.target.value)}

@@ -36,14 +36,14 @@ export function CustomerDocuments({ customerId }: { customerId: string }) {
 
   return (
     <div className="space-y-6">
-      <Card className="bg-zinc-900/50 border-zinc-800">
+      <Card className="bg-card border-border">
         <CardContent className="p-6">
-          <h3 className="text-lg font-medium text-white mb-4">Upload New Document</h3>
+          <h3 className="text-lg font-medium text-foreground mb-4">Upload New Document</h3>
           <div className="flex flex-col md:flex-row gap-4 items-end">
             <div className="space-y-2 flex-1">
-              <label className="text-sm text-zinc-400">Document Type</label>
+              <label className="text-sm text-muted-foreground">Document Type</label>
               <Select value={selectedType} onValueChange={(val: any) => setSelectedType(val)}>
-                <SelectTrigger className="bg-white/5 border-white/10">
+                <SelectTrigger className="bg-white/5 border-border">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -57,7 +57,7 @@ export function CustomerDocuments({ customerId }: { customerId: string }) {
             </div>
             
             <div className="space-y-2 flex-1">
-              <label className="text-sm text-zinc-400">Select File</label>
+              <label className="text-sm text-muted-foreground">Select File</label>
               <div className="flex items-center gap-2">
                 <input 
                   type="file" 
@@ -68,10 +68,10 @@ export function CustomerDocuments({ customerId }: { customerId: string }) {
                 />
                 <Button 
                   variant="outline" 
-                  className="w-full bg-white/5 border-white/10 justify-start"
+                  className="w-full bg-white/5 border-border justify-start"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <UploadCloud className="w-4 h-4 mr-2 text-zinc-400" />
+                  <UploadCloud className="w-4 h-4 mr-2 text-muted-foreground" />
                   {selectedFile ? selectedFile.name : 'Choose file...'}
                 </Button>
               </div>
@@ -92,26 +92,26 @@ export function CustomerDocuments({ customerId }: { customerId: string }) {
         </CardContent>
       </Card>
 
-      <Card className="bg-zinc-900/50 border-zinc-800">
+      <Card className="bg-card border-border">
         <CardContent className="p-0">
           {isLoading ? (
             <div className="p-12 flex justify-center"><LoadingSpinner className="w-6 h-6 text-primary" /></div>
           ) : !documents || documents.length === 0 ? (
-            <div className="p-12 text-center text-zinc-500">
+            <div className="p-12 text-center text-muted-foreground">
               <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>No documents uploaded yet.</p>
             </div>
           ) : (
             <div className="divide-y divide-zinc-800/50">
               {documents.map((doc: any) => (
-                <div key={doc.id} className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                <div key={doc.id} className="p-4 flex items-center justify-between hover:bg-muted transition-colors">
                   <div className="flex items-center gap-4">
-                    <div className="p-2 bg-zinc-800 rounded-lg">
+                    <div className="p-2 bg-muted rounded-lg">
                       <FileIcon className="w-5 h-5 text-indigo-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-white">{doc.originalName}</p>
-                      <p className="text-xs text-zinc-500 capitalize">
+                      <p className="text-sm font-medium text-foreground">{doc.originalName}</p>
+                      <p className="text-xs text-muted-foreground capitalize">
                         {doc.documentType.replace('_', ' ')} • {(doc.size / 1024).toFixed(0)} KB • {new Date(doc.createdAt).toLocaleDateString()}
                       </p>
                     </div>
@@ -120,7 +120,7 @@ export function CustomerDocuments({ customerId }: { customerId: string }) {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="text-zinc-400 hover:text-white hover:bg-zinc-800"
+                      className="text-muted-foreground hover:text-foreground hover:bg-muted"
                       onClick={() => downloadDoc.mutate(doc.id)}
                       disabled={downloadDoc.isPending}
                     >
@@ -129,7 +129,7 @@ export function CustomerDocuments({ customerId }: { customerId: string }) {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10"
+                      className="text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>

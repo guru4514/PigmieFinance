@@ -118,7 +118,7 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
                 </div>
               </div>
               <Button 
-                className="h-11 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm"
+                className="h-11 px-6 bg-emerald-600 hover:bg-emerald-700 text-foreground font-semibold shadow-sm"
                 onClick={(e) => { e.stopPropagation(); handleCollect(); }}
                 disabled={isPending || !customAmount}
               >
@@ -271,7 +271,7 @@ export function CollectionsTodayPage() {
             placeholder="Search by name or phone..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 h-12 text-base rounded-full bg-card/50 backdrop-blur-sm border-white/10 shadow-sm"
+            className="pl-10 h-12 text-base rounded-full bg-card/50 backdrop-blur-sm border-border shadow-sm"
           />
         </div>
       </div>

@@ -33,8 +33,8 @@ export function BranchComparisonPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Branch Comparison</h1>
-        <p className="text-zinc-400">Compare performance metrics across branches</p>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">Branch Comparison</h1>
+        <p className="text-muted-foreground">Compare performance metrics across branches</p>
       </div>
 
       <Card>

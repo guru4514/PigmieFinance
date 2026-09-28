@@ -80,7 +80,7 @@ export function CollectionsTable({ collections }: CollectionsTableProps) {
                     <div className="font-medium">{collection.customerName}</div>
                     <div className="text-xs text-muted-foreground">{collection.id.slice(0, 8)}</div>
                   </TableCell>
-                  <TableCell>₹{collection.amount.toLocaleString()}</TableCell>
+                  <TableCell>₹{((collection.amount) || 0).toLocaleString()}</TableCell>
                   <TableCell>
                     {collection.collectedAt || collection.createdAt
                       ? new Date(collection.collectedAt || collection.createdAt!).toLocaleDateString()

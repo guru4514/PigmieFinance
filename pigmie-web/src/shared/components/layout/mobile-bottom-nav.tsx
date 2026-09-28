@@ -56,7 +56,7 @@ export function MobileBottomNav() {
   return (
     <>
       {/* Mobile Bottom Nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-zinc-900 border-t border-gray-200 dark:border-zinc-800 pb-safe">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-card border-t border-gray-200 dark:border-border pb-safe">
         <div className="flex items-center justify-around h-[68px] px-2">
           {mainTabs.map((tab) => (
             <NavLink
@@ -66,7 +66,7 @@ export function MobileBottomNav() {
                 "flex flex-col items-center justify-center w-full h-full space-y-1",
                 isActive 
                   ? (tab.isPrimary ? "text-emerald-600 dark:text-emerald-500" : "text-indigo-600 dark:text-indigo-400") 
-                  : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                  : "text-muted-foreground dark:text-muted-foreground hover:text-zinc-900 dark:hover:text-foreground"
               )}
             >
               {({ isActive }) => (
@@ -94,7 +94,7 @@ export function MobileBottomNav() {
           
           <button
             onClick={() => setMoreOpen(true)}
-            className="flex flex-col items-center justify-center w-full h-full space-y-1 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+            className="flex flex-col items-center justify-center w-full h-full space-y-1 text-muted-foreground dark:text-muted-foreground hover:text-zinc-900 dark:hover:text-foreground"
           >
             <div className="flex items-center justify-center w-8 h-8 rounded-full transition-all">
               <Menu className="w-5 h-5" />
@@ -108,12 +108,12 @@ export function MobileBottomNav() {
       {moreOpen && (
         <div className="lg:hidden fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex flex-col justify-end">
           <div className="absolute inset-0" onClick={() => setMoreOpen(false)} />
-          <div className="relative bg-white dark:bg-zinc-900 w-full rounded-t-2xl max-h-[85vh] flex flex-col shadow-xl pb-safe animate-in slide-in-from-bottom-full duration-300">
-            <div className="sticky top-0 bg-white dark:bg-zinc-900 border-b border-gray-100 dark:border-zinc-800 p-4 flex items-center justify-between z-10 rounded-t-2xl">
-              <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">More</h2>
+          <div className="relative bg-white dark:bg-card w-full rounded-t-2xl max-h-[85vh] flex flex-col shadow-xl pb-safe animate-in slide-in-from-bottom-full duration-300">
+            <div className="sticky top-0 bg-white dark:bg-card border-b border-gray-100 dark:border-border p-4 flex items-center justify-between z-10 rounded-t-2xl">
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-foreground">More</h2>
               <button 
                 onClick={() => setMoreOpen(false)}
-                className="p-2 rounded-full bg-gray-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                className="p-2 rounded-full bg-gray-100 dark:bg-muted text-muted-foreground dark:text-muted-foreground hover:text-zinc-900 dark:hover:text-foreground"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -129,7 +129,7 @@ export function MobileBottomNav() {
                     "flex items-center gap-3 p-3 rounded-xl text-sm font-medium transition-all",
                     isActive 
                       ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400" 
-                      : "text-zinc-600 dark:text-zinc-300 hover:bg-gray-50 dark:hover:bg-zinc-800/50"
+                      : "text-zinc-600 dark:text-foreground/80 hover:bg-gray-50 dark:hover:bg-muted"
                   )}
                 >
                   <item.icon className="w-5 h-5" />
@@ -137,7 +137,7 @@ export function MobileBottomNav() {
                 </NavLink>
               ))}
               
-              <div className="h-px bg-gray-100 dark:bg-zinc-800 my-4" />
+              <div className="h-px bg-gray-100 dark:bg-muted my-4" />
               
               <button 
                 onClick={handleLogout}
