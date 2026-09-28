@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { apiClient } from '@/shared/lib/api-client';
+import { supabase } from '@/shared/lib/supabase';
 
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
@@ -59,10 +60,19 @@ export function SettingsPage() {
 
   const handleResetPassword = async () => {
     try {
-      await apiClient.post('/auth/reset-password', { email: (user as any)?.email });
-      toast.success('Password reset email sent');
-    } catch {
-      toast.error('Failed to send reset email');
+      const { data: { session } } = await supabase.auth.getSession();
+      const email = session?.user?.email;
+      if (!email) {
+        toast.error('No email found for current session');
+        return;
+      }
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/login',
+      });
+      if (error) throw error;
+      toast.success('Password reset email sent! Check your inbox.');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to send reset email');
     }
   };
   
@@ -354,9 +364,17 @@ export function SettingsPage() {
                     </Button>
                   ) : (
                     <div className="space-y-4 p-4 border border-border rounded-lg bg-muted/50">
-                      <p className="text-sm text-foreground/80">Scan this QR code with your authenticator app, then enter the code below.</p>
+                      <p className="text-sm text-foreground/80">Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.), then enter the code below.</p>
                       <div className="flex justify-center bg-white p-2 rounded w-max">
-                        <img src={tfaSetup.qrCode} alt="2FA QR Code" className="w-32 h-32" />
+                        <img 
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(tfaSetup.otpAuthUrl)}`} 
+                          alt="2FA QR Code" 
+                          className="w-32 h-32" 
+                        />
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        <p>Can't scan? Enter this secret manually:</p>
+                        <code className="block mt-1 p-2 bg-muted rounded text-foreground font-mono text-sm break-all">{tfaSetup.secret}</code>
                       </div>
                       <div className="flex gap-2 max-w-sm">
                         <Input 

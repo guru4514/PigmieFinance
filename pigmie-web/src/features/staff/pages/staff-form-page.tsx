@@ -15,7 +15,6 @@ const staffSchema = z.object({
   fullName: z.string().min(2, 'Name is required'),
   email: z.string().email('Valid email is required'),
   role: z.enum(['org_admin', 'branch_manager', 'agent', 'accountant']),
-  status: z.enum(['active', 'inactive', 'suspended']).default('active'),
 });
 
 type StaffFormValues = z.infer<typeof staffSchema>;
@@ -26,9 +25,6 @@ export function StaffFormPage() {
 
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<StaffFormValues>({
     resolver: zodResolver(staffSchema),
-    defaultValues: {
-      status: 'active',
-    }
   });
 
   const onSubmit = async (data: StaffFormValues) => {
@@ -99,19 +95,6 @@ export function StaffFormPage() {
                   </SelectContent>
                 </Select>
                 {errors.role && <p className="text-xs text-red-400">{errors.role.message}</p>}
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="status">Initial Status</Label>
-                <Select defaultValue="active" onValueChange={(val: any) => setValue('status', val)}>
-                  <SelectTrigger className="bg-muted border-border">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
 
