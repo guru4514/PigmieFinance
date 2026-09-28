@@ -107,8 +107,8 @@ export function ReportsPage() {
                           <TableRow key={item.loanId} className="border-white/10">
                             <TableCell className="font-medium text-white">{item.loanId.slice(0, 8)}</TableCell>
                             <TableCell>{item.customerName}</TableCell>
-                            <TableCell>₹{item.principalAmount.toLocaleString('en-IN')}</TableCell>
-                            <TableCell className="text-rose-400 font-medium">₹{item.outstandingBalance.toLocaleString('en-IN')}</TableCell>
+                            <TableCell>₹{(item.principalAmount || 0).toLocaleString('en-IN')}</TableCell>
+                            <TableCell className="text-rose-400 font-medium">₹{(item.outstandingBalance || 0).toLocaleString('en-IN')}</TableCell>
                             <TableCell>{item.daysOverdue}</TableCell>
                             <TableCell className="text-right">
                               <Button
@@ -171,8 +171,8 @@ export function ReportsPage() {
                         collectionsQuery.data?.map((item: any, i: number) => (
                           <TableRow key={i} className="border-white/10">
                             <TableCell className="font-medium text-white">{item.date}</TableCell>
-                            <TableCell>₹{item.expected.toLocaleString('en-IN')}</TableCell>
-                            <TableCell className="text-emerald-400">₹{item.actual.toLocaleString('en-IN')}</TableCell>
+                            <TableCell>₹{(item.expected || 0).toLocaleString('en-IN')}</TableCell>
+                            <TableCell className="text-emerald-400">₹{(item.actual || 0).toLocaleString('en-IN')}</TableCell>
                             <TableCell>
                               <span className={`px-2 py-1 rounded-full text-xs ${item.efficiency >= 90 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
                                 {item.efficiency.toFixed(1)}%
@@ -217,7 +217,7 @@ export function ReportsPage() {
                           <TableRow key={item.agentId} className="border-white/10">
                             <TableCell className="font-medium text-white">{item.agentName}</TableCell>
                             <TableCell>{item.totalCollections}</TableCell>
-                            <TableCell className="text-indigo-400 font-medium">₹{item.amountCollected.toLocaleString('en-IN')}</TableCell>
+                            <TableCell className="text-indigo-400 font-medium">₹{(item.amountCollected || 0).toLocaleString('en-IN')}</TableCell>
                           </TableRow>
                         ))
                       )}

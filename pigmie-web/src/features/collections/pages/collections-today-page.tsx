@@ -251,7 +251,7 @@ export function CollectionsTodayPage() {
               <p className="text-sm text-muted-foreground font-medium mb-1">Total Collected</p>
               <div className="text-2xl font-bold flex items-center text-emerald-600 dark:text-emerald-400">
                 <IndianRupee className="w-5 h-5 mr-0.5" />
-                {collectedAmount.toLocaleString('en-IN')}
+                {(collectedAmount || 0).toLocaleString('en-IN')}
               </div>
             </div>
             <div className="text-right">

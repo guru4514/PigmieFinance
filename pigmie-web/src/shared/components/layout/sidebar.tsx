@@ -146,7 +146,7 @@ export function Sidebar() {
           {navGroups.map((group) => {
             const groupItems = group.items.filter(
               item => userRole && item.roles.includes(userRole) && 
-              (t(item.translationKey) || item.title).toLowerCase().includes(searchQuery.toLowerCase())
+              item.title.toLowerCase().includes(searchQuery.toLowerCase())
             );
 
             if (groupItems.length === 0) return null;
@@ -171,7 +171,7 @@ export function Sidebar() {
                     >
                       <div className="flex items-center gap-3">
                         <item.icon className="w-4 h-4" />
-                        {t(item.translationKey) || item.title}
+                        {item.title}
                       </div>
                       {item.title === 'Approvals' && pendingApprovals > 0 && (
                         <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
