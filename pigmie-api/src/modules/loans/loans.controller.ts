@@ -80,8 +80,18 @@ export class LoansController {
   @HttpCode(HttpStatus.OK)
   @Roles('org_admin', 'branch_manager')
   @AuditAction('loan.close')
-  async close(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
-    return this.loansService.close(user.organizationId, id);
+  async close(
+    @CurrentUser() user: AuthenticatedUser, 
+    @Param('id') id: string,
+    @Body() body: any
+  ) {
+    return this.loansService.close(user.organizationId, id, body);
+  }
+
+  @Get(':id/pre-closure')
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async getPreClosureDetails(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.loansService.getPreClosureDetails(user.organizationId, id);
   }
 
   @Post(':id/write-off')

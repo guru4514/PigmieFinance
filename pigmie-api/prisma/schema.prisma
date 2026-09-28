@@ -26,6 +26,16 @@ enum IdProofType {
   @@map("id_proof_type")
 }
 
+enum KycStatus {
+  not_submitted
+  submitted
+  verified
+  rejected
+
+  @@map("kyc_status")
+}
+
+
 enum InterestType {
   flat
   reducing_balance
@@ -231,6 +241,7 @@ model Customer {
   assignedAgentId        String?      @map("assigned_agent_id") @db.Uuid
   portalAccessEnabled    Boolean      @default(false) @map("portal_access_enabled")
   isActive               Boolean      @default(true) @map("is_active")
+  kycStatus              KycStatus    @default(not_submitted) @map("kyc_status")
   createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz
   updatedAt              DateTime     @default(now()) @map("updated_at") @db.Timestamptz
 

@@ -3,6 +3,7 @@ import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../common/types/request-user.type';
 import { NotificationsService } from './notifications.service';
+import { SmsService } from './sms.service';
 import { IsOptional, IsInt, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -14,7 +15,8 @@ export class NotificationQueryDto {
 @Controller('notifications')
 export class NotificationsController {
   constructor(
-    private readonly notificationsService: NotificationsService
+    private readonly notificationsService: NotificationsService,
+    private readonly smsService: SmsService
   ) {}
 
   @Post('subscribe')
@@ -48,4 +50,19 @@ export class NotificationsController {
   async markAllAsRead(@CurrentUser() user: AuthenticatedUser) {
     return this.notificationsService.markAllAsRead(user.organizationId, user.type, user.id);
   }
+
+  @Post('send-sms')
+  @UseGuards(SupabaseAuthGuard)
+  async sendSms(@Body() data: { phone: string; message: string }) {
+    const success = await this.smsService.sendSMS(data.phone, data.message);
+    return { success };
+  }
+
+  @Post('send-bulk-reminders')
+  @UseGuards(SupabaseAuthGuard)
+  async sendBulkReminders(@Body() data: { recipients: { phone: string; message: string }[] }) {
+    await this.smsService.sendBulkSMS(data.recipients);
+    return { success: true, count: data.recipients.length };
+  }
 }
+

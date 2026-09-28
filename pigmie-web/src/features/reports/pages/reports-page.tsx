@@ -7,6 +7,8 @@ import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/shared/components/ui/table';
 import { openWhatsApp, generateReminderMessage } from '@/shared/lib/whatsapp';
 
+import { Link } from 'react-router-dom';
+
 export function ReportsPage() {
   const [activeTab, setActiveTab] = useState<'par' | 'collections' | 'agents'>('par');
   
@@ -29,14 +31,21 @@ export function ReportsPage() {
             Monitor the health and efficiency of your micro-finance operations.
           </p>
         </div>
-        <Button 
-          onClick={handleExport} 
-          disabled={exportReport.isPending}
-          className="bg-primary hover:bg-primary/90 gap-2"
-        >
-          <Download className="w-4 h-4" />
-          {exportReport.isPending ? 'Exporting...' : 'Export CSV'}
-        </Button>
+        <div className="flex gap-2">
+          <Link to="/app/reports/branch-comparison">
+            <Button variant="outline" className="border-zinc-700 hover:bg-zinc-800">
+              Branch Comparison
+            </Button>
+          </Link>
+          <Button 
+            onClick={handleExport} 
+            disabled={exportReport.isPending}
+            className="bg-primary hover:bg-primary/90 gap-2"
+          >
+            <Download className="w-4 h-4" />
+            {exportReport.isPending ? 'Exporting...' : 'Export CSV'}
+          </Button>
+        </div>
       </div>
 
       <div className="flex border-b border-zinc-800">

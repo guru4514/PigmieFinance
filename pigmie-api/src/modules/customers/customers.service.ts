@@ -291,5 +291,30 @@ export class CustomersService {
       };
     });
   }
+  async getKycSummary(organizationId: string) {
+    return this.tenantPrisma.run(organizationId, async (tx) => {
+      const summary = await tx.customer.groupBy({
+        by: ['kycStatus'],
+        where: { organizationId },
+        _count: { id: true }
+      });
+      return summary.map(item => ({
+        status: item.kycStatus,
+        count: item._count.id
+      }));
+    });
+  }
+
+  async updateKycStatus(organizationId: string, id: string, status: any) {
+    return this.tenantPrisma.run(organizationId, async (tx) => {
+      const customer = await tx.customer.findUnique({ where: { id, organizationId } });
+      if (!customer) throw new NotFoundException('Customer not found');
+
+      return tx.customer.update({
+        where: { id, organizationId },
+        data: { kycStatus: status }
+      });
+    });
+  }
 }
 

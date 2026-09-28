@@ -25,9 +25,13 @@ declare module 'axios' {
       markAllAsRead: () => Promise<any>;
       getVapidPublicKey: () => Promise<{ publicKey: string }>;
       subscribe: (subscription: PushSubscriptionJSON) => Promise<any>;
+      sendSms: (data: { phone: string; message: string }) => Promise<{ success: boolean }>;
+      sendBulkReminders: (data: { recipients: { phone: string; message: string }[] }) => Promise<{ success: boolean; count: number }>;
     };
     customers: {
       downloadPassbook: (id: string) => Promise<Blob>;
+      updateKycStatus: (id: string, status: string) => Promise<any>;
+      getKycSummary: () => Promise<any>;
     };
     portal: {
       downloadPassbook: () => Promise<Blob>;
@@ -75,6 +79,8 @@ apiClient.notifications = {
   markAllAsRead: () => apiClient.patch('/notifications/read-all').then((res) => res.data),
   getVapidPublicKey: () => apiClient.get('/notifications/vapid-public-key').then((res) => res.data),
   subscribe: (subscription: PushSubscriptionJSON) => apiClient.post('/notifications/subscribe', subscription).then((res) => res.data),
+  sendSms: (data: { phone: string; message: string }) => apiClient.post('/notifications/send-sms', data).then((res) => res.data),
+  sendBulkReminders: (data: { recipients: { phone: string; message: string }[] }) => apiClient.post('/notifications/send-bulk-reminders', data).then((res) => res.data),
 };
 
 apiClient.customers = {
@@ -84,6 +90,10 @@ apiClient.customers = {
     });
     return response.data;
   },
+  updateKycStatus: (id: string, status: string) => 
+    apiClient.patch(`/customers/${id}/kyc-status`, { status }).then(res => res.data),
+  getKycSummary: () => 
+    apiClient.get('/customers/kyc-summary').then(res => res.data),
 };
 
 apiClient.portal = {

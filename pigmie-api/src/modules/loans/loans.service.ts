@@ -209,12 +209,21 @@ export class LoansService {
     });
   }
 
-  async close(organizationId: string, id: string) {
+  async close(organizationId: string, id: string, body?: { preClosureAmount?: number }) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
       const loan = await tx.loan.findFirstOrThrow({ where: { id, organizationId } });
       if (loan.status !== 'active') {
         throw new BadRequestException('Loan is not active');
       }
+
+      if (body?.preClosureAmount !== undefined) {
+         // Mark as closed and zero out outstanding balance
+         return tx.loan.update({
+           where: { id },
+           data: { outstandingBalance: 0, status: 'closed', closedAt: new Date(), notes: `${loan.notes ? loan.notes + '\\n' : ''}Pre-closed with amount ${body.preClosureAmount}` }
+         });
+      }
+
       if (loan.outstandingBalance && loan.outstandingBalance.toNumber() > 0) {
         throw new BadRequestException('Cannot close loan with outstanding balance');
       }
@@ -222,6 +231,57 @@ export class LoansService {
         where: { id },
         data: { status: 'closed', closedAt: new Date() },
       });
+    });
+  }
+
+  async getPreClosureDetails(organizationId: string, id: string) {
+    return this.tenantPrisma.run(organizationId, async (tx) => {
+      const loan = await tx.loan.findFirstOrThrow({
+        where: { id, organizationId },
+        include: { schedule: { orderBy: { installmentNumber: 'asc' } }, loanProduct: true }
+      });
+
+      if (loan.status !== 'active') {
+        throw new BadRequestException('Loan must be active to calculate pre-closure');
+      }
+
+      const pendingSchedule = loan.schedule.filter(s => s.status === 'pending' || s.status === 'overdue');
+      const outstandingPrincipal = pendingSchedule.reduce((sum, s) => sum + s.principalComponent.toNumber(), 0);
+      
+      const today = new Date();
+      const overdueInterest = pendingSchedule.filter(s => s.dueDate < today).reduce((sum, s) => sum + s.interestComponent.toNumber(), 0);
+      
+      const currentPeriod = pendingSchedule.find(s => s.dueDate >= today);
+      let currentPeriodInterest = 0;
+      if (currentPeriod) {
+        const prevPeriod = loan.schedule.find(s => s.installmentNumber === currentPeriod.installmentNumber - 1);
+        const periodStart = prevPeriod ? prevPeriod.dueDate : loan.startDate;
+        const periodEnd = currentPeriod.dueDate;
+        
+        const daysInPeriod = Math.max(1, (periodEnd.getTime() - periodStart.getTime()) / (1000 * 3600 * 24));
+        const daysElapsed = Math.max(0, (today.getTime() - periodStart.getTime()) / (1000 * 3600 * 24));
+        
+        currentPeriodInterest = (currentPeriod.interestComponent.toNumber() * daysElapsed) / daysInPeriod;
+      }
+      
+      const accruedInterest = overdueInterest + currentPeriodInterest;
+
+      // Make configurable via loan product (fallback to 2)
+      const penaltyRate = (loan.loanProduct as any).preClosurePenaltyRate ?? 2;
+      const preClosurePenalty = (outstandingPrincipal * penaltyRate) / 100;
+      
+      const preClosureAmount = outstandingPrincipal + accruedInterest + preClosurePenalty;
+      const remainingScheduledPayments = pendingSchedule.reduce((sum, s) => sum + s.dueAmount.toNumber(), 0);
+      const amountSaved = remainingScheduledPayments - preClosureAmount;
+
+      return {
+        outstandingPrincipal,
+        accruedInterest,
+        preClosurePenalty,
+        preClosureAmount,
+        amountSaved,
+        penaltyRate
+      };
     });
   }
 

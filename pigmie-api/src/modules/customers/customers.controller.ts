@@ -54,6 +54,13 @@ export class CustomersController {
     return this.customersService.bulkCreate(user.organizationId, dto);
   }
 
+  @Get('kyc-summary')
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async getKycSummary(@CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.getKycSummary(user.organizationId);
+  }
+
   @Get(':id')
   @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
   async findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
@@ -79,6 +86,18 @@ export class CustomersController {
   async remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
     return this.customersService.remove(user.organizationId, id);
+  }
+
+  @Patch(':id/kyc-status')
+  @Roles('org_admin', 'branch_manager')
+  @AuditAction('customer.update_kyc_status')
+  async updateKycStatus(
+    @Param('id') id: string,
+    @Body('status') status: any,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.updateKycStatus(user.organizationId, id, status);
   }
 
   @Get(':id/loans')

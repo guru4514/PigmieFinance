@@ -170,3 +170,25 @@ export const useRestructureLoan = () => {
     onError: (error: { response?: { data?: { message?: string } } }) => toast.error(error?.response?.data?.message || 'Failed to restructure loan')
   });
 };
+
+export const usePreClosureDetails = (loanId: string, enabled: boolean = false) => {
+  return useQuery({
+    queryKey: ['loans', loanId, 'pre-closure'],
+    queryFn: () => apiClient.get(`/loans/${loanId}/pre-closure`).then(r => r.data),
+    enabled: enabled && !!loanId,
+  });
+};
+
+export const usePreCloseLoan = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, preClosureAmount }: { id: string, preClosureAmount: number }) => 
+      apiClient.post(`/loans/${id}/close`, { preClosureAmount }).then(r => r.data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['loans'] });
+      queryClient.invalidateQueries({ queryKey: ['loans', variables.id] });
+      toast.success('Loan pre-closed successfully');
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to pre-close loan')
+  });
+};

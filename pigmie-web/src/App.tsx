@@ -34,6 +34,7 @@ import { PortalDashboardPage } from '@/features/portal/pages/portal-dashboard-pa
 import { PortalLoanDetailPage } from '@/features/portal/pages/portal-loan-detail-page';
 import { BranchesPage } from '@/features/branches/pages/branches-page';
 import { CashDepositsPage } from '@/features/cash-deposits/pages/cash-deposits-page';
+import { BranchComparisonPage } from '@/features/reports/pages/branch-comparison-page';
 
 export function App() {
   useEffect(() => {
@@ -81,6 +82,7 @@ export function App() {
         <Route path="loan-products/new" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager']}><NewLoanProductPage /></ProtectedRoute>} />
         <Route path="loan-products" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager']}><LoanProductsPage /></ProtectedRoute>} />
         <Route path="reports" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'accountant']}><ReportsPage /></ProtectedRoute>} />
+        <Route path="reports/branch-comparison" element={<ProtectedRoute allowedRoles={['org_admin']}><BranchComparisonPage /></ProtectedRoute>} />
         <Route path="approvals" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager']}><ApprovalsPage /></ProtectedRoute>} />
         <Route path="staff" element={<ProtectedRoute allowedRoles={['org_admin']}><StaffPage /></ProtectedRoute>} />
         <Route path="staff/new" element={<ProtectedRoute allowedRoles={['org_admin']}><StaffFormPage /></ProtectedRoute>} />

@@ -198,5 +198,54 @@ export class ReportsService {
       return 'id\n';
     });
   }
+
+  async getBranchComparison(organizationId: string) {
+    return this.tenantPrisma.run(organizationId, async (tx) => {
+      const today = new Date();
+      const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+      const result = await tx.$queryRaw<any[]>`
+        SELECT
+          b.id as branch_id,
+          b.name as branch_name,
+          COUNT(DISTINCT l.id)::int as active_loans_count,
+          COALESCE(SUM(l.outstanding_balance), 0)::float as total_outstanding_amount,
+          COALESCE((
+            SELECT SUM(col.amount)
+            FROM "collections" col
+            JOIN "customers" cust ON col.customer_id = cust.id
+            WHERE col.organization_id = ${organizationId}::uuid
+              AND cust.branch_id = b.id
+              AND col.collection_date >= ${firstDayOfMonth}::date
+              AND col.status IN ('recorded', 'verified')
+          ), 0)::float as collections_this_month,
+          (
+            SELECT COUNT(DISTINCT s.id)
+            FROM "loan_schedule" s
+            JOIN "loans" ln ON s.loan_id = ln.id
+            JOIN "customers" cu ON ln.customer_id = cu.id
+            WHERE s.status = 'overdue'
+              AND cu.branch_id = b.id
+              AND ln.status = 'active'
+              AND ln.organization_id = ${organizationId}::uuid
+          )::int as overdue_count,
+          COUNT(DISTINCT c.id)::int as number_of_customers,
+          (
+            SELECT COUNT(DISTINCT st.id)
+            FROM "staff" st
+            WHERE st.branch_id = b.id AND st.is_active = true
+          )::int as number_of_agents
+        FROM "branches" b
+        LEFT JOIN "customers" c ON c.branch_id = b.id AND c.organization_id = b.organization_id
+        LEFT JOIN "loans" l ON l.customer_id = c.id AND l.status = 'active'
+        WHERE b.organization_id = ${organizationId}::uuid
+          AND b.is_active = true
+        GROUP BY b.id, b.name
+        ORDER BY b.name ASC
+      `;
+      
+      return { data: result };
+    });
+  }
 }
 

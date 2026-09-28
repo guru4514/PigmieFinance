@@ -57,6 +57,13 @@ export class ReportsController {
     res.setHeader('Content-Disposition', `attachment; filename=${query.type}-export.csv`);
     res.send(csvString);
   }
+
+  @Get('branch-comparison')
+  @Roles('org_admin')
+  async getBranchComparison(@CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException();
+    return this.reportsService.getBranchComparison(user.organizationId);
+  }
 }
 
 

@@ -5,10 +5,11 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui
 import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
 import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
-import { ArrowLeft, User, FileText, CreditCard, Mail, Phone, Calendar, MapPin, Download } from 'lucide-react';
+import { ArrowLeft, User, FileText, CreditCard, Mail, Phone, Calendar, MapPin, Download, CheckCircle, XCircle } from 'lucide-react';
 import { CustomerDocuments } from '../components/customer-documents';
 import { RoleGate } from '@/shared/components/auth/role-gate';
 import { apiClient } from '@/shared/lib/api-client';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 
 export const CustomerDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +17,25 @@ export const CustomerDetailPage = () => {
   const customer = customerRes?.data || customerRes; // handle wrapped response or direct
   const [activeTab, setActiveTab] = useState<'profile' | 'loans' | 'documents'>('profile');
   const [isDownloading, setIsDownloading] = useState(false);
+  const [kycStatusInput, setKycStatusInput] = useState<string>('');
+
+  const queryClient = useQueryClient();
+  const updateKycMutation = useMutation({
+    mutationFn: (status: string) => apiClient.customers.updateKycStatus(id!, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customer', id] });
+      alert('KYC Status updated successfully');
+    },
+    onError: () => {
+      alert('Failed to update KYC Status');
+    }
+  });
+
+  React.useEffect(() => {
+    if (customer?.kycStatus) {
+      setKycStatusInput(customer.kycStatus);
+    }
+  }, [customer?.kycStatus]);
 
   const handleDownloadPassbook = async () => {
     if (!id) return;
@@ -63,6 +83,17 @@ export const CustomerDetailPage = () => {
               className={customer.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' : 'bg-zinc-800 text-zinc-400'}
             >
               {customer.status}
+            </Badge>
+            <Badge 
+              variant="outline"
+              className={
+                customer.kycStatus === 'verified' ? 'border-emerald-500 text-emerald-500' :
+                customer.kycStatus === 'rejected' ? 'border-red-500 text-red-500' :
+                customer.kycStatus === 'submitted' ? 'border-amber-500 text-amber-500' :
+                'border-zinc-500 text-zinc-500'
+              }
+            >
+              KYC: {customer.kycStatus?.replace('_', ' ').toUpperCase()}
             </Badge>
           </h1>
           <p className="text-muted-foreground mt-1 text-zinc-400">Customer ID: {customer.id}</p>
@@ -167,6 +198,37 @@ export const CustomerDetailPage = () => {
                 </div>
               </CardContent>
             </Card>
+
+            <RoleGate allowedRoles={['org_admin', 'branch_manager']}>
+              <Card className="bg-zinc-900/50 border-zinc-800">
+                <CardHeader>
+                  <CardTitle className="text-lg text-white">KYC Status</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <p className="text-zinc-400 text-sm">Update the customer's KYC verification status.</p>
+                    <div className="flex gap-2">
+                      <select 
+                        className="flex-1 bg-zinc-800 border border-zinc-700 text-white rounded-md px-3 py-2 text-sm"
+                        value={kycStatusInput}
+                        onChange={(e) => setKycStatusInput(e.target.value)}
+                      >
+                        <option value="not_submitted">Not Submitted</option>
+                        <option value="submitted">Submitted</option>
+                        <option value="verified">Verified</option>
+                        <option value="rejected">Rejected</option>
+                      </select>
+                      <Button 
+                        onClick={() => updateKycMutation.mutate(kycStatusInput)}
+                        disabled={updateKycMutation.isPending || kycStatusInput === customer.kycStatus}
+                      >
+                        {updateKycMutation.isPending ? 'Saving...' : 'Save'}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </RoleGate>
           </div>
         )}
 

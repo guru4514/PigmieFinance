@@ -18,15 +18,22 @@ export const CustomersListPage = () => {
   const customers = customersResponse?.data || [];
 
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [kycFilter, setKycFilter] = React.useState<string>('all');
   
   const filteredCustomers = React.useMemo(() => {
-    if (!searchQuery) return customers;
-    const lower = searchQuery.toLowerCase();
-    return customers.filter((c: any) => 
-      c.fullName?.toLowerCase().includes(lower) || 
-      c.phone?.includes(lower)
-    );
-  }, [customers, searchQuery]);
+    let result = customers;
+    if (searchQuery) {
+      const lower = searchQuery.toLowerCase();
+      result = result.filter((c: any) => 
+        c.fullName?.toLowerCase().includes(lower) || 
+        c.phone?.includes(lower)
+      );
+    }
+    if (kycFilter !== 'all') {
+      result = result.filter((c: any) => c.kycStatus === kycFilter);
+    }
+    return result;
+  }, [customers, searchQuery, kycFilter]);
 
   if (isLoading) {
     return (
@@ -103,6 +110,7 @@ export const CustomersListPage = () => {
                   <TableHead className="text-zinc-400">Name</TableHead>
                   <TableHead className="text-zinc-400">Contact</TableHead>
                   <TableHead className="text-zinc-400">Status</TableHead>
+                  <TableHead className="text-zinc-400">KYC</TableHead>
                   <TableHead className="text-zinc-400">Join Date</TableHead>
                   <TableHead className="text-zinc-400 text-right">Actions</TableHead>
                 </TableRow>
@@ -127,6 +135,19 @@ export const CustomersListPage = () => {
                         }
                       >
                         {customer.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant="outline"
+                        className={
+                          customer.kycStatus === 'verified' ? 'border-emerald-500 text-emerald-500' :
+                          customer.kycStatus === 'rejected' ? 'border-red-500 text-red-500' :
+                          customer.kycStatus === 'submitted' ? 'border-amber-500 text-amber-500' :
+                          'border-zinc-500 text-zinc-500'
+                        }
+                      >
+                        {customer.kycStatus?.replace('_', ' ').toUpperCase() || 'NOT SUBMITTED'}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-zinc-400">{customer.createdAt ? new Date(customer.createdAt).toLocaleDateString() : 'N/A'}</TableCell>
