@@ -10,6 +10,7 @@ import { CustomerDocuments } from '../components/customer-documents';
 import { RoleGate } from '@/shared/components/auth/role-gate';
 import { apiClient } from '@/shared/lib/api-client';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
+import { SmsDialog } from '../components/sms-dialog';
 
 export const CustomerDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -99,6 +100,7 @@ export const CustomerDetailPage = () => {
           <p className="text-muted-foreground mt-1 text-zinc-400">Customer ID: {customer.id}</p>
         </div>
         <div className="flex gap-2">
+          <SmsDialog customerName={customer.fullName} customerPhone={customer.phone} />
           <Button 
             variant="outline" 
             className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"

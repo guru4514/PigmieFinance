@@ -76,7 +76,18 @@ export const CustomersListPage = () => {
             className="pl-9 bg-zinc-800/50 border-zinc-700 text-white w-full max-w-md"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <select 
+            className="bg-zinc-800 border border-zinc-700 text-white rounded-md px-3 py-2 text-sm max-w-xs"
+            value={kycFilter}
+            onChange={(e) => setKycFilter(e.target.value)}
+          >
+            <option value="all">All KYC Status</option>
+            <option value="not_submitted">Not Submitted</option>
+            <option value="submitted">Submitted</option>
+            <option value="verified">Verified</option>
+            <option value="rejected">Rejected</option>
+          </select>
           <Button 
             variant={filterMode === 'all' ? 'default' : 'outline'} 
             onClick={() => setFilterMode('all')}

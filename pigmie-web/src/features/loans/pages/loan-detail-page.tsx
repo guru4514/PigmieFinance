@@ -5,6 +5,7 @@ import { useDocuments, useUploadDocument, useDownloadDocument } from '@/features
 import { LoanStatusBadge } from '../components/loan-status-badge';
 import { LoanScheduleTable } from '../components/loan-schedule-table';
 import { RestructureLoanDialog } from '../components/restructure-loan-dialog';
+import { PreCloseLoanDialog } from '../components/pre-close-loan-dialog';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
 import { ArrowLeft, CheckCircle, AlertTriangle, FileText, Download, User, Play, RefreshCw, MessageCircle, Receipt, Upload } from 'lucide-react';
@@ -168,6 +169,15 @@ export const LoanDetailPage: React.FC = () => {
             )}
             {loan.status === 'ACTIVE' && (
               <>
+                <PreCloseLoanDialog
+                  loanId={loan.id}
+                  trigger={
+                    <Button className="bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 border border-purple-500/30 gap-2">
+                      <CheckCircle className="h-4 w-4" />
+                      Pre-Close
+                    </Button>
+                  }
+                />
                 <RestructureLoanDialog 
                   loan={loan} 
                   trigger={
