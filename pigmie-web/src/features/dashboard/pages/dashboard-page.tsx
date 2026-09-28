@@ -128,8 +128,8 @@ export function DashboardPage() {
 
                   return (
                     <TableRow key={loan.loanId}>
-                      <TableCell className="font-medium">{loan.customer?.fullName}</TableCell>
-                      <TableCell>{loan.customer?.phone}</TableCell>
+                      <TableCell className="font-medium text-foreground">{loan.customer?.fullName}</TableCell>
+                      <TableCell className="text-foreground">{loan.customer?.phone}</TableCell>
                       <TableCell>{formatCurrency(amountDue)}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={statusColor}>
