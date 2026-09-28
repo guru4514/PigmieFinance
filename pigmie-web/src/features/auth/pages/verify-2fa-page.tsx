@@ -57,7 +57,7 @@ export function Verify2FAPage() {
                 onChange={(e) => setCode(e.target.value)}
                 required
                 maxLength={6}
-                className="bg-black/50 border-border text-center tracking-widest text-lg"
+                className="bg-muted border-border text-foreground text-center tracking-widest text-lg"
               />
             </div>
             <Button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-foreground border-0" disabled={loading || !factorId}>

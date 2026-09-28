@@ -4,7 +4,7 @@ import { apiClient } from '@/shared/lib/api-client';
 export const usePortalDashboard = () => {
   return useQuery({
     queryKey: ['portal', 'dashboard'],
-    queryFn: () => apiClient.get('/portal/dashboard').then(r => r.data),
+    queryFn: () => apiClient.get('/portal/me').then(r => r.data),
   });
 };
 

@@ -73,8 +73,11 @@ export function RecordCollectionPage() {
     if (!loanId) return;
     setStatus('idle');
     const collection = {
+      clientGeneratedId: crypto.randomUUID(),
       loanId,
       amount: data.amount,
+      collectionDate: new Date().toISOString().split('T')[0],
+      collectedAt: new Date().toISOString(),
       collectionMethod: data.collectionMethod,
       notes: data.notes,
       ...(location ? { latitude: location.latitude, longitude: location.longitude } : {}),
