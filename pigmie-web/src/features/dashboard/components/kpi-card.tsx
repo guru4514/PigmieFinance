@@ -19,7 +19,7 @@ export function KPICard({ title, value, icon: Icon, trend, trendLabel, className
       <CardContent className="p-6 relative z-10">
         <div className="flex items-center justify-between mb-4">
           <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <div className="p-2 bg-white/5 rounded-lg text-foreground/80">
+          <div className="p-2 bg-muted rounded-lg text-foreground/80">
             <Icon className="w-5 h-5" />
           </div>
         </div>

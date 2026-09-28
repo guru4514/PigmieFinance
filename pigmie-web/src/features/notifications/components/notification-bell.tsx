@@ -92,7 +92,7 @@ export function NotificationBell() {
             notifications.map((notification) => (
               <DropdownMenuItem
                 key={notification.id}
-                className={`flex flex-col items-start px-4 py-3 cursor-pointer border-b border-white/5 last:border-0 rounded-none focus:bg-white/5 ${!notification.read ? 'bg-white/5' : ''}`}
+                className={`flex flex-col items-start px-4 py-3 cursor-pointer border-b border-border last:border-0 rounded-none focus:bg-muted ${!notification.read ? 'bg-muted' : ''}`}
                 onClick={(e) => {
                   e.preventDefault(); // keep dropdown open if preferred, or remove to close
                   if (!notification.read) {

@@ -204,7 +204,7 @@ export function CashDepositsPage() {
                 type="number"
                 {...register('amount', { valueAsNumber: true })}
                 placeholder="Enter amount"
-                className="bg-black/20 border-border"
+                className="bg-muted/50 border-border"
               />
               {errors.amount && <p className="text-sm text-rose-500">{errors.amount.message}</p>}
             </div>
@@ -213,7 +213,7 @@ export function CashDepositsPage() {
               <Input
                 {...register('notes')}
                 placeholder="Any additional notes..."
-                className="bg-black/20 border-border"
+                className="bg-muted/50 border-border"
               />
             </div>
             <div className="flex justify-end gap-3 pt-4">

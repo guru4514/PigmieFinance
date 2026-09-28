@@ -151,7 +151,7 @@ export function SettingsPage() {
 
         <div className="md:col-span-9 space-y-6">
           {activeTab === 'organization' && (
-            <Card className="border-border bg-black/40 backdrop-blur-xl">
+            <Card className="border-border bg-card backdrop-blur-xl">
               <CardHeader>
                 <CardTitle>Organization Profile</CardTitle>
                 <CardDescription>
@@ -169,7 +169,7 @@ export function SettingsPage() {
                       <label className="text-sm font-medium text-gray-200">Organization Name</label>
                       <Input 
                         {...register('name')}
-                        className="bg-white/5 border-border" 
+                        className="bg-muted border-border" 
                       />
                       {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
                     </div>
@@ -178,7 +178,7 @@ export function SettingsPage() {
                       <Input 
                         {...register('contactEmail')}
                         type="email" 
-                        className="bg-white/5 border-border" 
+                        className="bg-muted border-border" 
                       />
                       {errors.contactEmail && <p className="text-sm text-red-500">{errors.contactEmail.message}</p>}
                     </div>
@@ -187,7 +187,7 @@ export function SettingsPage() {
                       <Input 
                         {...register('contactPhone')}
                         type="tel" 
-                        className="bg-white/5 border-border" 
+                        className="bg-muted border-border" 
                       />
                       {errors.contactPhone && <p className="text-sm text-red-500">{errors.contactPhone.message}</p>}
                     </div>
@@ -205,7 +205,7 @@ export function SettingsPage() {
           )}
 
           {activeTab === 'notifications' && (
-            <Card className="border-border bg-black/40 backdrop-blur-xl">
+            <Card className="border-border bg-card backdrop-blur-xl">
               <CardHeader>
                 <CardTitle>Notifications</CardTitle>
                 <CardDescription>
@@ -216,7 +216,7 @@ export function SettingsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-sm font-medium text-foreground">Email Notifications</h3>
-                    <p className="text-xs text-gray-400">Receive system alerts via email.</p>
+                    <p className="text-xs text-muted-foreground">Receive system alerts via email.</p>
                   </div>
                   <Switch 
                     checked={notifyEmail} 
@@ -226,7 +226,7 @@ export function SettingsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-sm font-medium text-foreground">Push Notifications</h3>
-                    <p className="text-xs text-gray-400">Receive alerts on your mobile device.</p>
+                    <p className="text-xs text-muted-foreground">Receive alerts on your mobile device.</p>
                   </div>
                   <Switch 
                     checked={notifyPush} 
@@ -236,7 +236,7 @@ export function SettingsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-sm font-medium text-foreground">Overdue Alerts</h3>
-                    <p className="text-xs text-gray-400">Get notified when a loan payment is overdue.</p>
+                    <p className="text-xs text-muted-foreground">Get notified when a loan payment is overdue.</p>
                   </div>
                   <Switch 
                     checked={notifyOverdue} 
@@ -246,7 +246,7 @@ export function SettingsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-sm font-medium text-foreground">Collection Reminders</h3>
-                    <p className="text-xs text-gray-400">Daily reminders for scheduled collections.</p>
+                    <p className="text-xs text-muted-foreground">Daily reminders for scheduled collections.</p>
                   </div>
                   <Switch 
                     checked={notifyCollection} 
@@ -260,7 +260,7 @@ export function SettingsPage() {
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-200">SMS Provider</label>
                       <select 
-                        className="flex h-10 w-full rounded-md border border-border bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex h-10 w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
                         defaultValue="console"
                         onChange={(e) => {
                            localStorage.setItem('sms_provider', e.target.value);
@@ -278,7 +278,7 @@ export function SettingsPage() {
                       <Input 
                         type="password"
                         placeholder="Enter API Key"
-                        className="bg-white/5 border-border"
+                        className="bg-muted border-border"
                         defaultValue={localStorage.getItem('sms_api_key') || ''}
                         onBlur={(e) => {
                           localStorage.setItem('sms_api_key', e.target.value);
@@ -290,7 +290,7 @@ export function SettingsPage() {
                       <Input 
                         type="text"
                         placeholder="e.g. PIGMIE"
-                        className="bg-white/5 border-border"
+                        className="bg-muted border-border"
                         defaultValue={localStorage.getItem('sms_sender_id') || ''}
                         onBlur={(e) => {
                           localStorage.setItem('sms_sender_id', e.target.value);
@@ -307,7 +307,7 @@ export function SettingsPage() {
           )}
 
           {activeTab === 'security' && (
-            <Card className="border-border bg-black/40 backdrop-blur-xl">
+            <Card className="border-border bg-card backdrop-blur-xl">
               <CardHeader>
                 <CardTitle>Security</CardTitle>
                 <CardDescription>
@@ -320,21 +320,21 @@ export function SettingsPage() {
                     <h3 className="text-lg font-medium text-foreground flex items-center gap-2">
                       <KeyRound className="h-5 w-5 text-primary" /> Password
                     </h3>
-                    <p className="text-sm text-gray-400 mt-1">Change your account password.</p>
+                    <p className="text-sm text-muted-foreground mt-1">Change your account password.</p>
                   </div>
                   <Button onClick={handleResetPassword} variant="outline" className="border-border hover:bg-muted">
                     Send Password Reset Email
                   </Button>
                 </div>
 
-                <div className="h-px bg-white/10" />
+                <div className="h-px bg-muted" />
 
                 <div className="space-y-4">
                   <div>
                     <h3 className="text-lg font-medium text-foreground flex items-center gap-2">
                       <Smartphone className="h-5 w-5 text-primary" /> Two-Factor Authentication (2FA)
                     </h3>
-                    <p className="text-sm text-gray-400 mt-1">Add an extra layer of security to your account.</p>
+                    <p className="text-sm text-muted-foreground mt-1">Add an extra layer of security to your account.</p>
                   </div>
                   
                   {!tfaSetup ? (
@@ -343,8 +343,8 @@ export function SettingsPage() {
                       Setup 2FA
                     </Button>
                   ) : (
-                    <div className="space-y-4 p-4 border border-border rounded-lg bg-black/20">
-                      <p className="text-sm text-gray-300">Scan this QR code with your authenticator app, then enter the code below.</p>
+                    <div className="space-y-4 p-4 border border-border rounded-lg bg-muted/50">
+                      <p className="text-sm text-foreground/80">Scan this QR code with your authenticator app, then enter the code below.</p>
                       <div className="flex justify-center bg-white p-2 rounded w-max">
                         <img src={tfaSetup.qrCode} alt="2FA QR Code" className="w-32 h-32" />
                       </div>
@@ -353,7 +353,7 @@ export function SettingsPage() {
                           placeholder="Enter 6-digit code" 
                           value={tfaCode}
                           onChange={(e) => setTfaCode(e.target.value)}
-                          className="bg-white/5 border-border"
+                          className="bg-muted border-border"
                         />
                         <Button onClick={() => enable2Fa.mutate()} disabled={enable2Fa.isPending || tfaCode.length < 6}>
                           {enable2Fa.isPending ? <LoadingSpinner className="w-4 h-4 mr-2" /> : null}
@@ -364,16 +364,16 @@ export function SettingsPage() {
                   )}
                 </div>
 
-                <div className="h-px bg-white/10" />
+                <div className="h-px bg-muted" />
 
                 <div className="space-y-4">
                   <div>
                     <h3 className="text-lg font-medium text-foreground flex items-center gap-2">
                       <LogOut className="h-5 w-5 text-primary" /> Active Sessions
                     </h3>
-                    <p className="text-sm text-gray-400 mt-1">Manage your active login sessions.</p>
+                    <p className="text-sm text-muted-foreground mt-1">Manage your active login sessions.</p>
                   </div>
-                  <p className="text-sm text-gray-500 italic">Session management coming soon.</p>
+                  <p className="text-sm text-muted-foreground italic">Session management coming soon.</p>
                 </div>
               </CardContent>
             </Card>

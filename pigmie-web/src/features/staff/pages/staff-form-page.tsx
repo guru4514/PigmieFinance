@@ -44,7 +44,7 @@ export function StaffFormPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
         <Link to="/app/staff">
-          <Button variant="ghost" size="icon" className="hover:bg-white/10">
+          <Button variant="ghost" size="icon" className="hover:bg-muted">
             <ArrowLeft className="w-5 h-5 text-muted-foreground" />
           </Button>
         </Link>
@@ -54,7 +54,7 @@ export function StaffFormPage() {
         </div>
       </div>
 
-      <Card className="border-border bg-black/40 backdrop-blur-xl">
+      <Card className="border-border bg-card backdrop-blur-xl">
         <CardHeader>
           <CardTitle>Staff Details</CardTitle>
           <CardDescription>Enter the staff member's information and assign a role.</CardDescription>
@@ -67,7 +67,7 @@ export function StaffFormPage() {
                 <Input 
                   id="name" 
                   {...register('name')} 
-                  className="bg-white/5 border-border" 
+                  className="bg-muted border-border" 
                   placeholder="e.g. Jane Doe"
                 />
                 {errors.name && <p className="text-xs text-red-400">{errors.name.message}</p>}
@@ -79,7 +79,7 @@ export function StaffFormPage() {
                   id="email" 
                   type="email"
                   {...register('email')} 
-                  className="bg-white/5 border-border" 
+                  className="bg-muted border-border" 
                   placeholder="e.g. jane@pigmie.com"
                 />
                 {errors.email && <p className="text-xs text-red-400">{errors.email.message}</p>}
@@ -88,7 +88,7 @@ export function StaffFormPage() {
               <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>
                 <Select onValueChange={(val: any) => setValue('role', val)}>
-                  <SelectTrigger className="bg-white/5 border-border">
+                  <SelectTrigger className="bg-muted border-border">
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
@@ -104,7 +104,7 @@ export function StaffFormPage() {
               <div className="space-y-2">
                 <Label htmlFor="status">Initial Status</Label>
                 <Select defaultValue="active" onValueChange={(val: any) => setValue('status', val)}>
-                  <SelectTrigger className="bg-white/5 border-border">
+                  <SelectTrigger className="bg-muted border-border">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

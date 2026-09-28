@@ -87,7 +87,7 @@ export function ReportsPage() {
               ) : (
                 <div className="rounded-md border border-border overflow-hidden">
                   <Table>
-                    <TableHeader className="bg-white/5">
+                    <TableHeader className="bg-muted">
                       <TableRow className="border-border">
                         <TableHead>Loan ID</TableHead>
                         <TableHead>Customer</TableHead>
@@ -154,7 +154,7 @@ export function ReportsPage() {
               ) : (
                 <div className="rounded-md border border-border overflow-hidden">
                   <Table>
-                    <TableHeader className="bg-white/5">
+                    <TableHeader className="bg-muted">
                       <TableRow className="border-border">
                         <TableHead>Date</TableHead>
                         <TableHead>Expected Collections</TableHead>
@@ -200,7 +200,7 @@ export function ReportsPage() {
               ) : (
                 <div className="rounded-md border border-border overflow-hidden">
                   <Table>
-                    <TableHeader className="bg-white/5">
+                    <TableHeader className="bg-muted">
                       <TableRow className="border-border">
                         <TableHead>Agent Name</TableHead>
                         <TableHead>Total Collections</TableHead>

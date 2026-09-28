@@ -38,7 +38,7 @@ export function AuditLogsPage() {
     if (!val) return '-';
     if (typeof val === 'object') {
       return (
-        <pre className="text-xs max-w-xs overflow-auto bg-black/20 p-2 rounded">
+        <pre className="text-xs max-w-xs overflow-auto bg-muted/50 p-2 rounded">
           {JSON.stringify(val, null, 2)}
         </pre>
       );
@@ -64,7 +64,7 @@ export function AuditLogsPage() {
               placeholder="Filter by Action..."
               value={actionFilter}
               onChange={(e) => setActionFilter(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-black/20 border border-border rounded-lg text-foreground placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
+              className="w-full pl-10 pr-4 py-2 bg-muted/50 border border-border rounded-lg text-foreground placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
             />
           </div>
           <div className="flex-1 relative">
@@ -74,14 +74,14 @@ export function AuditLogsPage() {
               placeholder="Filter by Entity Type..."
               value={entityTypeFilter}
               onChange={(e) => setEntityTypeFilter(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-black/20 border border-border rounded-lg text-foreground placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
+              className="w-full pl-10 pr-4 py-2 bg-muted/50 border border-border rounded-lg text-foreground placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
             />
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="text-xs text-muted-foreground bg-black/20">
+            <thead className="text-xs text-muted-foreground bg-muted/50">
               <tr>
                 <th className="px-4 py-3 rounded-tl-lg">Date</th>
                 <th className="px-4 py-3">Actor</th>
@@ -134,11 +134,11 @@ export function AuditLogsPage() {
           </table>
         </div>
         
-        <div className="flex justify-between items-center px-4 py-3 bg-black/20 border-t border-white/5">
+        <div className="flex justify-between items-center px-4 py-3 bg-muted/50 border-t border-border">
           <button 
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="px-3 py-1 text-sm bg-white/5 border border-border rounded disabled:opacity-50 text-foreground/80"
+            className="px-3 py-1 text-sm bg-muted border border-border rounded disabled:opacity-50 text-foreground/80"
           >
             Previous
           </button>
@@ -146,7 +146,7 @@ export function AuditLogsPage() {
           <button 
             onClick={() => setPage(p => p + 1)}
             disabled={logs.length < 20}
-            className="px-3 py-1 text-sm bg-white/5 border border-border rounded disabled:opacity-50 text-foreground/80"
+            className="px-3 py-1 text-sm bg-muted border border-border rounded disabled:opacity-50 text-foreground/80"
           >
             Next
           </button>

@@ -59,7 +59,7 @@ function StaffRowActions({ member }: { member: StaffMember }) {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10">
+          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted">
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -152,7 +152,7 @@ export function StaffPage() {
         </Button>
       </div>
 
-      <Card className="border-border bg-black/40 backdrop-blur-xl">
+      <Card className="border-border bg-card backdrop-blur-xl">
         <CardHeader>
           <CardTitle>All Staff Members</CardTitle>
         </CardHeader>

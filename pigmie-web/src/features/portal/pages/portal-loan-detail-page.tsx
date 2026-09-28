@@ -36,7 +36,7 @@ export function PortalLoanDetailPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Link to="/app/portal/dashboard">
-          <Button variant="ghost" size="icon" className="hover:bg-white/10">
+          <Button variant="ghost" size="icon" className="hover:bg-muted">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
@@ -59,7 +59,7 @@ export function PortalLoanDetailPage() {
 
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-2 space-y-6">
-          <Card className="border-border bg-black/40 backdrop-blur-xl">
+          <Card className="border-border bg-card backdrop-blur-xl">
             <CardHeader>
               <CardTitle className="text-foreground">Loan Summary</CardTitle>
             </CardHeader>
@@ -88,14 +88,14 @@ export function PortalLoanDetailPage() {
                   <span className="text-sm font-medium text-foreground">Repayment Progress</span>
                   <span className="text-sm font-medium text-emerald-400">{progressPercent}%</span>
                 </div>
-                <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                   <div className={`h-full bg-emerald-500 rounded-full`} style={{ width: `${progressPercent}%` }}></div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-border bg-black/40 backdrop-blur-xl">
+          <Card className="border-border bg-card backdrop-blur-xl">
             <CardHeader>
               <CardTitle className="text-foreground">Repayment Schedule</CardTitle>
             </CardHeader>
@@ -105,7 +105,7 @@ export function PortalLoanDetailPage() {
                   <div className="text-center p-4 text-muted-foreground">No schedule generated yet.</div>
                 ) : (
                   schedule.map((installment: any) => (
-                    <div key={installment.id} className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-border">
+                    <div key={installment.id} className="flex items-center justify-between p-4 rounded-lg bg-muted border border-border">
                       <div className="flex items-center gap-4">
                         {installment.status === 'paid' ? (
                           <CheckCircle2 className="h-6 w-6 text-emerald-500" />
@@ -138,7 +138,7 @@ export function PortalLoanDetailPage() {
         </div>
 
         <div className="space-y-6">
-          <Card className="border-border bg-black/40 backdrop-blur-xl">
+          <Card className="border-border bg-card backdrop-blur-xl">
             <CardHeader>
               <CardTitle className="text-foreground">Next Payment Due</CardTitle>
             </CardHeader>

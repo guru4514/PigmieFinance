@@ -10,7 +10,7 @@ export const LoanStatusBadge: React.FC<LoanStatusBadgeProps> = ({ status }) => {
     PENDING: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
     APPROVED: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
     ACTIVE: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
-    CLOSED: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
+    CLOSED: 'bg-gray-500/10 text-muted-foreground border-gray-500/20',
     DEFAULTED: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
   };
 

@@ -15,9 +15,9 @@ interface LoanScheduleTableProps {
 
 export const LoanScheduleTable: React.FC<LoanScheduleTableProps> = ({ payments }) => {
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-white/5 backdrop-blur-md">
-      <table className="w-full text-left text-sm text-gray-300">
-        <thead className="bg-white/5 text-xs uppercase text-gray-400 border-b border-border">
+    <div className="overflow-x-auto rounded-xl border border-border bg-muted backdrop-blur-md">
+      <table className="w-full text-left text-sm text-foreground/80">
+        <thead className="bg-muted text-xs uppercase text-muted-foreground border-b border-border">
           <tr>
             <th className="px-6 py-4 font-medium">Due Date</th>
             <th className="px-6 py-4 font-medium">Amount</th>
@@ -46,7 +46,7 @@ export const LoanScheduleTable: React.FC<LoanScheduleTableProps> = ({ payments }
           ))}
           {payments.length === 0 && (
             <tr>
-              <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+              <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
                 No payment schedule available
               </td>
             </tr>

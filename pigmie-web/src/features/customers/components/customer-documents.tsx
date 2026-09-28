@@ -43,7 +43,7 @@ export function CustomerDocuments({ customerId }: { customerId: string }) {
             <div className="space-y-2 flex-1">
               <label className="text-sm text-muted-foreground">Document Type</label>
               <Select value={selectedType} onValueChange={(val: any) => setSelectedType(val)}>
-                <SelectTrigger className="bg-white/5 border-border">
+                <SelectTrigger className="bg-muted border-border">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -68,7 +68,7 @@ export function CustomerDocuments({ customerId }: { customerId: string }) {
                 />
                 <Button 
                   variant="outline" 
-                  className="w-full bg-white/5 border-border justify-start"
+                  className="w-full bg-muted border-border justify-start"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <UploadCloud className="w-4 h-4 mr-2 text-muted-foreground" />

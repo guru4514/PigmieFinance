@@ -172,7 +172,7 @@ export function RecordCollectionPage() {
                 <Button 
                   type="button" 
                   variant="outline" 
-                  className="flex-1 bg-background/30 border-border hover:bg-white/10"
+                  className="flex-1 bg-muted border-border hover:bg-muted"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Camera className="w-4 h-4 mr-2" />
@@ -181,7 +181,7 @@ export function RecordCollectionPage() {
                 <Button 
                   type="button" 
                   variant="outline" 
-                  className="flex-1 bg-background/30 border-border hover:bg-white/10"
+                  className="flex-1 bg-muted border-border hover:bg-muted"
                   onClick={handleCaptureLocation}
                 >
                   <MapPin className="w-4 h-4 mr-2" />

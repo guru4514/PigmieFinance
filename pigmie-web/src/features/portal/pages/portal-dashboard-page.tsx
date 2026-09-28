@@ -73,7 +73,7 @@ export function PortalDashboardPage() {
         </div>
         <Button 
           variant="outline" 
-          className="border-border bg-white/5 hover:bg-white/10"
+          className="border-border bg-muted hover:bg-muted"
           onClick={handleDownloadPassbook}
           disabled={isDownloading}
         >
@@ -91,14 +91,14 @@ export function PortalDashboardPage() {
         {STATS.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <Card key={index} className="border-border bg-black/40 backdrop-blur-xl">
+            <Card key={index} className="border-border bg-card backdrop-blur-xl">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
                     <p className="text-2xl font-bold mt-1">{stat.value}</p>
                   </div>
-                  <div className={`p-3 rounded-full bg-white/5 ${stat.color}`}>
+                  <div className={`p-3 rounded-full bg-muted ${stat.color}`}>
                     <Icon className="h-5 w-5" />
                   </div>
                 </div>
@@ -109,7 +109,7 @@ export function PortalDashboardPage() {
       </div>
 
       <div className="grid gap-6">
-        <Card className="border-border bg-black/40 backdrop-blur-xl">
+        <Card className="border-border bg-card backdrop-blur-xl">
           <CardHeader>
             <CardTitle>Your Active Loans</CardTitle>
           </CardHeader>
@@ -122,7 +122,7 @@ export function PortalDashboardPage() {
                 </div>
               ) : (
                 loans.map((loan: any) => (
-                  <div key={loan.id} className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
+                  <div key={loan.id} className="flex items-center justify-between p-4 rounded-lg bg-muted border border-border hover:bg-muted transition-colors">
                     <div className="flex flex-col">
                       <span className="font-medium text-foreground">{loan.loanProduct?.name || 'Loan'}</span>
                       <span className="text-xs text-muted-foreground">ID: {loan.id.slice(0, 8)}</span>

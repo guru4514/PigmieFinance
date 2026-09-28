@@ -92,7 +92,7 @@ export const LoanDetailPage: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-4">
           <Link to="/app/loans">
-            <Button variant="ghost" size="icon" className="rounded-full hover:bg-white/10 text-gray-400">
+            <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted text-muted-foreground">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
@@ -101,7 +101,7 @@ export const LoanDetailPage: React.FC = () => {
               <h1 className="text-2xl font-bold text-foreground tracking-tight">Loan {loan.id.slice(0, 8)}</h1>
               <LoanStatusBadge status={loan.status} />
             </div>
-            <p className="text-sm text-gray-400 mt-1">Borrower: {loan.customer?.fullName || loan.customerId}</p>
+            <p className="text-sm text-muted-foreground mt-1">Borrower: {loan.customer?.fullName || loan.customerId}</p>
           </div>
         </div>
 
@@ -214,7 +214,7 @@ export const LoanDetailPage: React.FC = () => {
             className={`px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
               activeTab === tab
                 ? 'border-primary text-primary'
-                : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-white/20'
+                : 'border-transparent text-muted-foreground hover:text-gray-200 hover:border-white/20'
             }`}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -226,49 +226,49 @@ export const LoanDetailPage: React.FC = () => {
       <div className="mt-6">
         {activeTab === 'overview' && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="md:col-span-2 border-border bg-black/40 backdrop-blur-xl">
+            <Card className="md:col-span-2 border-border bg-card backdrop-blur-xl">
               <CardHeader>
                 <CardTitle className="text-foreground text-lg">Loan Details</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-y-6 gap-x-4">
                 <div>
-                  <p className="text-sm text-gray-500">Principal Amount</p>
+                  <p className="text-sm text-muted-foreground">Principal Amount</p>
                   <p className="text-xl font-semibold text-foreground">₹{((loan.principalAmount) || 0).toLocaleString() || ((loan.amount) || 0).toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Remaining Balance</p>
+                  <p className="text-sm text-muted-foreground">Remaining Balance</p>
                   <p className="text-xl font-semibold text-foreground">₹{((loan.remainingBalance) || 0).toLocaleString() || '0'}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Interest Rate</p>
+                  <p className="text-sm text-muted-foreground">Interest Rate</p>
                   <p className="text-lg font-medium text-foreground">{loan.loanProduct?.interestRateAnnual}% p.a.</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Tenure</p>
+                  <p className="text-sm text-muted-foreground">Tenure</p>
                   <p className="text-lg font-medium text-foreground">{loan.tenure} Installments</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Start Date</p>
+                  <p className="text-sm text-muted-foreground">Start Date</p>
                   <p className="text-base text-gray-200">{loan.startDate ? new Date(loan.startDate).toLocaleDateString() : 'N/A'}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">End Date</p>
+                  <p className="text-sm text-muted-foreground">End Date</p>
                   <p className="text-base text-gray-200">{loan.endDate ? new Date(loan.endDate).toLocaleDateString() : 'N/A'}</p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-border bg-black/40 backdrop-blur-xl">
+            <Card className="border-border bg-card backdrop-blur-xl">
               <CardHeader>
                 <CardTitle className="text-foreground text-lg">Next Payment</CardTitle>
               </CardHeader>
               <CardContent>
                 {loan.nextPaymentDate ? (
                   <div className="space-y-4">
-                    <div className="p-4 rounded-xl bg-white/5 border border-border">
-                      <p className="text-sm text-gray-400 mb-1">Due Date</p>
+                    <div className="p-4 rounded-xl bg-muted border border-border">
+                      <p className="text-sm text-muted-foreground mb-1">Due Date</p>
                       <p className="text-lg font-medium text-foreground mb-3">{new Date(loan.nextPaymentDate).toLocaleDateString()}</p>
-                      <p className="text-sm text-gray-400 mb-1">Amount</p>
+                      <p className="text-sm text-muted-foreground mb-1">Amount</p>
                       <p className="text-2xl font-bold text-primary">₹{((loan.nextPaymentAmount) || 0).toLocaleString()}</p>
                     </div>
                     <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
@@ -280,7 +280,7 @@ export const LoanDetailPage: React.FC = () => {
                     </RoleGate>
                   </div>
                 ) : (
-                  <div className="text-center py-6 text-gray-500">
+                  <div className="text-center py-6 text-muted-foreground">
                     No upcoming payments
                   </div>
                 )}
@@ -301,11 +301,11 @@ export const LoanDetailPage: React.FC = () => {
         )}
 
         {activeTab === 'collections' && (
-          <Card className="border-border bg-black/40 backdrop-blur-xl">
+          <Card className="border-border bg-card backdrop-blur-xl">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-foreground text-lg">Collection History</CardTitle>
-                <CardDescription className="text-gray-400">Recent collections for this loan.</CardDescription>
+                <CardDescription className="text-muted-foreground">Recent collections for this loan.</CardDescription>
               </div>
               <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
                 <Link to={`/app/collections/record/${loan.id}`}>
@@ -319,7 +319,7 @@ export const LoanDetailPage: React.FC = () => {
               {loan.collections && loan.collections.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
-                    <thead className="border-b border-border text-xs text-gray-400 uppercase">
+                    <thead className="border-b border-border text-xs text-muted-foreground uppercase">
                       <tr>
                         <th className="pb-3 font-medium">Receipt #</th>
                         <th className="pb-3 font-medium">Date</th>
@@ -333,21 +333,21 @@ export const LoanDetailPage: React.FC = () => {
                     <tbody className="divide-y divide-white/5">
                       {loan.collections.map((col: any) => (
                         <tr key={col.id} className="hover:bg-muted transition-colors">
-                          <td className="py-3 font-mono text-xs text-gray-300">
+                          <td className="py-3 font-mono text-xs text-foreground/80">
                             {col.receiptNumber || `COL-${col.id.replace(/-/g, '').slice(0, 5).toUpperCase()}`}
                           </td>
-                          <td className="py-3 text-gray-300">
+                          <td className="py-3 text-foreground/80">
                             {col.collectionDate || col.collectedAt
                               ? new Date(col.collectionDate || col.collectedAt!).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
                               : 'N/A'}
                           </td>
-                          <td className="py-3 text-gray-300 capitalize">
+                          <td className="py-3 text-foreground/80 capitalize">
                             {col.collectionMethod || 'Cash'}
                           </td>
                           <td className="py-3 font-semibold text-emerald-400">
                             ₹{Number(col.amount).toLocaleString('en-IN')}
                           </td>
-                          <td className="py-3 text-gray-400 text-xs">
+                          <td className="py-3 text-muted-foreground text-xs">
                             {col.collectedBy?.fullName || 'Staff'}
                           </td>
                           <td className="py-3">
@@ -377,7 +377,7 @@ export const LoanDetailPage: React.FC = () => {
                                 });
                                 setReceiptModalOpen(true);
                               }}
-                              className="h-8 border-border hover:bg-white/10 text-foreground gap-1.5"
+                              className="h-8 border-border hover:bg-muted text-foreground gap-1.5"
                             >
                               <Receipt className="h-3.5 w-3.5" />
                               View Receipt
@@ -389,7 +389,7 @@ export const LoanDetailPage: React.FC = () => {
                   </table>
                 </div>
               ) : (
-                <div className="text-center py-12 text-gray-500">
+                <div className="text-center py-12 text-muted-foreground">
                   <User className="h-12 w-12 mx-auto mb-3 opacity-20" />
                   <p>No collection records yet.</p>
                 </div>
@@ -428,7 +428,7 @@ export const LoanDetailPage: React.FC = () => {
             {documentsLoading ? (
               <div className="flex justify-center p-8"><LoadingSpinner className="w-6 h-6 text-primary" /></div>
             ) : documents.length === 0 ? (
-              <div className="text-center py-12 text-gray-500 border border-dashed border-border rounded-xl">
+              <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
                 <FileText className="h-12 w-12 mx-auto mb-3 opacity-20" />
                 <p>No documents uploaded yet.</p>
                 <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
@@ -444,7 +444,7 @@ export const LoanDetailPage: React.FC = () => {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {documents.map((doc: any) => (
-                  <Card key={doc.id} className="border-border bg-white/5 hover:bg-white/10 transition-colors group">
+                  <Card key={doc.id} className="border-border bg-muted hover:bg-muted transition-colors group">
                     <CardContent className="p-4 flex items-center justify-between">
                       <div className="flex items-center gap-3 overflow-hidden">
                         <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
@@ -452,7 +452,7 @@ export const LoanDetailPage: React.FC = () => {
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">{doc.originalName || doc.documentType}</p>
-                          <p className="text-xs text-gray-500">{new Date(doc.createdAt).toLocaleDateString()}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(doc.createdAt).toLocaleDateString()}</p>
                         </div>
                       </div>
                       <Button 
@@ -460,7 +460,7 @@ export const LoanDetailPage: React.FC = () => {
                         size="icon" 
                         onClick={() => downloadDocument.mutate(doc.id)}
                         disabled={downloadDocument.isPending}
-                        className="text-gray-400 hover:text-foreground rounded-full shrink-0"
+                        className="text-muted-foreground hover:text-foreground rounded-full shrink-0"
                       >
                         {downloadDocument.isPending ? <LoadingSpinner className="w-4 h-4" /> : <Download className="h-4 w-4" />}
                       </Button>

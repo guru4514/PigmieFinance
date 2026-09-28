@@ -43,7 +43,7 @@ export function DueTodayTable({ data = [] }: { data?: any[] }) {
               </TableRow>
             ) : (
             data.map((item) => (
-              <TableRow key={item.id} className="border-white/5 hover:bg-muted transition-colors">
+              <TableRow key={item.id} className="border-border hover:bg-muted transition-colors">
                 <TableCell className="font-medium">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-8 w-8 bg-primary/20 text-primary border border-primary/20">
@@ -75,7 +75,7 @@ export function DueTodayTable({ data = [] }: { data?: any[] }) {
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10 text-muted-foreground">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted text-muted-foreground">
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </TableCell>

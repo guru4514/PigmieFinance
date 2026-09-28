@@ -127,7 +127,7 @@ export function LoginPage() {
             Sign in with Google
           </Button>
         </CardContent>
-        <CardFooter className="flex justify-center border-t border-white/5 pt-6 text-sm text-muted-foreground">
+        <CardFooter className="flex justify-center border-t border-border pt-6 text-sm text-muted-foreground">
           Don't have an account? 
           <Link to="/signup" className="text-indigo-400 hover:text-indigo-300 ml-1 font-medium transition-colors">Sign up</Link>
         </CardFooter>

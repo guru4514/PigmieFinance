@@ -177,7 +177,7 @@ export function BranchesPage() {
               <Input
                 {...register('name')}
                 placeholder="e.g. Main Branch"
-                className="bg-black/20 border-border"
+                className="bg-muted/50 border-border"
               />
               {errors.name && <p className="text-sm text-rose-500">{errors.name.message}</p>}
             </div>
@@ -186,7 +186,7 @@ export function BranchesPage() {
               <Input
                 {...register('address')}
                 placeholder="Full address"
-                className="bg-black/20 border-border"
+                className="bg-muted/50 border-border"
               />
               {errors.address && <p className="text-sm text-rose-500">{errors.address.message}</p>}
             </div>

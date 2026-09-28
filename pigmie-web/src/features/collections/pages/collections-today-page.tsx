@@ -284,7 +284,7 @@ export function CollectionsTodayPage() {
           description="You don't have any collections assigned for today."
         />
       ) : sortedCollections.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground bg-card/20 rounded-lg border border-white/5">
+        <div className="text-center py-12 text-muted-foreground bg-card/20 rounded-lg border border-border">
           No customers found matching "{searchQuery}"
         </div>
       ) : (

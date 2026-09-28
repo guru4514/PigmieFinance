@@ -33,7 +33,7 @@ export const LoansListPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">Loans</h1>
-          <p className="text-sm text-gray-400 mt-1">Manage and track all loan accounts</p>
+          <p className="text-sm text-muted-foreground mt-1">Manage and track all loan accounts</p>
         </div>
         <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
           <Link to="/app/loans/new">
@@ -45,8 +45,8 @@ export const LoansListPage: React.FC = () => {
         </RoleGate>
       </div>
 
-      <Card className="border-border bg-black/40 backdrop-blur-xl">
-        <CardHeader className="border-b border-white/5 pb-4">
+      <Card className="border-border bg-card backdrop-blur-xl">
+        <CardHeader className="border-b border-border pb-4">
           <div className="flex flex-col sm:flex-row gap-4 justify-between">
             <CardTitle className="text-lg font-medium text-foreground flex items-center gap-2">
               All Loans
@@ -56,7 +56,7 @@ export const LoansListPage: React.FC = () => {
                 variant={filterMode === 'all' ? 'default' : 'outline'} 
                 onClick={() => setFilterMode('all')}
                 size="sm"
-                className={filterMode === 'all' ? '' : 'border-border text-gray-300'}
+                className={filterMode === 'all' ? '' : 'border-border text-foreground/80'}
               >
                 All
               </Button>
@@ -64,17 +64,17 @@ export const LoansListPage: React.FC = () => {
                 variant={filterMode === 'my' ? 'default' : 'outline'} 
                 onClick={() => setFilterMode('my')}
                 size="sm"
-                className={filterMode === 'my' ? '' : 'border-border text-gray-300'}
+                className={filterMode === 'my' ? '' : 'border-border text-foreground/80'}
               >
                 My Assignments
               </Button>
               <div className="relative ml-2">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
                   placeholder="Search loans..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 w-full sm:w-64 bg-white/5 border-border text-foreground placeholder:text-gray-500 h-9"
+                  className="pl-9 w-full sm:w-64 bg-muted border-border text-foreground placeholder:text-muted-foreground h-9"
                 />
               </div>
             </div>
@@ -82,7 +82,7 @@ export const LoansListPage: React.FC = () => {
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-8 text-center text-gray-500">Loading loans...</div>
+            <div className="p-8 text-center text-muted-foreground">Loading loans...</div>
           ) : filteredLoans.length === 0 ? (
             <div className="p-6">
               <EmptyState
@@ -95,8 +95,8 @@ export const LoansListPage: React.FC = () => {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-gray-300">
-                <thead className="bg-white/5 text-xs uppercase text-gray-400 border-b border-border">
+              <table className="w-full text-left text-sm text-foreground/80">
+                <thead className="bg-muted text-xs uppercase text-muted-foreground border-b border-border">
                   <tr>
                     <th className="px-6 py-4 font-medium">Loan ID</th>
                     <th className="px-6 py-4 font-medium">Borrower</th>

@@ -36,7 +36,7 @@ export const PreCloseLoanDialog: React.FC<PreCloseLoanDialogProps> = ({ loanId, 
         <DialogContent className="bg-card border-border text-foreground max-w-md">
           <DialogHeader>
             <DialogTitle className="text-xl">Pre-Close Loan</DialogTitle>
-            <DialogDescription className="text-gray-400">
+            <DialogDescription className="text-muted-foreground">
               Calculate and process an early loan payoff.
             </DialogDescription>
           </DialogHeader>
@@ -50,18 +50,18 @@ export const PreCloseLoanDialog: React.FC<PreCloseLoanDialogProps> = ({ loanId, 
           ) : (
             <div className="space-y-4 py-4">
               <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-gray-400">Outstanding Principal</span>
+                <span className="text-muted-foreground">Outstanding Principal</span>
                 <span className="font-medium">₹{((data.outstandingPrincipal) || 0).toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-gray-400">Accrued Interest</span>
+                <span className="text-muted-foreground">Accrued Interest</span>
                 <span className="font-medium">₹{((data.accruedInterest) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
-                <span className="text-gray-400">Pre-closure Penalty ({data.penaltyRate}%)</span>
+                <span className="text-muted-foreground">Pre-closure Penalty ({data.penaltyRate}%)</span>
                 <span className="font-medium text-yellow-400">₹{((data.preClosurePenalty) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
               </div>
-              <div className="flex justify-between items-center py-3 bg-white/5 rounded-lg px-4 mt-2 border border-border">
+              <div className="flex justify-between items-center py-3 bg-muted rounded-lg px-4 mt-2 border border-border">
                 <span className="font-medium text-lg">Total Payoff Amount</span>
                 <span className="font-bold text-xl text-primary">
                   ₹{((data.preClosureAmount) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
@@ -81,7 +81,7 @@ export const PreCloseLoanDialog: React.FC<PreCloseLoanDialogProps> = ({ loanId, 
           )}
 
           <DialogFooter className="mt-6 gap-2 sm:gap-0">
-            <Button variant="ghost" onClick={() => setOpen(false)} className="text-gray-300 hover:text-foreground hover:bg-white/10">
+            <Button variant="ghost" onClick={() => setOpen(false)} className="text-foreground/80 hover:text-foreground hover:bg-muted">
               Cancel
             </Button>
             <Button 
