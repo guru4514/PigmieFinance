@@ -1,16 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
-import { api } from '@/shared/lib/api-client';
+import { apiClient } from '@/shared/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
-import { formatCurrency } from '@/shared/lib/utils';
-import { PageHeader } from '@/shared/components/layout/page-header';
 import { Loader2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
+
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
 
 export function BranchComparisonPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['branch-comparison'],
     queryFn: async () => {
-      const res = await api.get('/reports/branch-comparison');
+      const res = await apiClient.get('/reports/branch-comparison');
       return res.data;
     },
   });
@@ -31,10 +32,10 @@ export function BranchComparisonPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader 
-        title="Branch Comparison" 
-        description="Compare performance metrics across branches"
-      />
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Branch Comparison</h1>
+        <p className="text-zinc-400">Compare performance metrics across branches</p>
+      </div>
 
       <Card>
         <CardHeader>
