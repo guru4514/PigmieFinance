@@ -20,3 +20,6 @@ coverage/
 temp*.txt
 recover*.js
 recover*.md
+extract.js  
+pigmie-web/color_audit*  
+pigmie-web/ux_audit* 
