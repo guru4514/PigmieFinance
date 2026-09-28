@@ -87,7 +87,7 @@ export const CustomersListPage = () => {
         </div>
       </div>
 
-        {filteredCustomers.length === 0 ? (
+      {filteredCustomers.length === 0 ? (
           <EmptyState 
             icon={Users} 
             title="No customers yet" 

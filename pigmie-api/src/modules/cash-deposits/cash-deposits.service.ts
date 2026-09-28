@@ -88,11 +88,11 @@ export class CashDepositsService {
           COALESCE(col_sum.total, 0) - COALESCE(dep_sum.total, 0) as delta
         FROM "staff" s
         LEFT JOIN (
-          SELECT collected_by_id, SUM(amount) as total
+          SELECT collected_by, SUM(amount) as total
           FROM "collections"
           WHERE status IN ('recorded', 'verified') AND organization_id = ${organizationId}::uuid
-          GROUP BY collected_by_id
-        ) col_sum ON col_sum.collected_by_id = s.id
+          GROUP BY collected_by
+        ) col_sum ON col_sum.collected_by = s.id
         LEFT JOIN (
           SELECT agent_id, SUM(amount) as total
           FROM "cash_deposits"
