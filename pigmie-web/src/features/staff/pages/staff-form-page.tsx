@@ -12,7 +12,7 @@ import { ArrowLeft, UserPlus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const staffSchema = z.object({
-  name: z.string().min(2, 'Name is required'),
+  fullName: z.string().min(2, 'Name is required'),
   email: z.string().email('Valid email is required'),
   role: z.enum(['org_admin', 'branch_manager', 'agent', 'accountant']),
   status: z.enum(['active', 'inactive', 'suspended']).default('active'),
@@ -63,14 +63,14 @@ export function StaffFormPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
+                <Label htmlFor="fullName">Full Name</Label>
                 <Input 
-                  id="name" 
-                  {...register('name')} 
+                  id="fullName" 
+                  {...register('fullName')} 
                   className="bg-muted border-border" 
                   placeholder="e.g. Jane Doe"
                 />
-                {errors.name && <p className="text-xs text-red-400">{errors.name.message}</p>}
+                {errors.fullName && <p className="text-xs text-red-400">{errors.fullName.message}</p>}
               </div>
               
               <div className="space-y-2">

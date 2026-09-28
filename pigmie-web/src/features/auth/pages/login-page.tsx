@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../../shared/lib/supabase';
 import { apiClient } from '@/shared/lib/api-client';
 import { Button } from '../../../shared/components/ui/button';
 import { Input } from '../../../shared/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../../../shared/components/ui/card';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { GoogleIcon } from '@/shared/components/icons/google-icon';
 
 export function LoginPage() {
@@ -13,6 +13,16 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const errorParam = searchParams.get('error');
+    if (errorParam === 'not_provisioned') {
+      setError('Your account has not been provisioned yet. Please ask your organization admin to add you as a staff member first.');
+      // Sign out the unprovisioned Supabase session so they can try again
+      supabase.auth.signOut();
+    }
+  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,7 +81,7 @@ export function LoginPage() {
           <div className="mx-auto w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center mb-4">
             <div className="w-6 h-6 bg-gradient-to-tr from-indigo-500 to-emerald-500 rounded-md"></div>
           </div>
-          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent">Welcome back</CardTitle>
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-zinc-400 bg-clip-text text-transparent">Welcome back</CardTitle>
           <CardDescription className="text-muted-foreground">Sign in to your Pigmie account</CardDescription>
         </CardHeader>
         <CardContent>
@@ -89,7 +99,7 @@ export function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="bg-black/50 border-border"
+                className="bg-muted border-border"
               />
             </div>
             <div className="space-y-2">
@@ -103,7 +113,7 @@ export function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="bg-black/50 border-border"
+                className="bg-muted border-border"
               />
             </div>
             <Button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-foreground border-0" disabled={loading}>
