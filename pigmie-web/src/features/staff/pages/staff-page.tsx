@@ -39,13 +39,13 @@ function StaffRowActions({ member }: { member: StaffMember }) {
   const [selectedRole, setSelectedRole] = useState<StaffRole>(member.role);
 
   const handleDeactivate = () => {
-    if (confirm(`Are you sure you want to deactivate ${member.name}?`)) {
+    if (confirm(`Are you sure you want to deactivate ${member.fullName}?`)) {
       updateStaff.mutate({ id: member.id, data: { status: 'inactive' } });
     }
   };
 
   const handleDelete = () => {
-    if (confirm(`Are you sure you want to delete ${member.name}? This cannot be undone.`)) {
+    if (confirm(`Are you sure you want to delete ${member.fullName}? This cannot be undone.`)) {
       deleteStaff.mutate(member.id);
     }
   };
@@ -85,7 +85,7 @@ function StaffRowActions({ member }: { member: StaffMember }) {
       <Dialog open={isEditRoleOpen} onOpenChange={setIsEditRoleOpen}>
         <DialogContent className="sm:max-w-[425px] bg-zinc-950 border-border text-foreground">
           <DialogHeader>
-            <DialogTitle>Edit Role for {member.name}</DialogTitle>
+            <DialogTitle>Edit Role for {member.fullName}</DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-2">
@@ -184,7 +184,7 @@ export function StaffPage() {
                       <TableRow key={member.id} className="border-border hover:bg-muted">
                         <TableCell className="font-medium">
                           <div className="flex flex-col">
-                            <span>{member.name}</span>
+                            <span>{member.fullName}</span>
                             <span className="text-xs text-muted-foreground">{member.email}</span>
                           </div>
                         </TableCell>

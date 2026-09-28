@@ -6,7 +6,7 @@ export type StaffStatus = 'active' | 'inactive' | 'suspended';
 
 export interface StaffMember {
   id: string;
-  name: string;
+  fullName: string;
   email: string;
   role: StaffRole;
   status: StaffStatus;

@@ -52,7 +52,7 @@ export function ReportsPage() {
         <button
           onClick={() => setActiveTab('par')}
           className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
-            activeTab === 'par' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-zinc-200 hover:border-border'
+            activeTab === 'par' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
           }`}
         >
           <AlertTriangle className="w-4 h-4" /> Portfolio At Risk
@@ -60,7 +60,7 @@ export function ReportsPage() {
         <button
           onClick={() => setActiveTab('collections')}
           className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
-            activeTab === 'collections' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-zinc-200 hover:border-border'
+            activeTab === 'collections' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
           }`}
         >
           <TrendingUp className="w-4 h-4" /> Collection Efficiency
@@ -68,7 +68,7 @@ export function ReportsPage() {
         <button
           onClick={() => setActiveTab('agents')}
           className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
-            activeTab === 'agents' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-zinc-200 hover:border-border'
+            activeTab === 'agents' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
           }`}
         >
           <Users className="w-4 h-4" /> Agent Performance
