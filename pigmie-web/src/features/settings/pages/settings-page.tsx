@@ -253,6 +253,55 @@ export function SettingsPage() {
                     onCheckedChange={(val) => handleNotifyToggle('notify_collection', setNotifyCollection, val)} 
                   />
                 </div>
+                
+                <div className="pt-6 border-t border-white/10">
+                  <h3 className="text-lg font-medium text-white mb-4">SMS Configuration</h3>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-200">SMS Provider</label>
+                      <select 
+                        className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50"
+                        defaultValue="console"
+                        onChange={(e) => {
+                           localStorage.setItem('sms_provider', e.target.value);
+                           toast.success('SMS Provider updated');
+                        }}
+                      >
+                        <option value="console" className="bg-zinc-900">Console (Mock)</option>
+                        <option value="msg91" className="bg-zinc-900">MSG91</option>
+                        <option value="twilio" className="bg-zinc-900">Twilio</option>
+                        <option value="textlocal" className="bg-zinc-900">TextLocal</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-200">API Key</label>
+                      <Input 
+                        type="password"
+                        placeholder="Enter API Key"
+                        className="bg-white/5 border-white/10"
+                        defaultValue={localStorage.getItem('sms_api_key') || ''}
+                        onBlur={(e) => {
+                          localStorage.setItem('sms_api_key', e.target.value);
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-200">Sender ID</label>
+                      <Input 
+                        type="text"
+                        placeholder="e.g. PIGMIE"
+                        className="bg-white/5 border-white/10"
+                        defaultValue={localStorage.getItem('sms_sender_id') || ''}
+                        onBlur={(e) => {
+                          localStorage.setItem('sms_sender_id', e.target.value);
+                        }}
+                      />
+                    </div>
+                    <Button onClick={() => toast.success('SMS Configuration saved successfully')} className="mt-2">
+                      Save SMS Configuration
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           )}

@@ -255,7 +255,7 @@ export class LoansService {
       let currentPeriodInterest = 0;
       if (currentPeriod) {
         const prevPeriod = loan.schedule.find(s => s.installmentNumber === currentPeriod.installmentNumber - 1);
-        const periodStart = prevPeriod ? prevPeriod.dueDate : loan.startDate;
+        const periodStart = prevPeriod ? prevPeriod.dueDate : (loan.startDate || new Date());
         const periodEnd = currentPeriod.dueDate;
         
         const daysInPeriod = Math.max(1, (periodEnd.getTime() - periodStart.getTime()) / (1000 * 3600 * 24));

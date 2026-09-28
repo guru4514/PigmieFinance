@@ -182,6 +182,105 @@ export const EMICalculatorPage: React.FC = () => {
             </CardContent>
           </Card>
         </div>
+        </div>
+      </div>
+
+      <div className="mt-8 border-t border-zinc-800/50 pt-8">
+        <h2 className="text-2xl font-bold text-white tracking-tight mb-4">Pre-Closure Calculator</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-xl text-white">Pre-Closure Parameters</CardTitle>
+              <CardDescription className="text-zinc-400">Manual pre-closure calculation for hypothetical scenarios.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Outstanding Principal (₹)</label>
+                <Input
+                  type="number"
+                  id="pc-principal"
+                  defaultValue="10000"
+                  className="bg-zinc-800/50 border-zinc-700 text-white"
+                  min={0}
+                  onChange={(e) => {
+                    const val = Number(e.target.value) || 0;
+                    const accrued = Number((document.getElementById('pc-accrued') as HTMLInputElement)?.value) || 0;
+                    const penaltyRate = Number((document.getElementById('pc-penalty-rate') as HTMLInputElement)?.value) || 0;
+                    const penalty = (val * penaltyRate) / 100;
+                    const total = val + accrued + penalty;
+                    
+                    const elPenalty = document.getElementById('pc-penalty-out');
+                    const elTotal = document.getElementById('pc-total-out');
+                    if (elPenalty) elPenalty.textContent = formatCurrency(penalty);
+                    if (elTotal) elTotal.textContent = formatCurrency(total);
+                  }}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Accrued Interest (₹)</label>
+                <Input
+                  type="number"
+                  id="pc-accrued"
+                  defaultValue="200"
+                  className="bg-zinc-800/50 border-zinc-700 text-white"
+                  min={0}
+                  onChange={(e) => {
+                    const accrued = Number(e.target.value) || 0;
+                    const principal = Number((document.getElementById('pc-principal') as HTMLInputElement)?.value) || 0;
+                    const penaltyRate = Number((document.getElementById('pc-penalty-rate') as HTMLInputElement)?.value) || 0;
+                    const penalty = (principal * penaltyRate) / 100;
+                    const total = principal + accrued + penalty;
+                    
+                    const elTotal = document.getElementById('pc-total-out');
+                    if (elTotal) elTotal.textContent = formatCurrency(total);
+                  }}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Penalty Rate (%)</label>
+                <Input
+                  type="number"
+                  id="pc-penalty-rate"
+                  defaultValue="2"
+                  className="bg-zinc-800/50 border-zinc-700 text-white"
+                  min={0}
+                  onChange={(e) => {
+                    const penaltyRate = Number(e.target.value) || 0;
+                    const principal = Number((document.getElementById('pc-principal') as HTMLInputElement)?.value) || 0;
+                    const accrued = Number((document.getElementById('pc-accrued') as HTMLInputElement)?.value) || 0;
+                    const penalty = (principal * penaltyRate) / 100;
+                    const total = principal + accrued + penalty;
+                    
+                    const elPenalty = document.getElementById('pc-penalty-out');
+                    const elTotal = document.getElementById('pc-total-out');
+                    if (elPenalty) elPenalty.textContent = formatCurrency(penalty);
+                    if (elTotal) elTotal.textContent = formatCurrency(total);
+                  }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-zinc-900/50 border-zinc-800 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-xl text-white">Pre-Closure Amount</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex justify-between items-center py-2 border-b border-zinc-800/50">
+                <span className="text-zinc-400">Pre-closure Penalty</span>
+                <span className="font-medium text-yellow-400" id="pc-penalty-out">{formatCurrency(10000 * 2 / 100)}</span>
+              </div>
+              <div className="flex justify-between items-center py-4 bg-zinc-800/30 rounded-lg px-4 border border-zinc-800/50">
+                <span className="font-medium text-lg text-white">Total Payoff Amount</span>
+                <span className="font-bold text-2xl text-primary" id="pc-total-out">
+                  {formatCurrency(10000 + 200 + (10000 * 2 / 100))}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+        </div>
       </div>
     </div>
   );
