@@ -7,6 +7,12 @@ export function getTheme(): Theme {
 export function setTheme(theme: Theme) {
   localStorage.setItem('pigmie-theme', theme);
   document.documentElement.setAttribute('data-theme', theme);
+  // Tailwind's dark: variant needs .dark class
+  if (theme === 'dark') {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
 }
 
 export function toggleTheme(): Theme {
