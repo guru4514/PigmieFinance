@@ -6,7 +6,8 @@ import { useCreateCustomer, useCustomer, useUpdateCustomer } from '../hooks/use-
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
 import { Button } from '@/shared/components/ui/button';
-import { ArrowLeft, Save } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { ArrowLeft, Save, User, Shield, Users } from 'lucide-react';
 import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
 import { useNavigate, Link, useParams } from 'react-router-dom';
 
@@ -15,6 +16,12 @@ const customerSchema = z.object({
   email: z.string().email('Invalid email address').optional().or(z.literal('')),
   phone: z.string().min(10, 'Valid phone number is required'),
   address: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  gender: z.string().optional(),
+  idProofType: z.enum(['aadhaar', 'pan', 'voter_id', 'passport', 'driving_license', 'other']).optional(),
+  idProofNumber: z.string().optional(),
+  guarantorName: z.string().optional(),
+  guarantorPhone: z.string().optional(),
 });
 
 type CustomerFormValues = z.infer<typeof customerSchema>;
@@ -28,13 +35,19 @@ export const CustomerFormPage = () => {
   const updateCustomer = useUpdateCustomer();
   const { data: customer, isLoading: isLoadingCustomer } = useCustomer(id as string);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormValues>({
+  const { register, handleSubmit, reset, formState: { errors }, setValue, watch } = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
     defaultValues: {
       fullName: '',
       email: '',
       phone: '',
       address: '',
+      dateOfBirth: '',
+      gender: '',
+      idProofType: undefined,
+      idProofNumber: '',
+      guarantorName: '',
+      guarantorPhone: '',
     }
   });
 
@@ -45,6 +58,12 @@ export const CustomerFormPage = () => {
         email: customer.email || '',
         phone: customer.phone,
         address: customer.address || '',
+        dateOfBirth: customer.dateOfBirth ? customer.dateOfBirth.split('T')[0] : '',
+        gender: customer.gender || '',
+        idProofType: customer.idProofType || undefined,
+        idProofNumber: customer.idProofNumber || '',
+        guarantorName: customer.guarantorName || '',
+        guarantorPhone: customer.guarantorPhone || '',
       });
     }
   }, [isEditMode, customer, reset]);
@@ -52,9 +71,16 @@ export const CustomerFormPage = () => {
   const onSubmit = async (data: CustomerFormValues) => {
     try {
       const payload = {
-        ...data,
+        fullName: data.fullName,
+        phone: data.phone,
         email: data.email || undefined,
-        address: data.address || undefined
+        address: data.address || undefined,
+        dateOfBirth: data.dateOfBirth || undefined,
+        gender: data.gender || undefined,
+        idProofType: data.idProofType || undefined,
+        idProofNumber: data.idProofNumber || undefined,
+        guarantorName: data.guarantorName || undefined,
+        guarantorPhone: data.guarantorPhone || undefined,
       };
       
       if (isEditMode) {
@@ -89,27 +115,38 @@ export const CustomerFormPage = () => {
         </Link>
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">{isEditMode ? 'Edit Customer' : 'Add New Customer'}</h1>
-          <p className="text-muted-foreground mt-1 text-muted-foreground">{isEditMode ? 'Update customer details.' : 'Enter customer details to register them in the system.'}</p>
+          <p className="text-muted-foreground mt-1">{isEditMode ? 'Update customer details.' : 'Enter customer details to register them in the system.'}</p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Personal Information */}
         <Card className="bg-card border-border">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center gap-2 pb-4">
+            <User className="w-5 h-5 text-primary" />
             <CardTitle className="text-xl text-foreground">Personal Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground/80">Full Name</label>
+              <label className="text-sm font-medium text-foreground/80">Full Name *</label>
               <Input 
                 {...register('fullName')} 
                 className="bg-muted border-border text-foreground" 
-                placeholder="John Doe" 
+                placeholder="e.g. Raju Kumar" 
               />
               {errors.fullName && <p className="text-sm text-red-400">{errors.fullName.message}</p>}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground/80">Phone Number *</label>
+                <Input 
+                  {...register('phone')} 
+                  className="bg-muted border-border text-foreground" 
+                  placeholder="+91 9876543210" 
+                />
+                {errors.phone && <p className="text-sm text-red-400">{errors.phone.message}</p>}
+              </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground/80">Email Address (Optional)</label>
                 <Input 
@@ -120,19 +157,37 @@ export const CustomerFormPage = () => {
                 />
                 {errors.email && <p className="text-sm text-red-400">{errors.email.message}</p>}
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground/80">Phone Number</label>
+                <label className="text-sm font-medium text-foreground/80">Date of Birth</label>
                 <Input 
-                  {...register('phone')} 
+                  {...register('dateOfBirth')} 
+                  type="date"
                   className="bg-muted border-border text-foreground" 
-                  placeholder="+91 9876543210" 
                 />
-                {errors.phone && <p className="text-sm text-red-400">{errors.phone.message}</p>}
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground/80">Gender</label>
+                <Select 
+                  value={watch('gender') || ''} 
+                  onValueChange={(val) => setValue('gender', val)}
+                >
+                  <SelectTrigger className="bg-muted border-border">
+                    <SelectValue placeholder="Select gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground/80">Address (Optional)</label>
+              <label className="text-sm font-medium text-foreground/80">Address</label>
               <Input 
                 {...register('address')}
                 className="bg-muted border-border text-foreground" 
@@ -140,18 +195,87 @@ export const CustomerFormPage = () => {
               />
             </div>
           </CardContent>
-          <CardFooter className="flex justify-end gap-3 border-t border-border/50 pt-6">
-            <Link to={isEditMode ? `/app/customers/${id}` : "/app/customers"}>
-              <Button type="button" variant="ghost" className="text-muted-foreground hover:text-foreground hover:bg-muted">
-                Cancel
-              </Button>
-            </Link>
-            <Button type="submit" disabled={isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
-              {isPending ? <LoadingSpinner className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-              {isEditMode ? 'Update Customer' : 'Save Customer'}
-            </Button>
-          </CardFooter>
         </Card>
+
+        {/* KYC / ID Proof */}
+        <Card className="bg-card border-border">
+          <CardHeader className="flex flex-row items-center gap-2 pb-4">
+            <Shield className="w-5 h-5 text-primary" />
+            <CardTitle className="text-xl text-foreground">Identity Verification (KYC)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground/80">ID Proof Type</label>
+                <Select 
+                  value={watch('idProofType') || ''} 
+                  onValueChange={(val: any) => setValue('idProofType', val)}
+                >
+                  <SelectTrigger className="bg-muted border-border">
+                    <SelectValue placeholder="Select ID type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="aadhaar">Aadhaar Card</SelectItem>
+                    <SelectItem value="pan">PAN Card</SelectItem>
+                    <SelectItem value="voter_id">Voter ID</SelectItem>
+                    <SelectItem value="passport">Passport</SelectItem>
+                    <SelectItem value="driving_license">Driving License</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground/80">ID Proof Number</label>
+                <Input 
+                  {...register('idProofNumber')} 
+                  className="bg-muted border-border text-foreground" 
+                  placeholder="e.g. XXXX XXXX 1234" 
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Guarantor Information */}
+        <Card className="bg-card border-border">
+          <CardHeader className="flex flex-row items-center gap-2 pb-4">
+            <Users className="w-5 h-5 text-primary" />
+            <CardTitle className="text-xl text-foreground">Guarantor Information</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground/80">Guarantor Name</label>
+                <Input 
+                  {...register('guarantorName')} 
+                  className="bg-muted border-border text-foreground" 
+                  placeholder="Guarantor's full name" 
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground/80">Guarantor Phone</label>
+                <Input 
+                  {...register('guarantorPhone')} 
+                  className="bg-muted border-border text-foreground" 
+                  placeholder="+91 9876543210" 
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Actions */}
+        <div className="flex justify-end gap-3">
+          <Link to={isEditMode ? `/app/customers/${id}` : "/app/customers"}>
+            <Button type="button" variant="ghost" className="text-muted-foreground hover:text-foreground hover:bg-muted">
+              Cancel
+            </Button>
+          </Link>
+          <Button type="submit" disabled={isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+            {isPending ? <LoadingSpinner className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+            {isEditMode ? 'Update Customer' : 'Save Customer'}
+          </Button>
+        </div>
       </form>
     </div>
   );

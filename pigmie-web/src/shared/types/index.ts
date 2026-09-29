@@ -27,7 +27,7 @@ export type ResolvedUser = StaffUser | CustomerUser | UnprovisionedUser;
 
 export interface Organization {
   id: string;
-  organizationName: string;
+  name: string;
   operatorType: string;
   currency: string;
   timezone: string;
@@ -63,7 +63,7 @@ export interface LoanProduct {
   name: string;
   interestType: 'flat' | 'reducing_balance';
   interestRateAnnual: number;
-  collectionFrequency: 'daily' | 'weekly' | 'monthly';
+  collectionFrequency: 'daily' | 'weekly' | 'biweekly' | 'monthly';
   minAmount: number;
   maxAmount: number;
   minTenure: number;
@@ -102,7 +102,7 @@ export interface LoanSchedule {
   dueAmount: number;
   principalComponent: number;
   interestComponent: number;
-  status: 'pending' | 'paid' | 'overdue' | 'partial';
+  status: 'pending' | 'paid' | 'overdue' | 'partially_paid' | 'waived';
   paidAmount: number;
 }
 
@@ -117,7 +117,7 @@ export interface Collection {
   latitude?: number;
   longitude?: number;
   photoPath?: string;
-  status: 'recorded' | 'verified' | 'reversed';
+  status: 'recorded' | 'verified' | 'disputed' | 'reversed';
   receiptNumber?: string;
 }
 

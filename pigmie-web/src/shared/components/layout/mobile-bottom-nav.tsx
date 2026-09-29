@@ -106,7 +106,7 @@ export function MobileBottomNav() {
 
       {/* More Drawer Overlay */}
       {moreOpen && (
-        <div className="lg:hidden fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex flex-col justify-end">
+        <div className="lg:hidden fixed inset-0 z-[60] bg-background/80 backdrop-blur-sm flex flex-col justify-end">
           <div className="absolute inset-0" onClick={() => setMoreOpen(false)} />
           <div className="relative bg-white dark:bg-card w-full rounded-t-2xl max-h-[85vh] flex flex-col shadow-xl pb-safe animate-in slide-in-from-bottom-full duration-300">
             <div className="sticky top-0 bg-white dark:bg-card border-b border-gray-100 dark:border-border p-4 flex items-center justify-between z-10 rounded-t-2xl">

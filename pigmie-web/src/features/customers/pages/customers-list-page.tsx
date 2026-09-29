@@ -155,7 +155,7 @@ export const CustomersListPage = () => {
                           customer.kycStatus === 'verified' ? 'border-emerald-500 text-emerald-500' :
                           customer.kycStatus === 'rejected' ? 'border-red-500 text-red-500' :
                           customer.kycStatus === 'submitted' ? 'border-amber-500 text-amber-500' :
-                          'border-zinc-500 text-muted-foreground'
+                          'border-border text-muted-foreground'
                         }
                       >
                         {customer.kycStatus?.replace('_', ' ').toUpperCase() || 'NOT SUBMITTED'}
