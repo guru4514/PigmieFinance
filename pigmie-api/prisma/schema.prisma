@@ -191,6 +191,7 @@ model Staff {
   phone            String?
   role             UserRole
   isActive         Boolean   @default(true) @map("is_active")
+  twoFactorSecret  String?   @map("two_factor_secret")
   twoFactorEnabled Boolean   @default(false) @map("two_factor_enabled")
   lastLoginAt      DateTime? @map("last_login_at") @db.Timestamptz
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
