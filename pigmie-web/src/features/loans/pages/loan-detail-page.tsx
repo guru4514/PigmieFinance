@@ -233,11 +233,11 @@ export const LoanDetailPage: React.FC = () => {
               <CardContent className="grid grid-cols-2 gap-y-6 gap-x-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Principal Amount</p>
-                  <p className="text-xl font-semibold text-foreground">₹{((loan.principalAmount) || 0).toLocaleString() || ((loan.amount) || 0).toLocaleString()}</p>
+                  <p className="text-xl font-semibold text-foreground">₹{(loan.principalAmount ?? loan.amount ?? 0).toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Remaining Balance</p>
-                  <p className="text-xl font-semibold text-foreground">₹{((loan.remainingBalance) || 0).toLocaleString() || '0'}</p>
+                  <p className="text-xl font-semibold text-foreground">₹{(loan.remainingBalance ?? 0).toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Interest Rate</p>

@@ -75,11 +75,11 @@ export function PortalLoanDetailPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Amount</p>
-                  <p className="text-xl font-bold mt-1 text-foreground">₹{((summary?.totalAmount) || 0).toLocaleString() || 0}</p>
+                  <p className="text-xl font-bold mt-1 text-foreground">₹{(summary?.totalAmount ?? 0).toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Paid Amount</p>
-                  <p className="text-xl font-bold mt-1 text-emerald-400">₹{((summary?.totalPaid) || 0).toLocaleString() || 0}</p>
+                  <p className="text-xl font-bold mt-1 text-emerald-400">₹{(summary?.totalPaid ?? 0).toLocaleString()}</p>
                 </div>
               </div>
 
