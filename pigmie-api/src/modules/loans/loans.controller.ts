@@ -85,7 +85,7 @@ export class LoansController {
     @Param('id') id: string,
     @Body() body: any
   ) {
-    return this.loansService.close(user.organizationId, id, body);
+    return this.loansService.close(user.organizationId, id, user.id, body);
   }
 
   @Get(':id/pre-closure')

@@ -5,6 +5,7 @@ import { QueryLoanDto } from './dto/query-loan.dto';
 import { RestructureLoanDto } from './dto/restructure-loan.dto';
 import { generateSchedule } from './utils/schedule-generator.util';
 import { Prisma } from '@prisma/client';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class LoansService {
@@ -209,7 +210,7 @@ export class LoansService {
     });
   }
 
-  async close(organizationId: string, id: string, body?: { preClosureAmount?: number }) {
+  async close(organizationId: string, id: string, staffId: string, body?: { preClosureAmount?: number }) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
       const loan = await tx.loan.findFirstOrThrow({ where: { id, organizationId } });
       if (loan.status !== 'active') {
@@ -217,10 +218,53 @@ export class LoansService {
       }
 
       if (body?.preClosureAmount !== undefined) {
+         const preClosureAmount = new Prisma.Decimal(body.preClosureAmount.toString());
+         const today = new Date();
+         const dateString = today.toISOString().split('T')[0];
+         
+         const countToday = await tx.collection.count({
+           where: {
+             organizationId,
+             collectionDate: new Date(dateString),
+           },
+         });
+         const receiptNumber = `RCP-${dateString.replace(/-/g, '')}-${String(countToday + 1).padStart(4, '0')}`;
+         const clientGeneratedId = crypto.randomUUID();
+
+         await tx.collection.create({
+           data: {
+             clientGeneratedId,
+             organizationId,
+             loanId: loan.id,
+             customerId: loan.customerId,
+             collectedById: staffId,
+             amount: preClosureAmount,
+             collectionDate: new Date(dateString),
+             collectedAt: today,
+             collectionMethod: 'other',
+             receiptNumber,
+             notes: 'Pre-closure payment',
+             status: 'recorded',
+           },
+         });
+
+         const newTotalCollected = loan.totalCollected.plus(preClosureAmount);
+
+         await tx.loanSchedule.updateMany({
+           where: { loanId: loan.id, status: { in: ['pending', 'overdue'] } },
+           data: { status: 'waived' }
+         });
+
          // Mark as closed and zero out outstanding balance
          return tx.loan.update({
            where: { id },
-           data: { outstandingBalance: 0, status: 'closed', closedAt: new Date(), notes: `${loan.notes ? loan.notes + '\\n' : ''}Pre-closed with amount ${body.preClosureAmount}` }
+           data: { 
+             outstandingBalance: 0, 
+             totalCollected: newTotalCollected,
+             status: 'closed', 
+             closedAt: today, 
+             notes: `${loan.notes ? loan.notes + '\n' : ''}Pre-closed with amount ${body.preClosureAmount}` 
+           }
          });
       }
 
