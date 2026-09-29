@@ -1,0 +1,330 @@
+
+=== 1. LOAN STATUS FIX ===
+            {loan.status === 'pending_approval' && (
+            {loan.status === 'approved' && (
+            {loan.status === 'active' && (
+                              col.status === 'reversed'
+import { useLoanDetails, useApproveLoan, useDisburseLoan, useLoanSchedule, useMarkDefaultLoan } from '../hooks/use-loans';
+  const approveLoan = useApproveLoan();
+                onClick={() => approveLoan.mutate(loan.id)}
+                disabled={approveLoan.isPending}
+                {approveLoan.isPending ? <LoadingSpinner className="w-4 h-4" /> : <CheckCircle className="h-4 w-4" />}
+                Approve
+            {loan.status === 'approved' && (
+import { useLoanDetails, useApproveLoan, useDisburseLoan, useLoanSchedule, useMarkDefaultLoan } from '../hooks/use-loans';
+  const disburseLoan = useDisburseLoan();
+                onClick={() => disburseLoan.mutate(loan.id)}
+                disabled={disburseLoan.isPending}
+                {disburseLoan.isPending ? <LoadingSpinner className="w-4 h-4" /> : <Play className="h-4 w-4" />}
+                Disburse
+=== BADGE ===
+  status: LoanStatus;
+export const LoanStatusBadge: React.FC<LoanStatusBadgeProps> = ({ status }) => {
+  const statusStyles: Record<LoanStatus, string> = {
+    pending_approval: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+    approved: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+    active: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+    closed: 'bg-gray-500/10 text-muted-foreground border-gray-500/20',
+    defaulted: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
+    written_off: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
+    rejected: 'bg-red-500/10 text-red-500 border-red-500/20',
+=== USE-LOANS ===
+export type LoanStatus = 'pending_approval' | 'approved' | 'active' | 'closed' | 'defaulted' | 'written_off' | 'rejected';
+  status: LoanStatus;
+=== 2. TS TYPE FIXES ===
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+  return useMutation({
+  return useMutation({
+  return useMutation({
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+  return useMutation({
+  return useMutation({
+  return useMutation({
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+  return useMutation({
+  return useMutation({
+  return useMutation({
+  const canReview = user?.userType === 'staff' && (user?.role === 'org_admin' || user?.role === 'branch_manager');
+            <p className="text-sm font-medium text-foreground">{(user as any)?.fullName}</p>
+            {(user as any)?.fullName?.charAt(0) || 'U'}
+          <span className="text-sm text-muted-foreground">Hello, <span className="text-foreground font-medium">{(user as any)?.fullName}</span></span>
+=== 3. REPORTS SQL ===
+> import { Injectable } from '@nestjs/common';
+> import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
+> import { Prisma } from '@prisma/client';
+> import { OverdueQueryDto, CollectionEfficiencyQueryDto } from './dto/query-reports.dto';
+  
+  @Injectable()
+>       const loanWhere: any = { organizationId, status: 'active' };
+>       const collectionWhere: any = { organizationId, collectionDate: { gte: today, lt: tomorrow }, status: { in: ['recorded', 'verified'] } };
+  
+        if (user.role === 'branch_manager' && user.branchId) {
+>         loanWhere.customer = { branchId: user.branchId };
+>         collectionWhere.customer = { branchId: user.branchId };
+        }
+  
+>       const activeLoansCount = await tx.loan.count({ where: loanWhere });
+>       const activeLoans = await tx.loan.findMany({ where: loanWhere });
+        const totalOutstanding = activeLoans.reduce((sum, loan) => sum + loan.outstandingBalance.toNumber(), 0);
+  
+>       const collectionsToday = await tx.collection.findMany({ where: collectionWhere });
+        const collectedToday = collectionsToday.reduce((sum, col) => sum + col.amount.toNumber(), 0);
+  
+>         where: { loan: loanWhere, dueDate: { gte: today, lt: tomorrow }, status: { in: ['pending', 'partially_paid'] } }
+        });
+        const dueToday = dueTodaySchedules.reduce((sum, sch) => sum + sch.dueAmount.toNumber(), 0);
+>         where: { loan: loanWhere, status: 'overdue' }
+        });
+  
+>         select
+            sum(case when overdue_days > 30 then l.outstanding_balance else 0 end) / nullif(sum(l.outstanding_balance), 0) as par_30
+>         from "loans" l
+>         ${user.role === 'branch_manager' && user.branchId ? Prisma.sql`join "customers" c on c.id = l.customer_id` : Prisma.empty}
+>         join lateral (
+>           select coalesce(max(current_date - s.due_date), 0) as overdue_days
+>           from "loan_schedule" s
+>           where s.loan_id = l.id and s.status in ('pending', 'partially_paid', 'overdue')
+          ) x on true
+>         where l.status = 'active' and l.organization_id = ${organizationId}::uuid
+          ${user.role === 'branch_manager' && user.branchId ? Prisma.sql`and c.branch_id = ${user.branchId}::uuid` : Prisma.empty}
+        `;
+>       const where: Prisma.LoanScheduleWhereInput = {
+          loan: { organizationId, status: 'active' },
+          status: 'overdue',
+>         (where.loan as any) = { ...where.loan, customer: { branchId: user.branchId } };
+          if (query.agentId) {
+>           (where.loan as any).assignedAgentId = query.agentId;
+          }
+        } else {
+>           (where.loan as any) = { ...where.loan, customer: { branchId: query.branchId } };
+          }
+          if (query.agentId) {
+>           (where.loan as any) = { ...where.loan, assignedAgentId: query.agentId };
+          }
+        }
+>         where.dueDate = { lte: d };
+        }
+  
+>       const total = await tx.loanSchedule.count({ where });
+        const data = await tx.loanSchedule.findMany({
+>         where,
+          include: { loan: { include: { customer: true } } },
+          skip: (page - 1) * limit,
+>         select
+            sum(case when overdue_days > 1 then l.outstanding_balance else 0 end) / nullif(sum(l.outstanding_balance), 0) as par_1,
+            sum(case when overdue_days > 30 then l.outstanding_balance else 0 end) / nullif(sum(l.outstanding_balance), 0) as par_30,
+>         from "loans" l
+>         ${user.role === 'branch_manager' && user.branchId ? Prisma.sql`join "customers" c on c.id = l.customer_id` : Prisma.empty}
+>         join lateral (
+>           select coalesce(max(current_date - s.due_date), 0) as overdue_days
+>           from "loan_schedule" s
+>           where s.loan_id = l.id and s.status in ('pending', 'partially_paid', 'overdue')
+          ) x on true
+>         where l.status = 'active' and l.organization_id = ${organizationId}::uuid
+          ${user.role === 'branch_manager' && user.branchId ? Prisma.sql`and c.branch_id = ${user.branchId}::uuid` : Prisma.empty}
+        `;
+>         SELECT
+            s.id as staff_id,
+            s.full_name as agent_name,
+>         FROM "staff" s
+>         LEFT JOIN (
+>           SELECT c.assigned_agent_id, SUM(ls.due_amount) as total_due, SUM(ls.paid_amount) as total_collected
+>           FROM "customers" c
+>           JOIN "loans" l ON l.customer_id = c.id AND l.status = 'active'
+>           JOIN "loan_schedule" ls ON ls.loan_id = l.id AND ls.due_date <= CURRENT_DATE
+>           WHERE c.organization_id = ${organizationId}::uuid
+              ${user.role === 'branch_manager' && user.branchId ? Prisma.sql`AND c.branch_id = ${user.branchId}::uuid` : Prisma.empty}
+>           GROUP BY c.assigned_agent_id
+          ) sched ON sched.assigned_agent_id = s.id
+>         WHERE s.organization_id = ${organizationId}::uuid
+            AND s.role = 'agent'
+            AND s.is_active = true
+>           ${user.role === 'branch_manager' && user.branchId ? Prisma.sql`AND EXISTS (SELECT 1 FROM "customers" c WHERE c.assigned_agent_id = s.id AND c.branch_id = ${user.branchId}::uuid)` : Prisma.empty}
+>         ORDER BY efficiency_percent DESC
+        `;
+        return { data: result };
+>         SELECT
+            s.id as staff_id,
+            s.full_name as agent_name,
+>         FROM "staff" s
+>         LEFT JOIN (
+>           SELECT assigned_agent_id, COUNT(id) as customers_assigned
+>           FROM "customers"
+>           WHERE organization_id = ${organizationId}::uuid
+              ${user.role === 'branch_manager' && user.branchId ? Prisma.sql`AND branch_id = ${user.branchId}::uuid` : Prisma.empty}
+>           GROUP BY assigned_agent_id
+          ) cust ON cust.assigned_agent_id = s.id
+>         LEFT JOIN (
+>           SELECT collected_by, COUNT(id) as collections_made, SUM(amount) as total_collected
+>           FROM "collections"
+>           WHERE organization_id = ${organizationId}::uuid
+              AND status IN ('recorded', 'verified')
+>           GROUP BY collected_by
+          ) coll ON coll.collected_by = s.id
+>         WHERE s.organization_id = ${organizationId}::uuid
+            AND s.role = 'agent'
+            AND s.is_active = true
+>           ${user.role === 'branch_manager' && user.branchId ? Prisma.sql`AND EXISTS (SELECT 1 FROM "customers" c WHERE c.assigned_agent_id = s.id AND c.branch_id = ${user.branchId}::uuid)` : Prisma.empty}
+>         ORDER BY total_collected DESC
+        `;
+        return { data: result };
+>         const data = await tx.customer.findMany({ where: { organizationId } });
+          if (!data.length) return 'id,fullName\n';
+>         return `id,fullName\n` + data.map(c => `${c.id},${c.fullName}`).join('\n');
+        } else if (type === 'loans') {
+>         const data = await tx.loan.findMany({ where: { organizationId } });
+          if (!data.length) return 'id,amount,status\n';
+>         return `id,amount,status\n` + data.map(c => `${c.id},${c.principalAmount},${c.status}`).join('\n');
+        }
+        return 'id\n';
+>         SELECT
+            b.id as branch_id,
+            b.name as branch_name,
+>             SELECT SUM(col.amount)
+>             FROM "collections" col
+>             JOIN "customers" cust ON col.customer_id = cust.id
+>             WHERE col.organization_id = ${organizationId}::uuid
+                AND cust.branch_id = b.id
+                AND col.collection_date >= ${firstDayOfMonth}::date
+>             SELECT COUNT(DISTINCT s.id)
+>             FROM "loan_schedule" s
+>             JOIN "loans" ln ON s.loan_id = ln.id
+>             JOIN "customers" cu ON ln.customer_id = cu.id
+>             WHERE s.status = 'overdue'
+                AND cu.branch_id = b.id
+                AND ln.status = 'active'
+>             SELECT COUNT(DISTINCT st.id)
+>             FROM "staff" st
+>             WHERE st.branch_id = b.id AND st.is_active = true
+            )::int as number_of_agents
+>         FROM "branches" b
+>         LEFT JOIN "customers" c ON c.branch_id = b.id AND c.organization_id = b.organization_id
+>         LEFT JOIN "loans" l ON l.customer_id = c.id AND l.status = 'active'
+>         WHERE b.organization_id = ${organizationId}::uuid
+            AND b.is_active = true
+>         GROUP BY b.id, b.name
+>         ORDER BY b.name ASC
+        `;
+        
+=== 4. FINANCIAL LOGIC ===
+Collections Service Decimal:
+          remaining: new Prisma.Decimal(s.dueAmount.toString()).minus(s.paidAmount.toString()),
+    let remaining = new Prisma.Decimal(amount.toString());
+      const due = new Prisma.Decimal(row.dueAmount.toString());
+      const paid = new Prisma.Decimal(row.paidAmount.toString());
+      const owedOnRow = due.minus(paid);
+      const newPaid = paid.plus(applied);
+      remaining = remaining.minus(applied);
+        const due = new Prisma.Decimal(row.dueAmount.toString());
+        remaining = remaining.minus(applied);
+    let remaining = new Prisma.Decimal(amount.toString());
+      const paid = new Prisma.Decimal(row.paidAmount.toString());
+      const newPaid = paid.minus(canReverse);
+      remaining = remaining.minus(canReverse);
+Loans Service close method:
+  async close(organizationId: string, id: string, staffId: string, body?: { preClosureAmount?: number }) {
+Loans Service pre-closure Collection:
+               collectionDate: new Date(dateString),
+               collectedAt: today,
+               collectionMethod: 'other',
+               receiptNumber,
+               notes: 'Pre-closure payment',
+>              status: 'recorded',
+             },
+           });
+  
+           const newTotalCollected = loan.totalCollected.plus(preClosureAmount);
+  
+=== 5. 2FA COLUMN ===
+  twoFactorSecret  String?   @map("two_factor_secret")
+    // Save encrypted secret using raw query to bypass schema limits if two_factor_secret isn't generated in Prisma
+    await this.prisma.$executeRaw`UPDATE "staff" SET "two_factor_secret" = ${encryptedSecret} WHERE id = ${staffId}::uuid`;
+    const result: any = await this.prisma.$queryRaw`SELECT "two_factor_secret" FROM "staff" WHERE id = ${staffId}::uuid`;
+    if (!result || result.length === 0 || !result[0].two_factor_secret) {
+    const secret = this.encryptionService.decrypt(result[0].two_factor_secret);
+    const result: any = await this.prisma.$queryRaw`SELECT "two_factor_secret" FROM "staff" WHERE id = ${staffId}::uuid`;
+    if (!result || result.length === 0 || !result[0].two_factor_secret) {
+    const secret = this.encryptionService.decrypt(result[0].two_factor_secret);
+    await this.prisma.$executeRaw`UPDATE "staff" SET "two_factor_secret" = NULL WHERE id = ${targetId}::uuid`;
+=== 6. THEME CHANGES ===
+Sidebar classes:
+          className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden"
+      <aside className={cn(
+        <div className="h-16 flex items-center px-6 border-b border-border shrink-0 justify-between lg:justify-center">
+          <span className="text-xl font-bold bg-gradient-to-r from-indigo-500 to-emerald-500 bg-clip-text text-transparent">
+            className="lg:hidden text-muted-foreground hover:text-foreground"
+        <div className="p-4 border-b border-border shrink-0">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              className="w-full bg-muted/50 border border-border rounded-md pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
+        <div className="flex-1 overflow-y-auto py-4 space-y-6">
+              <div key={group.label} className="px-3">
+                <h3 className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <div className="space-y-0.5">
+                      className={({ isActive }) => cn(
+                      <div className="flex items-center gap-3">
+                        <item.icon className="w-4 h-4" />
+                        <span className="bg-red-500 text-foreground text-[10px] font-bold px-2 py-0.5 rounded-full">
+        <div className="p-4 border-t border-border shrink-0">
+            className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all w-full"
+            <LogOut className="w-4 h-4" />
+Mobile nav classes:
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-card border-t border-gray-200 dark:border-border pb-safe">
+        <div className="flex items-center justify-around h-[68px] px-2">
+              className={({ isActive }) => cn(
+                  <div className={cn(
+                    <tab.icon className={cn(
+                  <span className={cn(
+            className="flex flex-col items-center justify-center w-full h-full space-y-1 text-muted-foreground hover:text-foreground"
+            <div className="flex items-center justify-center w-8 h-8 rounded-full transition-all">
+              <Menu className="w-5 h-5" />
+            <span className="text-[10px] font-medium">More</span>
+        <div className="lg:hidden fixed inset-0 z-[60] bg-background/80 backdrop-blur-sm flex flex-col justify-end">
+          <div className="absolute inset-0" onClick={() => setMoreOpen(false)} />
+          <div className="relative bg-white dark:bg-card w-full rounded-t-2xl max-h-[85vh] flex flex-col shadow-xl pb-safe animate-in slide-in-from-bottom-full duration-300">
+            <div className="sticky top-0 bg-white dark:bg-card border-b border-gray-100 dark:border-border p-4 flex items-center justify-between z-10 rounded-t-2xl">
+              <h2 className="text-lg font-semibold text-foreground">More</h2>
+                className="p-2 rounded-full bg-muted text-muted-foreground hover:text-foreground"
+                <X className="w-5 h-5" />
+            <div className="p-4 space-y-2 overflow-y-auto">
+                  className={({ isActive }) => cn(
+                  <item.icon className="w-5 h-5" />
+              <div className="h-px bg-gray-100 dark:bg-muted my-4" />
+                className="flex items-center gap-3 p-3 w-full rounded-xl text-sm font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all"
+                <LogOut className="w-5 h-5" />
+Theme toggle classes:
+      className="text-muted-foreground hover:text-foreground" 
+      {theme === 'dark' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+=== 7. NULL GUARDS ===
+D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\audit-logs\pages\audit-logs-page.tsx:111:                      {new Date(log.createdAt || 0).toLocaleString()}
+D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\cash-deposits\pages\cash-deposits-page.tsx:116:              <div className="text-2xl font-bold">?{((summary.totalPending) || 0).toLocaleString()}</div>
+D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\cash-deposits\pages\cash-deposits-page.tsx:124:              <div className="text-2xl font-bold text-emerald-400">?{((summary.totalVerifiedToday) || 0).toLocaleString()}</div>
+D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\cash-deposits\pages\cash-deposits-page.tsx:160:                    <TableCell className="font-medium">?{((deposit.amount) || 0).toLocaleString()}</TableCell>
+D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\collections\components\collections-table.tsx:83:                  <TableCell>?{((collection.amount) || 0).toLocaleString()}</TableCell>
+D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\collections\components\receipt-modal.tsx:60:  return `?${Number(amount || 0).toLocaleString('en-IN')}`;
+D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\collections\pages\collections-today-page.tsx:261:                {(collectedAmount || 0).toLocaleString('en-IN')}
+D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\loan-products\pages\loan-products-page.tsx:45:              <span className="font-medium text-foreground">${(product.maxAmount || 0).toLocaleString()}</span>
+D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\loans\components\loan-schedule-table.tsx:33:              <td className="px-6 py-4 font-medium">?{((payment.expectedAmount) || 0).toLocaleString()}</td>
+D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\loans\components\loan-schedule-table.tsx:34:              <td className="px-6 py-4">?{((payment.principalAmount) || 0).toLocaleString()}</td>
+D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\loans\components\loan-schedule-table.tsx:35:              <td className="px-6 py-4">?{((payment.interestAmount) || 0).toLocaleString()}</td>
+D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\loans\components\pre-close-loan-dialog.tsx:54:                <span className="font-medium">?{((data.outstandingPrincipal) || 0).toLocaleString()}</span>
+D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\loans\components\pre-close-loan-dialog.tsx:58:                <span className="font-medium">?{((data.accruedInterest) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\loans\components\pre-close-loan-dialog.tsx:62:                <span className="font-medium text-yellow-400">?{((data.preClosurePenalty) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\loans\components\pre-close-loan-dialog.tsx:67:                  ?{((data.preClosureAmount) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\loans\components\pre-close-loan-dialog.tsx:76:                    By closing this loan early, the borrower saves <strong className="text-emerald-300">?{((data.amountSaved) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong> on future scheduled interest payments.
+D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\loans\pages\emi-calculator-page.tsx:27:    return ((val) || 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
+D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\loans\pages\loan-detail-page.tsx:236:                  <p className="text-xl font-semibold text-foreground">?{((loan.principalAmount) || 0).toLocaleString() || ((loan.amount) || 0).toLocaleString()}</p>
+D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\loans\pages\loan-detail-page.tsx:240:                  <p className="text-xl font-semibold text-foreground">?{((loan.remainingBalance) || 0).toLocaleString() || '0'}</p>
+D:\AntiGravity\Projects\PigmieFinance\pigmie-web\src\features\loans\pages\loan-detail-page.tsx:272:                      <p className="text-2xl font-bold text-primary">?{((loan.nextPaymentAmount) || 0).toLocaleString()}</p>
+=== 8. BUILD CHECK ===
+  name: string;
+  name: string;
+  name: string;
+  collectionFrequency: 'daily' | 'weekly' | 'biweekly' | 'monthly';
+export interface LoanSchedule {
+export interface Collection {
+  collectionDate: string;
+  collectionMethod: 'cash' | 'cheque' | 'other';
+export interface PendingCollection {
+  collectionDate: string;
+  collectionMethod: 'cash' | 'cheque' | 'other';

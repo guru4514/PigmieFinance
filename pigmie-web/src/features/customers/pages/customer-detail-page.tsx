@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { useCustomer } from '../hooks/use-customers';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useCustomer, useDeleteCustomer } from '../hooks/use-customers';
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
@@ -11,9 +11,22 @@ import { RoleGate } from '@/shared/components/auth/role-gate';
 import { apiClient } from '@/shared/lib/api-client';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { SmsDialog } from '../components/sms-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
+import { useAuth } from '@/shared/hooks/use-auth';
 
 export const CustomerDetailPage = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const deleteCustomerMutation = useDeleteCustomer();
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  const handleDeleteCustomer = () => {
+    deleteCustomerMutation.mutate(id!, {
+      onSuccess: () => navigate('/app/customers')
+    });
+  };
+
   const { data: customerRes, isLoading } = useCustomer(id || '');
   const customer = customerRes?.data || customerRes; // handle wrapped response or direct
   const [activeTab, setActiveTab] = useState<'profile' | 'loans' | 'documents'>('profile');
@@ -121,6 +134,11 @@ export const CustomerDetailPage = () => {
               </Button>
             </Link>
           </RoleGate>
+          {user?.role === 'org_admin' && (
+            <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}>
+              Delete Customer
+            </Button>
+          )}
         </div>
 
       </div>
@@ -252,6 +270,25 @@ export const CustomerDetailPage = () => {
           <CustomerDocuments customerId={customer.id} />
         )}
       </div>
+
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Delete Customer</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">Are you sure? This action cannot be undone.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} disabled={deleteCustomerMutation.isPending}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteCustomer} disabled={deleteCustomerMutation.isPending}>
+              {deleteCustomerMutation.isPending ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -22,7 +22,7 @@ import { apiClient } from '@/shared/lib/api-client';
 import { toast } from 'sonner';
 
 // Mocking these for now until Phase 2 (Offline mode)
-const queueCollection = async (data: any) => { console.log('Queued offline', data); };
+const queueCollection = async (data: any) => { /* TODO: Implement offline sync */ };
 const useOnlineStatus = () => ({ isOnline: navigator.onLine });
 
 export function RecordCollectionPage() {

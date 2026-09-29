@@ -17,6 +17,7 @@ import {
 } from '@/shared/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { Input } from '@/shared/components/ui/input';
 
 const roleIcons: Record<string, React.ElementType> = {
   org_admin: Shield,
@@ -37,6 +38,15 @@ function StaffRowActions({ member }: { member: StaffMember }) {
   
   const [isEditRoleOpen, setIsEditRoleOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<StaffRole>(member.role);
+
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [profileForm, setProfileForm] = useState({ fullName: member.fullName, email: member.email || '' });
+
+  const handleUpdateProfile = () => {
+    updateStaff.mutate({ id: member.id, data: { fullName: profileForm.fullName, email: profileForm.email } }, {
+      onSuccess: () => setIsEditProfileOpen(false)
+    });
+  };
 
   const handleDeactivate = () => {
     if (confirm(`Are you sure you want to deactivate ${member.fullName}?`)) {
@@ -64,6 +74,10 @@ function StaffRowActions({ member }: { member: StaffMember }) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => setIsEditProfileOpen(true)}>
+            <User className="mr-2 h-4 w-4" />
+            Edit Profile
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setIsEditRoleOpen(true)}>
             <Edit className="mr-2 h-4 w-4" />
             Edit Role
@@ -106,6 +120,39 @@ function StaffRowActions({ member }: { member: StaffMember }) {
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsEditRoleOpen(false)}>Cancel</Button>
             <Button onClick={handleUpdateRole} disabled={updateStaff.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              {updateStaff.isPending ? <LoadingSpinner className="h-4 w-4" /> : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditProfileOpen} onOpenChange={setIsEditProfileOpen}>
+        <DialogContent className="sm:max-w-[425px] bg-card border-border text-foreground">
+          <DialogHeader>
+            <DialogTitle>Edit Profile for {member.fullName}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground/80">Full Name</label>
+              <Input 
+                value={profileForm.fullName} 
+                onChange={e => setProfileForm({ ...profileForm, fullName: e.target.value })}
+                className="bg-card border-border text-foreground"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground/80">Email</label>
+              <Input 
+                type="email"
+                value={profileForm.email} 
+                onChange={e => setProfileForm({ ...profileForm, email: e.target.value })}
+                className="bg-card border-border text-foreground"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsEditProfileOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateProfile} disabled={updateStaff.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
               {updateStaff.isPending ? <LoadingSpinner className="h-4 w-4" /> : 'Save Changes'}
             </Button>
           </DialogFooter>

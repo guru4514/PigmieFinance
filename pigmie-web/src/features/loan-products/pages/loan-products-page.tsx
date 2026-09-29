@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLoanProducts, useUpdateLoanProduct } from '../hooks/use-loan-products';
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui/card';
