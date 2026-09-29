@@ -137,22 +137,26 @@ export class ReportsService {
         SELECT
           s.id as staff_id,
           s.full_name as agent_name,
-          COALESCE(SUM(ls.due_amount), 0)::float as total_due,
-          COALESCE(SUM(ls.paid_amount), 0)::float as total_collected,
+          COALESCE(sched.total_due, 0)::float as total_due,
+          COALESCE(sched.total_collected, 0)::float as total_collected,
           CASE
-            WHEN COALESCE(SUM(ls.due_amount), 0) = 0 THEN 0
-            ELSE ROUND((COALESCE(SUM(ls.paid_amount), 0) / COALESCE(SUM(ls.due_amount), 0)) * 100, 2)::float
+            WHEN COALESCE(sched.total_due, 0) = 0 THEN 0
+            ELSE ROUND((COALESCE(sched.total_collected, 0) / COALESCE(sched.total_due, 0)) * 100, 2)::float
           END as efficiency_percent
         FROM "staff" s
-        LEFT JOIN "customers" c ON c.assigned_agent_id = s.id AND c.organization_id = s.organization_id
-        LEFT JOIN "loans" l ON l.customer_id = c.id AND l.organization_id = s.organization_id AND l.status = 'active'
-        LEFT JOIN "loan_schedule" ls ON ls.loan_id = l.id
-          AND ls.due_date <= CURRENT_DATE
+        LEFT JOIN (
+          SELECT c.assigned_agent_id, SUM(ls.due_amount) as total_due, SUM(ls.paid_amount) as total_collected
+          FROM "customers" c
+          JOIN "loans" l ON l.customer_id = c.id AND l.status = 'active'
+          JOIN "loan_schedule" ls ON ls.loan_id = l.id AND ls.due_date <= CURRENT_DATE
+          WHERE c.organization_id = ${organizationId}::uuid
+            ${user.role === 'branch_manager' && user.branchId ? Prisma.sql`AND c.branch_id = ${user.branchId}::uuid` : Prisma.empty}
+          GROUP BY c.assigned_agent_id
+        ) sched ON sched.assigned_agent_id = s.id
         WHERE s.organization_id = ${organizationId}::uuid
           AND s.role = 'agent'
           AND s.is_active = true
-          ${user.role === 'branch_manager' && user.branchId ? Prisma.sql`AND c.branch_id = ${user.branchId}::uuid` : Prisma.empty}
-        GROUP BY s.id, s.full_name
+          ${user.role === 'branch_manager' && user.branchId ? Prisma.sql`AND EXISTS (SELECT 1 FROM "customers" c WHERE c.assigned_agent_id = s.id AND c.branch_id = ${user.branchId}::uuid)` : Prisma.empty}
         ORDER BY efficiency_percent DESC
       `;
       return { data: result };
@@ -165,19 +169,28 @@ export class ReportsService {
         SELECT
           s.id as staff_id,
           s.full_name as agent_name,
-          COUNT(DISTINCT c2.id)::int as collections_made,
-          COALESCE(SUM(c2.amount), 0)::float as total_collected,
-          COUNT(DISTINCT c.id)::int as customers_assigned
+          COALESCE(coll.collections_made, 0)::int as collections_made,
+          COALESCE(coll.total_collected, 0)::float as total_collected,
+          COALESCE(cust.customers_assigned, 0)::int as customers_assigned
         FROM "staff" s
-        LEFT JOIN "customers" c ON c.assigned_agent_id = s.id AND c.organization_id = s.organization_id
-        LEFT JOIN "collections" c2 ON c2.collected_by = s.id
-          AND c2.organization_id = s.organization_id
-          AND c2.status IN ('recorded', 'verified')
+        LEFT JOIN (
+          SELECT assigned_agent_id, COUNT(id) as customers_assigned
+          FROM "customers"
+          WHERE organization_id = ${organizationId}::uuid
+            ${user.role === 'branch_manager' && user.branchId ? Prisma.sql`AND branch_id = ${user.branchId}::uuid` : Prisma.empty}
+          GROUP BY assigned_agent_id
+        ) cust ON cust.assigned_agent_id = s.id
+        LEFT JOIN (
+          SELECT collected_by, COUNT(id) as collections_made, SUM(amount) as total_collected
+          FROM "collections"
+          WHERE organization_id = ${organizationId}::uuid
+            AND status IN ('recorded', 'verified')
+          GROUP BY collected_by
+        ) coll ON coll.collected_by = s.id
         WHERE s.organization_id = ${organizationId}::uuid
           AND s.role = 'agent'
           AND s.is_active = true
-          ${user.role === 'branch_manager' && user.branchId ? Prisma.sql`AND c.branch_id = ${user.branchId}::uuid` : Prisma.empty}
-        GROUP BY s.id, s.full_name
+          ${user.role === 'branch_manager' && user.branchId ? Prisma.sql`AND EXISTS (SELECT 1 FROM "customers" c WHERE c.assigned_agent_id = s.id AND c.branch_id = ${user.branchId}::uuid)` : Prisma.empty}
         ORDER BY total_collected DESC
       `;
       return { data: result };

@@ -166,7 +166,7 @@ export function Sidebar() {
                         "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all group justify-between",
                         isActive 
                           ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400 border-l-2 border-indigo-500 rounded-l-none" 
-                          : "text-gray-600 dark:text-muted-foreground hover:text-foreground hover:bg-muted/50 border-l-2 border-transparent"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border-l-2 border-transparent"
                       )}
                     >
                       <div className="flex items-center gap-3">
@@ -189,7 +189,7 @@ export function Sidebar() {
         <div className="p-4 border-t border-border shrink-0">
           <button 
             onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all w-full"
+            className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all w-full"
           >
             <LogOut className="w-4 h-4" />
             Logout

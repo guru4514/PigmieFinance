@@ -45,7 +45,7 @@ export function PortalLoanDetailPage() {
             <h1 className="text-3xl font-bold tracking-tight text-foreground">{loan.loanProduct?.name || 'Loan Account'}</h1>
             <Badge variant="default" className={
               loan.status === 'active' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50' :
-              loan.status === 'closed' ? 'bg-zinc-500/20 text-muted-foreground border-zinc-500/50' :
+              loan.status === 'closed' ? 'bg-muted text-muted-foreground border-border' :
               'bg-amber-500/20 text-amber-400 border-amber-500/50'
             }>
               {loan.status}

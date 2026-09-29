@@ -66,7 +66,7 @@ export function MobileBottomNav() {
                 "flex flex-col items-center justify-center w-full h-full space-y-1",
                 isActive 
                   ? (tab.isPrimary ? "text-emerald-600 dark:text-emerald-500" : "text-indigo-600 dark:text-indigo-400") 
-                  : "text-muted-foreground dark:text-muted-foreground hover:text-zinc-900 dark:hover:text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
               {({ isActive }) => (
@@ -94,7 +94,7 @@ export function MobileBottomNav() {
           
           <button
             onClick={() => setMoreOpen(true)}
-            className="flex flex-col items-center justify-center w-full h-full space-y-1 text-muted-foreground dark:text-muted-foreground hover:text-zinc-900 dark:hover:text-foreground"
+            className="flex flex-col items-center justify-center w-full h-full space-y-1 text-muted-foreground hover:text-foreground"
           >
             <div className="flex items-center justify-center w-8 h-8 rounded-full transition-all">
               <Menu className="w-5 h-5" />
@@ -110,10 +110,10 @@ export function MobileBottomNav() {
           <div className="absolute inset-0" onClick={() => setMoreOpen(false)} />
           <div className="relative bg-white dark:bg-card w-full rounded-t-2xl max-h-[85vh] flex flex-col shadow-xl pb-safe animate-in slide-in-from-bottom-full duration-300">
             <div className="sticky top-0 bg-white dark:bg-card border-b border-gray-100 dark:border-border p-4 flex items-center justify-between z-10 rounded-t-2xl">
-              <h2 className="text-lg font-semibold text-zinc-900 dark:text-foreground">More</h2>
+              <h2 className="text-lg font-semibold text-foreground">More</h2>
               <button 
                 onClick={() => setMoreOpen(false)}
-                className="p-2 rounded-full bg-gray-100 dark:bg-muted text-muted-foreground dark:text-muted-foreground hover:text-zinc-900 dark:hover:text-foreground"
+                className="p-2 rounded-full bg-muted text-muted-foreground hover:text-foreground"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -129,7 +129,7 @@ export function MobileBottomNav() {
                     "flex items-center gap-3 p-3 rounded-xl text-sm font-medium transition-all",
                     isActive 
                       ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400" 
-                      : "text-zinc-600 dark:text-foreground/80 hover:bg-gray-50 dark:hover:bg-muted"
+                      : "text-muted-foreground hover:bg-muted"
                   )}
                 >
                   <item.icon className="w-5 h-5" />

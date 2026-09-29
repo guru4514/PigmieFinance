@@ -254,7 +254,7 @@ export class CollectionsService {
   }
 
   private async applyToSchedule(tx: any, loanId: string, amount: number) {
-    let remaining = amount;
+    let remaining = new Prisma.Decimal(amount.toString());
 
     // Phase 1: Apply to pending/partially_paid/overdue rows, oldest first
     const rows = await tx.loanSchedule.findMany({
@@ -266,23 +266,26 @@ export class CollectionsService {
     });
 
     for (const row of rows) {
-      if (remaining <= 0) break;
-      const owedOnRow = Number(row.dueAmount) - Number(row.paidAmount);
-      const applied = Math.min(remaining, owedOnRow);
-      const newPaid = Number(row.paidAmount) + applied;
-      remaining -= applied;
+      if (remaining.lte(0)) break;
+      const due = new Prisma.Decimal(row.dueAmount.toString());
+      const paid = new Prisma.Decimal(row.paidAmount.toString());
+      const owedOnRow = due.minus(paid);
+      
+      const applied = remaining.lt(owedOnRow) ? remaining : owedOnRow;
+      const newPaid = paid.plus(applied);
+      remaining = remaining.minus(applied);
 
       await tx.loanSchedule.update({
         where: { id: row.id },
         data: {
           paidAmount: newPaid,
-          status: newPaid >= Number(row.dueAmount) ? 'paid' : 'partially_paid',
+          status: newPaid.gte(due) ? 'paid' : 'partially_paid',
         },
       });
     }
 
     // Phase 2: If still remaining, credit forward to future pending rows
-    if (remaining > 0) {
+    if (remaining.gt(0)) {
       const futureRows = await tx.loanSchedule.findMany({
         where: {
           loanId,
@@ -293,22 +296,23 @@ export class CollectionsService {
       });
 
       for (const row of futureRows) {
-        if (remaining <= 0) break;
-        const applied = Math.min(remaining, Number(row.dueAmount));
-        remaining -= applied;
+        if (remaining.lte(0)) break;
+        const due = new Prisma.Decimal(row.dueAmount.toString());
+        const applied = remaining.lt(due) ? remaining : due;
+        remaining = remaining.minus(applied);
 
         await tx.loanSchedule.update({
           where: { id: row.id },
           data: {
             paidAmount: applied,
-            status: applied >= Number(row.dueAmount) ? 'paid' : 'partially_paid',
+            status: applied.gte(due) ? 'paid' : 'partially_paid',
           },
         });
       }
     }
 
     // Check if loan is fully paid — auto-close
-    if (remaining >= 0) {
+    if (remaining.gte(0)) {
       const unpaid = await tx.loanSchedule.count({
         where: { loanId, status: { not: 'paid' } },
       });
@@ -323,23 +327,24 @@ export class CollectionsService {
 
   private async reverseScheduleAllocation(tx: any, loanId: string, amount: number) {
     // Reverse from newest-paid first
-    let remaining = amount;
+    let remaining = new Prisma.Decimal(amount.toString());
     const paidRows = await tx.loanSchedule.findMany({
       where: { loanId, status: { in: ['paid', 'partially_paid'] } },
       orderBy: { installmentNumber: 'desc' },
     });
 
     for (const row of paidRows) {
-      if (remaining <= 0) break;
-      const canReverse = Math.min(remaining, Number(row.paidAmount));
-      const newPaid = Number(row.paidAmount) - canReverse;
-      remaining -= canReverse;
+      if (remaining.lte(0)) break;
+      const paid = new Prisma.Decimal(row.paidAmount.toString());
+      const canReverse = remaining.lt(paid) ? remaining : paid;
+      const newPaid = paid.minus(canReverse);
+      remaining = remaining.minus(canReverse);
 
       await tx.loanSchedule.update({
         where: { id: row.id },
         data: {
           paidAmount: newPaid,
-          status: newPaid <= 0 ? 'pending' : 'partially_paid',
+          status: newPaid.lte(0) ? 'pending' : 'partially_paid',
         },
       });
     }
