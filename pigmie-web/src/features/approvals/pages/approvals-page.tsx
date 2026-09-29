@@ -11,7 +11,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Textarea } from '@/shared/components/ui/textarea';
 
 export function ApprovalsPage() {
-  const [activeTab, setActiveTab] = useState('pending');
+  const [activeTab, setActiveTab] = useState('pending_approval');
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [reviewNote, setReviewNote] = useState('');
   
@@ -79,7 +79,7 @@ export function ApprovalsPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full max-w-md grid-cols-3">
-          <TabsTrigger value="pending">Pending</TabsTrigger>
+          <TabsTrigger value="pending_approval">Pending</TabsTrigger>
           <TabsTrigger value="approved">Approved</TabsTrigger>
           <TabsTrigger value="rejected">Rejected</TabsTrigger>
         </TabsList>
