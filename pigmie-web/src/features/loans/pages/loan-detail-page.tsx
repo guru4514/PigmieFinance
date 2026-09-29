@@ -21,10 +21,10 @@ type Tab = 'overview' | 'schedule' | 'collections' | 'documents';
 export const LoanDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { data: loanResponse, isLoading: loading } = useLoanDetails(id || '');
-  const loan = loanResponse?.data;
+  const loan = loanResponse;
   
   const { data: scheduleResponse, isLoading: scheduleLoading } = useLoanSchedule(id || '');
-  const schedule = scheduleResponse?.data || [];
+  const schedule = Array.isArray(scheduleResponse) ? scheduleResponse : scheduleResponse?.data || [];
 
   const approveLoan = useApproveLoan();
   const disburseLoan = useDisburseLoan();
