@@ -112,7 +112,12 @@ export const LoansListPage: React.FC = () => {
                       <td className="px-6 py-4 font-medium text-foreground">{loan.id.slice(0, 8)}</td>
                       <td className="px-6 py-4">{loan.customer?.fullName || loan.customerId}</td>
                       <td className="px-6 py-4 font-medium">₹{(loan.principalAmount || loan.amount || 0).toLocaleString('en-IN')}</td>
-                      <td className="px-6 py-4">₹{(loan.remainingBalance || 0).toLocaleString('en-IN')}</td>
+                      <td className="px-6 py-4">
+                        {['active', 'closed', 'defaulted', 'written_off'].includes(loan.status) 
+                          ? `₹${(loan.outstandingBalance || 0).toLocaleString('en-IN')}`
+                          : <span className="text-muted-foreground text-sm" title="Not yet disbursed">—</span>
+                        }
+                      </td>
                       <td className="px-6 py-4">
                         <LoanStatusBadge status={loan.status} />
                       </td>
