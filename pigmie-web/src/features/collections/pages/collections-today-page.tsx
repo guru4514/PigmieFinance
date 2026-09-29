@@ -184,13 +184,15 @@ export function CollectionsTodayPage() {
   const collections = useMemo(() => {
     return collectionsRaw.map((loan: any) => {
       const amountDue = loan.dueItems?.reduce((acc: number, item: any) => acc + Number(item.remaining), 0) || 0;
+      const totalPaid = loan.dueItems?.reduce((acc: number, item: any) => acc + Number(item.paidAmount || 0), 0) || 0;
       return {
         id: loan.loanId,
         loanId: loan.loanId,
         customerName: loan.customer?.fullName,
         phone: loan.customer?.phone,
         location: loan.customer?.address || 'N/A',
-        amountDue: amountDue,
+        amountDue: Math.round(amountDue * 100) / 100,
+        totalPaid: Math.round(totalPaid * 100) / 100,
         status: amountDue <= 0 ? 'collected' : 'pending',
         daysOverdue: 0,
       };
@@ -226,10 +228,8 @@ export function CollectionsTodayPage() {
 
   const collectedCount = collections.filter((c: any) => c.status === 'collected').length;
   const totalCount = collections.length;
-  // Calculate total collected amount using amountDue or an actual collected amount if the API provides it.
   const collectedAmount = collections
-    .filter((c: any) => c.status === 'collected')
-    .reduce((sum: number, c: any) => sum + (c.amountDue || 0), 0);
+    .reduce((sum: number, c: any) => sum + (c.totalPaid || 0), 0);
     
   const remainingCount = totalCount - collectedCount;
 
