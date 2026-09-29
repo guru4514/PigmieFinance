@@ -76,7 +76,7 @@ export function RecordCollectionPage() {
       clientGeneratedId: crypto.randomUUID(),
       loanId,
       amount: data.amount,
-      collectionDate: new Date().toISOString().split('T')[0],
+      collectionDate: new Date().toISOString(),
       collectedAt: new Date().toISOString(),
       collectionMethod: data.collectionMethod,
       notes: data.notes,
@@ -92,7 +92,11 @@ export function RecordCollectionPage() {
         setTimeout(() => navigate(`/app/loans/${loanId}`), 1500);
       }
       catch (error: any) { 
-        toast.error(error?.response?.data?.message || 'Failed to record collection');
+        console.error('Collection error:', error?.response?.data);
+        const msg = Array.isArray(error?.response?.data?.message) 
+          ? error.response.data.message.join(', ') 
+          : error?.response?.data?.message || 'Failed to record collection';
+        toast.error(msg);
         setStatus('error');
       } 
     } else {
