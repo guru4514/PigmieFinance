@@ -25,7 +25,7 @@ import { toast } from 'sonner';
 export const useCreateStaff = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: Omit<StaffMember, 'id' | 'joinedAt'>) => 
+    mutationFn: (data: Partial<StaffMember>) => 
       apiClient.post('/staff', data).then(r => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['staff'] });

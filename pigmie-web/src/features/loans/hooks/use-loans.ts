@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/shared/lib/api-client';
 
-export type LoanStatus = 'PENDING' | 'APPROVED' | 'ACTIVE' | 'CLOSED' | 'DEFAULTED' | 'WRITTEN_OFF' | 'REJECTED';
+export type LoanStatus = 'pending_approval' | 'approved' | 'active' | 'closed' | 'defaulted' | 'written_off' | 'rejected';
 
 export interface Loan {
   id: string;

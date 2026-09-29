@@ -7,11 +7,13 @@ interface LoanStatusBadgeProps {
 
 export const LoanStatusBadge: React.FC<LoanStatusBadgeProps> = ({ status }) => {
   const statusStyles: Record<LoanStatus, string> = {
-    PENDING: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-    APPROVED: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-    ACTIVE: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
-    CLOSED: 'bg-gray-500/10 text-muted-foreground border-gray-500/20',
-    DEFAULTED: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
+    pending_approval: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+    approved: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+    active: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+    closed: 'bg-gray-500/10 text-muted-foreground border-gray-500/20',
+    defaulted: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
+    written_off: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
+    rejected: 'bg-red-500/10 text-red-500 border-red-500/20',
   };
 
   return (

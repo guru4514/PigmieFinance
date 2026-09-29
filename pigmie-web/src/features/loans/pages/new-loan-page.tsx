@@ -82,7 +82,7 @@ export const NewLoanPage: React.FC = () => {
                 className="flex h-10 w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">Select a customer...</option>
-                {customers.map(c => (
+                {customers.map((c: any) => (
                   <option key={c.id} value={c.id}>{c.fullName} ({c.phone})</option>
                 ))}
               </select>
@@ -96,7 +96,7 @@ export const NewLoanPage: React.FC = () => {
                 className="flex h-10 w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">Select a product...</option>
-                {products.map(p => (
+                {products.map((p: any) => (
                   <option key={p.id} value={p.id}>{p.name} ({p.interestRateAnnual}% {p.interestType})</option>
                 ))}
               </select>

@@ -48,7 +48,7 @@ export function DueTodayTable({ data = [] }: { data?: any[] }) {
                   <div className="flex items-center gap-3">
                     <Avatar className="h-8 w-8 bg-primary/20 text-primary border border-primary/20">
                       <AvatarFallback className="text-xs">
-                        {item.customer.split(' ').map(n => n[0]).join('')}
+                        {item.customer.split(' ').map((n: string) => n[0]).join('')}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">

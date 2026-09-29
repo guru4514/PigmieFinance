@@ -17,7 +17,7 @@ export function ApprovalsPage() {
   
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const canReview = user?.role === 'org_admin' || user?.role === 'branch_manager';
+  const canReview = user?.userType === 'staff' && (user?.role === 'org_admin' || user?.role === 'branch_manager');
 
   const { data, isLoading } = useQuery({
     queryKey: ['approvals', activeTab],

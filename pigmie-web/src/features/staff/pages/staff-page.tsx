@@ -178,7 +178,7 @@ export function StaffPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {staff.map((member) => {
+                  {staff.map((member: StaffMember) => {
                     const RoleIcon = roleIcons[member.role] || User;
                     return (
                       <TableRow key={member.id} className="border-border hover:bg-muted">

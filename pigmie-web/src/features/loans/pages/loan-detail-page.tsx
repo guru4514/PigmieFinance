@@ -147,7 +147,7 @@ export const LoanDetailPage: React.FC = () => {
             </Button>
           </RoleGate>
           <RoleGate allowedRoles={['org_admin', 'branch_manager']}>
-            {loan.status === 'PENDING' && (
+            {loan.status === 'pending_approval' && (
               <Button 
                 onClick={() => approveLoan.mutate(loan.id)}
                 disabled={approveLoan.isPending}
@@ -157,7 +157,7 @@ export const LoanDetailPage: React.FC = () => {
                 Approve
               </Button>
             )}
-            {loan.status === 'APPROVED' && (
+            {loan.status === 'approved' && (
               <Button 
                 onClick={() => disburseLoan.mutate(loan.id)}
                 disabled={disburseLoan.isPending}
@@ -167,7 +167,7 @@ export const LoanDetailPage: React.FC = () => {
                 Disburse
               </Button>
             )}
-            {loan.status === 'ACTIVE' && (
+            {loan.status === 'active' && (
               <>
                 <PreCloseLoanDialog
                   loanId={loan.id}

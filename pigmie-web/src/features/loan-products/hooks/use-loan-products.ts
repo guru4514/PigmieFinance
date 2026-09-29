@@ -27,7 +27,7 @@ import { toast } from 'sonner';
 export const useCreateLoanProduct = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: Omit<LoanProduct, 'id'>) => 
+    mutationFn: (data: Partial<LoanProduct>) => 
       apiClient.post('/loan-products', data).then(r => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['loan-products'] });

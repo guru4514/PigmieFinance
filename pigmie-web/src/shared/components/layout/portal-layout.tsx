@@ -20,7 +20,7 @@ export function PortalLayout() {
           </span>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-muted-foreground">Hello, <span className="text-foreground font-medium">{user?.fullName}</span></span>
+          <span className="text-sm text-muted-foreground">Hello, <span className="text-foreground font-medium">{(user as any)?.fullName}</span></span>
           <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
             <LogOut className="w-4 h-4 mr-2" />
             Logout

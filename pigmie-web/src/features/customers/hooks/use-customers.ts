@@ -32,7 +32,7 @@ import { toast } from 'sonner';
 export const useCreateCustomer = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: Omit<Customer, 'id' | 'joinDate' | 'totalLoans'>) => 
+    mutationFn: (data: Partial<Customer>) => 
       apiClient.post('/customers', data).then(r => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
