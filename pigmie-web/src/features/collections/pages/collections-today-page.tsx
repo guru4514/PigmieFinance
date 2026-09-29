@@ -33,8 +33,11 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
     }
 
     recordCollection({
+      clientGeneratedId: crypto.randomUUID(),
       loanId: item.loanId || item.id,
       amount: Number(customAmount),
+      collectionDate: new Date().toISOString(),
+      collectedAt: new Date().toISOString(),
       collectionMethod: 'cash'
     }, {
       onSuccess: () => {
@@ -42,7 +45,11 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
         setExpanded(false);
       },
       onError: (err: any) => {
-        toast.error(err?.response?.data?.message || 'Failed to record collection');
+        console.error('Collection error:', err?.response?.data);
+        const msg = Array.isArray(err?.response?.data?.message) 
+          ? err.response.data.message.join(', ') 
+          : err?.response?.data?.message || 'Failed to record collection';
+        toast.error(msg);
       }
     });
   };
