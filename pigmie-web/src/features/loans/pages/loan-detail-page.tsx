@@ -345,7 +345,7 @@ export const LoanDetailPage: React.FC = () => {
                             {col.collectionMethod || 'Cash'}
                           </td>
                           <td className="py-3 font-semibold text-emerald-400">
-                            ₹{Number(col.amount).toLocaleString('en-IN')}
+                            ₹{Number(col.amount || 0).toLocaleString('en-IN')}
                           </td>
                           <td className="py-3 text-muted-foreground text-xs">
                             {col.collectedBy?.fullName || 'Staff'}

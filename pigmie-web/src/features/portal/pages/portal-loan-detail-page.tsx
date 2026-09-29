@@ -67,7 +67,7 @@ export function PortalLoanDetailPage() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
                 <div>
                   <p className="text-sm text-muted-foreground">Principal</p>
-                  <p className="text-xl font-bold mt-1 text-foreground">₹{(loan.principalAmount || loan.amount).toLocaleString()}</p>
+                  <p className="text-xl font-bold mt-1 text-foreground">₹{(loan.principalAmount || loan.amount || 0).toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Interest Rate</p>

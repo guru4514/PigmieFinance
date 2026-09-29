@@ -112,7 +112,7 @@ export function CustomerDocuments({ customerId }: { customerId: string }) {
                     <div>
                       <p className="text-sm font-medium text-foreground">{doc.originalName}</p>
                       <p className="text-xs text-muted-foreground capitalize">
-                        {doc.documentType.replace('_', ' ')} • {(doc.size / 1024).toFixed(0)} KB • {new Date(doc.createdAt).toLocaleDateString()}
+                        {doc.documentType.replace('_', ' ')} • {((doc.size / 1024) || 0).toFixed(0)} KB • {new Date(doc.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                   </div>

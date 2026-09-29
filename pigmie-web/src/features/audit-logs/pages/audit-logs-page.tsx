@@ -108,7 +108,7 @@ export function AuditLogsPage() {
                 logs.map((log) => (
                   <tr key={log.id} className="hover:bg-muted transition-colors">
                     <td className="px-4 py-3 text-foreground/80 whitespace-nowrap">
-                      {new Date(log.createdAt).toLocaleString()}
+                      {new Date(log.createdAt || 0).toLocaleString()}
                     </td>
                     <td className="px-4 py-3 text-foreground/80">
                       {log.actorStaff?.fullName || 'System'}
