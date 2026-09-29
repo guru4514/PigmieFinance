@@ -226,13 +226,17 @@ export function CollectionsTodayPage() {
     );
   }
 
-  const collectedCount = collections.filter((c: any) => c.status === 'collected').length;
+  // "Visited" = customers where ANY payment made (partial counts), not just fully paid
+  const collectedCount = collections.filter((c: any) => c.totalPaid > 0).length;
   const totalCount = collections.length;
-  const totalTarget = collections.reduce((sum: number, c: any) => sum + (c.amountDue || 0) + (c.totalPaid || 0), 0);
+  // "Due" = total remaining to collect (amountDue only, NOT + totalPaid)
+  const totalDue = collections.reduce((sum: number, c: any) => sum + (c.amountDue || 0), 0);
+  // "Collected" = totalPaid on these schedule items (matches what agents collected against these dues)
   const collectedAmount = collections.reduce((sum: number, c: any) => sum + (c.totalPaid || 0), 0);
-  const remainingAmount = Math.max(totalTarget - collectedAmount, 0);
-  const progressPercent = totalTarget > 0 ? Math.round((collectedAmount / totalTarget) * 100) : 0;
   const remainingCount = totalCount - collectedCount;
+  // Progress = collected / (due + collected) to show % of original target achieved
+  const totalTarget = totalDue + collectedAmount;
+  const progressPercent = totalTarget > 0 ? Math.round((collectedAmount / totalTarget) * 100) : 0;
 
   const isToday = selectedDate === new Date().toISOString().split('T')[0];
   const dateLabel = isToday ? 'Today' : new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
@@ -262,7 +266,7 @@ export function CollectionsTodayPage() {
             <CardContent className="p-3 text-center">
               <IndianRupee className="w-5 h-5 mx-auto mb-1 text-blue-500" />
               <p className="text-xs text-muted-foreground mb-0.5">Due</p>
-              <p className="text-sm font-bold text-foreground">₹{Math.round(totalTarget).toLocaleString('en-IN')}</p>
+              <p className="text-sm font-bold text-foreground">₹{Math.round(totalDue).toLocaleString('en-IN')}</p>
             </CardContent>
           </Card>
           <Card className="bg-card/60 border-border">
