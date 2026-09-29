@@ -18,8 +18,8 @@ export class CollectionsController {
 
   @Get('due-today')
   @Roles('org_admin', 'branch_manager', 'agent')
-  async getDueToday(@CurrentUser() user: AuthenticatedUser) {
-    return this.collectionsService.getDueToday(user.organizationId, user);
+  async getDueToday(@CurrentUser() user: AuthenticatedUser, @Query('date') date?: string) {
+    return this.collectionsService.getDueToday(user.organizationId, user, date);
   }
 
   @Get()

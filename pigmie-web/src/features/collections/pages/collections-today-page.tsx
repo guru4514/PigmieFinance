@@ -174,9 +174,9 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
 export function CollectionsTodayPage() {
   const { user } = useAuth();
   const isAccountant = user?.userType === 'staff' && user.role === 'accountant';
-  const { data: collectionsResponse, isLoading } = useCollectionsToday();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const { data: collectionsResponse, isLoading } = useCollectionsToday(selectedDate);
   
   // The API returns an array directly, not a paginated { data: [] } object
   const collectionsRaw = Array.isArray(collectionsResponse) ? collectionsResponse : collectionsResponse?.data || [];
@@ -228,10 +228,14 @@ export function CollectionsTodayPage() {
 
   const collectedCount = collections.filter((c: any) => c.status === 'collected').length;
   const totalCount = collections.length;
-  const collectedAmount = collections
-    .reduce((sum: number, c: any) => sum + (c.totalPaid || 0), 0);
-    
+  const totalTarget = collections.reduce((sum: number, c: any) => sum + (c.amountDue || 0) + (c.totalPaid || 0), 0);
+  const collectedAmount = collections.reduce((sum: number, c: any) => sum + (c.totalPaid || 0), 0);
+  const remainingAmount = Math.max(totalTarget - collectedAmount, 0);
+  const progressPercent = totalTarget > 0 ? Math.round((collectedAmount / totalTarget) * 100) : 0;
   const remainingCount = totalCount - collectedCount;
+
+  const isToday = selectedDate === new Date().toISOString().split('T')[0];
+  const dateLabel = isToday ? 'Today' : new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
   return (
     <div className="container mx-auto p-4 max-w-2xl pb-24">
@@ -252,23 +256,51 @@ export function CollectionsTodayPage() {
           </div>
         </div>
 
-        <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-primary/20">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground font-medium mb-1">Total Collected</p>
-              <div className="text-2xl font-bold flex items-center text-emerald-600 dark:text-emerald-400">
-                <IndianRupee className="w-5 h-5 mr-0.5" />
-                {(collectedAmount || 0).toLocaleString('en-IN')}
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-muted-foreground font-medium mb-1">Remaining</p>
-              <div className="text-xl font-bold text-foreground">
-                {remainingCount} <span className="text-sm font-normal text-muted-foreground">customers</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Stats Grid — Option C */}
+        <div className="grid grid-cols-4 gap-2">
+          <Card className="bg-card/60 border-border">
+            <CardContent className="p-3 text-center">
+              <IndianRupee className="w-5 h-5 mx-auto mb-1 text-blue-500" />
+              <p className="text-xs text-muted-foreground mb-0.5">Due</p>
+              <p className="text-sm font-bold text-foreground">₹{Math.round(totalTarget).toLocaleString('en-IN')}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-card/60 border-border">
+            <CardContent className="p-3 text-center">
+              <Check className="w-5 h-5 mx-auto mb-1 text-emerald-500" />
+              <p className="text-xs text-muted-foreground mb-0.5">Collected</p>
+              <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">₹{Math.round(collectedAmount).toLocaleString('en-IN')}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-card/60 border-border">
+            <CardContent className="p-3 text-center">
+              <User className="w-5 h-5 mx-auto mb-1 text-violet-500" />
+              <p className="text-xs text-muted-foreground mb-0.5">Visited</p>
+              <p className="text-sm font-bold text-foreground">{collectedCount}/{totalCount}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-card/60 border-border">
+            <CardContent className="p-3 text-center">
+              <ListX className="w-5 h-5 mx-auto mb-1 text-amber-500" />
+              <p className="text-xs text-muted-foreground mb-0.5">Left</p>
+              <p className="text-sm font-bold text-amber-600 dark:text-amber-400">{remainingCount}</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="px-1">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-muted-foreground">{dateLabel}'s progress</span>
+            <span className="text-xs font-semibold text-primary">{progressPercent}%</span>
+          </div>
+          <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+            <div 
+              className="bg-emerald-500 h-2 rounded-full transition-all duration-500"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </div>
 
         {/* Search */}
         <div className="relative">

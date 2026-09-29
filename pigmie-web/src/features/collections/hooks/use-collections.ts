@@ -1,10 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/shared/lib/api-client';
 
-export function useDueToday() {
+export function useDueToday(date?: string) {
   return useQuery({
-    queryKey: ['collections', 'due-today'],
-    queryFn: () => apiClient.get('/collections/due-today').then(r => r.data),
+    queryKey: ['collections', 'due-today', date],
+    queryFn: () => apiClient.get('/collections/due-today', { params: date ? { date } : undefined }).then(r => r.data),
   });
 }
 

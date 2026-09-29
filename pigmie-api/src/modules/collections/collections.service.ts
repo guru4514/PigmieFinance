@@ -12,15 +12,15 @@ export class CollectionsService {
     private prisma: PrismaService,
   ) {}
 
-  async getDueToday(organizationId: string, user: any) {
+  async getDueToday(organizationId: string, user: any, date?: string) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      const today = new Date().toISOString().split('T')[0];
+      const targetDate = date || new Date().toISOString().split('T')[0];
       const where: any = {
         organizationId,
         status: 'active',
         schedule: {
           some: {
-            dueDate: { lte: new Date(today) },
+            dueDate: { lte: new Date(targetDate) },
             status: { in: ['pending', 'partially_paid', 'overdue'] },
           },
         },
@@ -38,7 +38,7 @@ export class CollectionsService {
           customer: { select: { id: true, fullName: true, phone: true, address: true } },
           schedule: {
             where: {
-              dueDate: { lte: new Date(today) },
+              dueDate: { lte: new Date(targetDate) },
               status: { in: ['pending', 'partially_paid', 'overdue'] },
             },
             orderBy: { installmentNumber: 'asc' },
