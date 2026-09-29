@@ -14,7 +14,7 @@ export const LoansListPage: React.FC = () => {
   const { user } = useAuth();
   const isAccountant = user?.userType === 'staff' && user.role === 'accountant';
   const [filterMode, setFilterMode] = React.useState<'all' | 'my'>('all');
-  const { data: loansResponse, isLoading: loading } = useLoans(filterMode === 'my' ? { assignedAgentId: (user as any)?.id } : undefined);
+  const { data: loansResponse, isLoading: loading } = useLoans(filterMode === 'my' ? { agentId: (user as any)?.id } : undefined);
   const loans = loansResponse?.data || [];
 
   const [searchQuery, setSearchQuery] = React.useState('');

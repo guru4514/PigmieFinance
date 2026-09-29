@@ -14,7 +14,7 @@ export const CustomersListPage = () => {
   const { user } = useAuth();
   const isAccountant = user?.userType === 'staff' && user.role === 'accountant';
   const [filterMode, setFilterMode] = React.useState<'all' | 'my'>('all');
-  const { data: customersResponse, isLoading } = useCustomers(filterMode === 'my' ? { assignedAgentId: (user as any)?.id } : undefined);
+  const { data: customersResponse, isLoading } = useCustomers(filterMode === 'my' ? { agentId: (user as any)?.id } : undefined);
   const customers = customersResponse?.data || [];
 
   const [searchQuery, setSearchQuery] = React.useState('');
