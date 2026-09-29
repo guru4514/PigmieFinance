@@ -153,7 +153,7 @@ export class ApprovalsService {
         );
         break;
       case 'close_loan':
-        await this.loansService.close(organizationId, request.entityId);
+        await this.loansService.close(organizationId, request.entityId, reviewerId, request.payload as any);
         break;
       case 'write_off_loan':
         await this.loansService.writeOff(organizationId, request.entityId, request.reason || 'Written off via approval workflow');
