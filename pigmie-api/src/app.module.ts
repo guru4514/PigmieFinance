@@ -23,7 +23,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { PortalModule } from './modules/portal/portal.module';
 import { CashDepositsModule } from './modules/cash-deposits/cash-deposits.module';
-import { JobsModule } from './jobs/jobs.module';
+import { JobsModule } from './modules/jobs/jobs.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { ApprovalsModule } from './modules/approvals/approvals.module';
 
