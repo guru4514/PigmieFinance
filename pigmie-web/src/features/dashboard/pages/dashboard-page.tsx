@@ -7,8 +7,10 @@ import { LoadingSpinner } from '../../../shared/components/ui/loading-spinner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../shared/components/ui/table';
 import { Badge } from '../../../shared/components/ui/badge';
 import { useCollectionsToday } from '../../collections/hooks/use-collections';
+import { useTranslation } from 'react-i18next';
 
 export function DashboardPage() {
+  const { t } = useTranslation();
   const { data: summaryRes, isLoading } = useQuery({
     queryKey: ['reports', 'dashboard-summary'],
     queryFn: () => apiClient.get('/reports/dashboard-summary').then(res => res.data),
@@ -43,44 +45,44 @@ export function DashboardPage() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">Dashboard</h1>
-        <p className="text-muted-foreground">Overview of your micro-finance operations.</p>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">{t('dashboard.title')}</h1>
+        <p className="text-muted-foreground">{t('dashboard.subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
         <KPICard 
-          title="Total Outstanding" 
+          title={t('dashboard.totalOutstanding')} 
           value={formatCurrency(summary?.totalOutstanding || 0)} 
           icon={Banknote} 
           className="border-indigo-500/20 bg-indigo-500/5"
           valueClassName="text-indigo-600 dark:text-indigo-400"
         />
         <KPICard 
-          title="Collected Today" 
+          title={t('dashboard.collectedToday')} 
           value={formatCurrency(summary?.collectedToday || 0)} 
           icon={TrendingUp} 
           className="border-emerald-500/20 bg-emerald-500/5"
           valueClassName="text-emerald-600 dark:text-emerald-400"
         />
         <KPICard 
-          title="Due Today" 
+          title={t('dashboard.dueToday')} 
           value={formatCurrency(summary?.dueToday || 0)} 
           icon={Activity} 
         />
         <KPICard 
-          title="Active Loans" 
+          title={t('dashboard.activeLoans')} 
           value={summary?.activeLoans || 0} 
           icon={CreditCard} 
         />
         <KPICard 
-          title="Overdue Accounts" 
+          title={t('dashboard.overdueAccounts')} 
           value={summary?.overdueCount || 0} 
           icon={AlertCircle} 
           className="border-rose-500/20 bg-rose-500/5"
           valueClassName="text-rose-600 dark:text-rose-400"
         />
         <KPICard 
-          title="PAR30" 
+          title={t('dashboard.par30')} 
           value={`${((summary?.portfolioAtRisk30 || 0) * 100).toFixed(1)}%`} 
           icon={Users} 
         />
@@ -88,21 +90,21 @@ export function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
-          <h3 className="text-lg font-medium text-foreground">Today's Due Collections</h3>
+          <h3 className="text-lg font-medium text-foreground">{t('dashboard.todaysDueCollections')}</h3>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Customer</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>{t('dashboard.customer')}</TableHead>
+                <TableHead>{t('dashboard.phone')}</TableHead>
+                <TableHead>{t('dashboard.amount')}</TableHead>
+                <TableHead>{t('dashboard.status')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {dueCollections.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                    No due collections today.
+                    {t('dashboard.noDueCollections')}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -115,14 +117,14 @@ export function DashboardPage() {
                   
                   if (hasDueItems) {
                     if (amountDue <= 0) {
-                      statusLabel = 'Collected';
+                      statusLabel = t('dashboard.collected');
                       statusColor = 'text-emerald-500';
                     } else {
-                      statusLabel = 'Pending';
+                      statusLabel = t('dashboard.pending');
                       statusColor = 'text-amber-500';
                     }
                   } else {
-                    statusLabel = 'No Due';
+                    statusLabel = t('dashboard.noDue');
                     statusColor = 'text-muted-foreground';
                   }
 
@@ -145,7 +147,7 @@ export function DashboardPage() {
         </div>
         
         <div className="space-y-4">
-          <h3 className="text-lg font-medium text-foreground">Recent Activity</h3>
+          <h3 className="text-lg font-medium text-foreground">{t('dashboard.recentActivity')}</h3>
           {activities.length > 0 ? (
             <div className="space-y-3">
               {activities.map((activity: any) => (
@@ -154,13 +156,13 @@ export function DashboardPage() {
                     <span className="text-sm font-medium text-foreground">{activity.action}</span>
                     <span className="text-xs text-muted-foreground">{new Date(activity.createdAt).toLocaleDateString()}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground">Entity: {activity.entityType}</span>
+                  <span className="text-xs text-muted-foreground">{t('dashboard.entity')}: {activity.entityType}</span>
                 </div>
               ))}
             </div>
           ) : (
             <div className="glass rounded-xl p-4 text-center text-muted-foreground py-8">
-              No recent activity.
+              {t('dashboard.noRecentActivity')}
             </div>
           )}
         </div>

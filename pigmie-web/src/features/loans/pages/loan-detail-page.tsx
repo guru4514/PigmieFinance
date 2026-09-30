@@ -360,28 +360,46 @@ export const LoanDetailPage: React.FC = () => {
                             </span>
                           </td>
                           <td className="py-3 text-right">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedReceipt({
-                                  id: col.id,
-                                  amount: Number(col.amount),
-                                  collectionDate: col.collectionDate || col.collectedAt || new Date().toISOString(),
-                                  collectionMethod: col.collectionMethod || 'cash',
-                                  customerName: loan.customer?.fullName || loan.customerId,
-                                  customerPhone: loan.customer?.phone || loan.customer?.phoneNumber,
-                                  loanId: loan.id,
-                                  outstandingBalance: Number(loan.remainingBalance || 0),
-                                  receiptNumber: col.receiptNumber || undefined,
-                                });
-                                setReceiptModalOpen(true);
-                              }}
-                              className="h-8 border-border hover:bg-muted text-foreground gap-1.5"
-                            >
-                              <Receipt className="h-3.5 w-3.5" />
-                              View Receipt
-                            </Button>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedReceipt({
+                                    id: col.id,
+                                    amount: Number(col.amount),
+                                    collectionDate: col.collectionDate || col.collectedAt || new Date().toISOString(),
+                                    collectionMethod: col.collectionMethod || 'cash',
+                                    customerName: loan.customer?.fullName || loan.customerId,
+                                    customerPhone: loan.customer?.phone || loan.customer?.phoneNumber,
+                                    loanId: loan.id,
+                                    outstandingBalance: Number(loan.remainingBalance || 0),
+                                    receiptNumber: col.receiptNumber || undefined,
+                                  });
+                                  setReceiptModalOpen(true);
+                                }}
+                                className="h-8 border-border hover:bg-muted text-foreground gap-1.5"
+                              >
+                                <Receipt className="h-3.5 w-3.5" />
+                                View Receipt
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 border-border hover:bg-muted text-foreground gap-1.5"
+                                onClick={async () => {
+                                  const response = await apiClient.get(`/collections/${col.id}/receipt`, { responseType: 'blob' });
+                                  const url = URL.createObjectURL(response.data);
+                                  const a = document.createElement('a');
+                                  a.href = url;
+                                  a.download = `receipt-${col.receiptNumber || col.id.slice(0,8)}.pdf`;
+                                  a.click();
+                                  URL.revokeObjectURL(url);
+                                }}
+                              >
+                                <Download className="w-3.5 h-3.5" /> Download
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       ))}

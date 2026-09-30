@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { queueCollection, getPendingCount, processSyncQueue } from '@/shared/lib/offline-queue';
 import { useCollectionsToday, useRecordCollection } from '../hooks/use-collections';
 import { Card, CardContent } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
@@ -9,6 +10,7 @@ import { EmptyState } from '@/shared/components/ui/empty-state';
 import { useAuth } from '@/shared/hooks/use-auth';
 import { openWhatsApp, generateReminderMessage } from '@/shared/lib/whatsapp';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 const PresetAmountChip = ({ amount, selected, onClick }: { amount: number, selected: boolean, onClick: () => void }) => (
   <Badge 
@@ -21,25 +23,35 @@ const PresetAmountChip = ({ amount, selected, onClick }: { amount: number, selec
 );
 
 const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boolean }) => {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [customAmount, setCustomAmount] = useState<number | ''>(item.amountDue);
   const { mutate: recordCollection, isPending } = useRecordCollection(item.loanId || item.id);
   const isCollected = item.status === 'collected';
 
-  const handleCollect = () => {
+  const handleCollect = async () => {
     if (!customAmount || customAmount <= 0) {
       toast.error('Please enter a valid amount');
       return;
     }
 
-    recordCollection({
+    const payload = {
       clientGeneratedId: crypto.randomUUID(),
       loanId: item.loanId || item.id,
       amount: Number(customAmount),
       collectionDate: new Date().toISOString(),
       collectedAt: new Date().toISOString(),
       collectionMethod: 'cash'
-    }, {
+    };
+
+    if (!navigator.onLine) {
+      await queueCollection(payload);
+      toast.success('Saved offline — will sync when back online');
+      setExpanded(false);
+      return;
+    }
+
+    recordCollection(payload, {
       onSuccess: () => {
         toast.success(`Collected ₹${customAmount} from ${item.customerName}`);
         setExpanded(false);
@@ -81,10 +93,10 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
               <IndianRupee className="w-4 h-4 mr-1" /> {item.amountDue}
             </div>
             {isCollected ? (
-              <Badge className="mt-1 bg-emerald-500/20 text-emerald-500 border-none">COLLECTED</Badge>
+              <Badge className="mt-1 bg-emerald-500/20 text-emerald-500 border-none">{t('collection.collectedCaps')}</Badge>
             ) : (
               <div className="flex items-center justify-end mt-1 text-muted-foreground">
-                <span className="text-xs mr-1">Due</span>
+                <span className="text-xs mr-1">{t('collection.due')}</span>
                 {!isAccountant && (expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />)}
               </div>
             )}
@@ -95,7 +107,7 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
         {expanded && !isCollected && !isAccountant && (
           <div className="mt-4 pt-4 border-t border-border/50 animate-in slide-in-from-top-2">
             <div className="mb-3">
-              <p className="text-sm font-medium mb-2 text-muted-foreground">Select Amount</p>
+              <p className="text-sm font-medium mb-2 text-muted-foreground">{t('collection.selectAmount')}</p>
               <div className="flex flex-wrap gap-2">
                 {presetAmounts.map((amt) => (
                   <PresetAmountChip 
@@ -110,7 +122,7 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
             
             <div className="flex items-end gap-3 mt-4">
               <div className="flex-1">
-                <label className="text-sm font-medium mb-1 block text-muted-foreground">Custom Amount</label>
+                <label className="text-sm font-medium mb-1 block text-muted-foreground">{t('collection.customAmount')}</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <IndianRupee className="h-4 w-4 text-muted-foreground" />
@@ -129,7 +141,7 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
                 onClick={(e) => { e.stopPropagation(); handleCollect(); }}
                 disabled={isPending || !customAmount}
               >
-                {isPending ? 'Saving...' : 'Collect'}
+                {isPending ? t('collection.saving') : t('collection.collect')}
               </Button>
             </div>
           </div>
@@ -162,7 +174,7 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
               }}
             >
               <MessageCircle className="w-4 h-4 mr-1.5" />
-              WhatsApp
+              {t('collection.whatsapp')}
             </Button>
           )}
         </div>
@@ -172,11 +184,17 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
 };
 
 export function CollectionsTodayPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const isAccountant = user?.userType === 'staff' && user.role === 'accountant';
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const { data: collectionsResponse, isLoading } = useCollectionsToday(selectedDate);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    getPendingCount().then(setPendingCount);
+  }, []);
   
   // The API returns an array directly, not a paginated { data: [] } object
   const collectionsRaw = Array.isArray(collectionsResponse) ? collectionsResponse : collectionsResponse?.data || [];
@@ -221,7 +239,7 @@ export function CollectionsTodayPage() {
     return (
       <div className="p-8 text-center text-muted-foreground flex flex-col items-center justify-center min-h-[50vh]">
         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
-        Loading today's route...
+        {t('collection.loadingRoute')}
       </div>
     );
   }
@@ -247,7 +265,7 @@ export function CollectionsTodayPage() {
       <div className="mb-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center">
-            Daily Collection
+            {t('collection.title')}
           </h1>
           <div className="flex items-center relative max-w-xs">
             <Calendar className="absolute left-3 w-4 h-4 text-muted-foreground" />
@@ -260,33 +278,46 @@ export function CollectionsTodayPage() {
           </div>
         </div>
 
+        {pendingCount > 0 && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 flex items-center justify-between">
+            <span className="text-sm text-amber-600 dark:text-amber-400">
+              {pendingCount} collection(s) pending sync
+            </span>
+            <Button size="sm" variant="outline" onClick={async () => {
+              const synced = await processSyncQueue();
+              setPendingCount(prev => prev - synced);
+              toast.success(`Synced ${synced} collection(s)`);
+            }}>Sync Now</Button>
+          </div>
+        )}
+
         {/* Stats Grid — Option C */}
         <div className="grid grid-cols-4 gap-2">
           <Card className="bg-card/60 border-border">
             <CardContent className="p-3 text-center">
               <IndianRupee className="w-5 h-5 mx-auto mb-1 text-blue-500" />
-              <p className="text-xs text-muted-foreground mb-0.5">Due</p>
+              <p className="text-xs text-muted-foreground mb-0.5">{t('collection.due')}</p>
               <p className="text-sm font-bold text-foreground">₹{Math.round(totalDue).toLocaleString('en-IN')}</p>
             </CardContent>
           </Card>
           <Card className="bg-card/60 border-border">
             <CardContent className="p-3 text-center">
               <Check className="w-5 h-5 mx-auto mb-1 text-emerald-500" />
-              <p className="text-xs text-muted-foreground mb-0.5">Collected</p>
+              <p className="text-xs text-muted-foreground mb-0.5">{t('collection.collectedCaps')}</p>
               <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">₹{Math.round(collectedAmount).toLocaleString('en-IN')}</p>
             </CardContent>
           </Card>
           <Card className="bg-card/60 border-border">
             <CardContent className="p-3 text-center">
               <User className="w-5 h-5 mx-auto mb-1 text-violet-500" />
-              <p className="text-xs text-muted-foreground mb-0.5">Visited</p>
+              <p className="text-xs text-muted-foreground mb-0.5">{t('collection.visited')}</p>
               <p className="text-sm font-bold text-foreground">{collectedCount}/{totalCount}</p>
             </CardContent>
           </Card>
           <Card className="bg-card/60 border-border">
             <CardContent className="p-3 text-center">
               <ListX className="w-5 h-5 mx-auto mb-1 text-amber-500" />
-              <p className="text-xs text-muted-foreground mb-0.5">Left</p>
+              <p className="text-xs text-muted-foreground mb-0.5">{t('collection.left')}</p>
               <p className="text-sm font-bold text-amber-600 dark:text-amber-400">{remainingCount}</p>
             </CardContent>
           </Card>
@@ -295,7 +326,7 @@ export function CollectionsTodayPage() {
         {/* Progress Bar */}
         <div className="px-1">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-muted-foreground">{dateLabel}'s progress</span>
+            <span className="text-xs text-muted-foreground">{dateLabel}'s {t('collection.progress')}</span>
             <span className="text-xs font-semibold text-primary">{progressPercent}%</span>
           </div>
           <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
@@ -311,7 +342,7 @@ export function CollectionsTodayPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
           <Input 
             type="text" 
-            placeholder="Search by name or phone..." 
+            placeholder={t('collection.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10 h-12 text-base rounded-full bg-card/50 backdrop-blur-sm border-border shadow-sm"
@@ -323,12 +354,12 @@ export function CollectionsTodayPage() {
       {collections.length === 0 ? (
         <EmptyState
           icon={ListX}
-          title="No collections today"
-          description="You don't have any collections assigned for today."
+          title={t('collection.noCollections')}
+          description={t('collection.noCollectionsDesc')}
         />
       ) : sortedCollections.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground bg-card/20 rounded-lg border border-border">
-          No customers found matching "{searchQuery}"
+          {t('collection.noCustomersFound', { query: searchQuery })}
         </div>
       ) : (
         <div className="space-y-4">

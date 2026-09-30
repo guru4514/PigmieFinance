@@ -14,6 +14,7 @@ import { Save, Building2, Bell, ShieldCheck, Loader2, KeyRound, Smartphone, LogO
 import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
 import { Switch } from '@/shared/components/ui/switch';
 import { useAuth } from '@/shared/hooks/use-auth';
+import { RoleGate } from '@/shared/components/auth/role-gate';
 
 const organizationSchema = z.object({
   name: z.string().min(2, 'Organization name is required'),
@@ -204,10 +205,12 @@ export function SettingsPage() {
                     </div>
                     
                     <div className="pt-4 flex justify-end">
-                      <Button type="submit" disabled={updateMutation.isPending} className="gap-2">
-                        {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                        Save Changes
-                      </Button>
+                      <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+                        <Button type="submit" disabled={updateMutation.isPending} className="gap-2">
+                          {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                          Save Changes
+                        </Button>
+                      </RoleGate>
                     </div>
                   </form>
                 )}
@@ -315,9 +318,11 @@ export function SettingsPage() {
                             }}
                           />
                         </div>
-                        <Button onClick={() => toast.success('SMS Configuration saved successfully')} className="mt-2">
-                          Save SMS Configuration
-                        </Button>
+                        <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+                          <Button onClick={() => toast.success('SMS Configuration saved successfully')} className="mt-2">
+                            Save SMS Configuration
+                          </Button>
+                        </RoleGate>
                       </>
                     )}
                   </div>

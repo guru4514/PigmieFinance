@@ -8,6 +8,7 @@ import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
 import { Plus, MoreVertical, Shield, User, Users, Calculator, Edit, PowerOff, Trash } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { EmptyState } from '@/shared/components/ui/empty-state';
+import { RoleGate } from '@/shared/components/auth/role-gate';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -67,34 +68,36 @@ function StaffRowActions({ member }: { member: StaffMember }) {
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted">
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => setIsEditProfileOpen(true)}>
-            <User className="mr-2 h-4 w-4" />
-            Edit Profile
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setIsEditRoleOpen(true)}>
-            <Edit className="mr-2 h-4 w-4" />
-            Edit Role
-          </DropdownMenuItem>
-          {member.status === 'active' && (
-            <DropdownMenuItem onClick={handleDeactivate}>
-              <PowerOff className="mr-2 h-4 w-4" />
-              Deactivate
+      <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setIsEditProfileOpen(true)}>
+              <User className="mr-2 h-4 w-4" />
+              Edit Profile
             </DropdownMenuItem>
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleDelete} className="text-red-500 focus:text-red-500 focus:bg-red-500/10">
-            <Trash className="mr-2 h-4 w-4" />
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            <DropdownMenuItem onClick={() => setIsEditRoleOpen(true)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Edit Role
+            </DropdownMenuItem>
+            {member.status === 'active' && (
+              <DropdownMenuItem onClick={handleDeactivate}>
+                <PowerOff className="mr-2 h-4 w-4" />
+                Deactivate
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleDelete} className="text-red-500 focus:text-red-500 focus:bg-red-500/10">
+              <Trash className="mr-2 h-4 w-4" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </RoleGate>
 
       <Dialog open={isEditRoleOpen} onOpenChange={setIsEditRoleOpen}>
         <DialogContent className="sm:max-w-[425px] bg-card border-border text-foreground">
@@ -191,12 +194,14 @@ export function StaffPage() {
             Manage your organization's staff members and their roles.
           </p>
         </div>
-        <Button className="shrink-0 gap-2" asChild>
-          <Link to="/app/staff/new">
-            <Plus className="h-4 w-4" />
-            Add Staff Member
-          </Link>
-        </Button>
+        <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+          <Button className="shrink-0 gap-2" asChild>
+            <Link to="/app/staff/new">
+              <Plus className="h-4 w-4" />
+              Add Staff Member
+            </Link>
+          </Button>
+        </RoleGate>
       </div>
 
       <Card className="border-border bg-card backdrop-blur-xl">

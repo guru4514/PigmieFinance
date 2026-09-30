@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { processSyncQueue } from '@/shared/lib/offline-sync';
+import { processSyncQueue } from '@/shared/lib/offline-queue';
+import { toast } from 'sonner';
 import { ErrorBoundary } from '@/shared/components/error-boundary';
 import { Toaster } from '@/shared/components/ui/sonner';
 import { ProtectedRoute } from '@/shared/components/auth/protected-route';
@@ -38,8 +39,9 @@ import { BranchComparisonPage } from '@/features/reports/pages/branch-comparison
 
 export function App() {
   useEffect(() => {
-    const handleOnline = () => {
-      processSyncQueue();
+    const handleOnline = async () => {
+      const count = await processSyncQueue();
+      if (count > 0) toast.success(`Synced ${count} offline collection(s)`);
     };
     window.addEventListener('online', handleOnline);
     return () => {

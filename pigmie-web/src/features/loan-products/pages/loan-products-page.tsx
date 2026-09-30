@@ -8,6 +8,7 @@ import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
 import { Plus, Percent, Clock, DollarSign } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
 import { Input } from '@/shared/components/ui/input';
+import { RoleGate } from '@/shared/components/auth/role-gate';
 
 const ProductCard = ({ product }: { product: any }) => {
   const [showEdit, setShowEdit] = useState(false);
@@ -137,11 +138,13 @@ export const LoanProductsPage = () => {
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Loan Products</h1>
           <p className="text-muted-foreground mt-1 text-muted-foreground">Manage available loan products and terms.</p>
         </div>
-        <Link to="/app/loan-products/new">
-          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
-            <Plus className="w-4 h-4" /> Create Product
-          </Button>
-        </Link>
+        <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+          <Link to="/app/loan-products/new">
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+              <Plus className="w-4 h-4" /> Create Product
+            </Button>
+          </Link>
+        </RoleGate>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">

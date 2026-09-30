@@ -12,6 +12,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { toast } from 'sonner';
+import { RoleGate } from '@/shared/components/auth/role-gate';
 
 interface Branch {
   id: string;
@@ -102,10 +103,12 @@ export function BranchesPage() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Branches</h1>
           <p className="text-muted-foreground">Manage your organization's branches</p>
         </div>
-        <Button onClick={() => handleOpenDialog()} className="gap-2">
-          <Plus className="w-4 h-4" />
-          Add Branch
-        </Button>
+        <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+          <Button onClick={() => handleOpenDialog()} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Add Branch
+          </Button>
+        </RoleGate>
       </div>
 
       <Card className="glass border-border">
@@ -146,16 +149,18 @@ export function BranchesPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(branch)}>
-                          <Edit2 className="w-4 h-4 text-muted-foreground" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => toggleActive(branch)}>
-                          {branch.isActive ? (
-                            <XCircle className="w-4 h-4 text-rose-400" />
-                          ) : (
-                            <CheckCircle className="w-4 h-4 text-emerald-400" />
-                          )}
-                        </Button>
+                        <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+                          <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(branch)}>
+                            <Edit2 className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => toggleActive(branch)}>
+                            {branch.isActive ? (
+                              <XCircle className="w-4 h-4 text-rose-400" />
+                            ) : (
+                              <CheckCircle className="w-4 h-4 text-emerald-400" />
+                            )}
+                          </Button>
+                        </RoleGate>
                       </div>
                     </TableCell>
                   </TableRow>

@@ -9,6 +9,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Link } from 'react-router-dom';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { useAuth } from '@/shared/hooks/use-auth';
+import { RoleGate } from '@/shared/components/auth/role-gate';
 
 export const CustomersListPage = () => {
   const { user } = useAuth();
@@ -50,7 +51,7 @@ export const CustomersListPage = () => {
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Customers</h1>
           <p className="text-muted-foreground mt-1 text-muted-foreground">Manage your customer base and view their details.</p>
         </div>
-        {!isAccountant && (
+        <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
           <div className="flex gap-2">
             <Link to="/app/customers/import">
               <Button variant="outline" className="border-border text-foreground/80 hover:bg-muted hover:text-foreground">
@@ -63,7 +64,7 @@ export const CustomersListPage = () => {
               </Button>
             </Link>
           </div>
-        )}
+        </RoleGate>
       </div>
 
       <div className="flex flex-col sm:flex-row items-center gap-4 bg-card p-4 rounded-lg border border-border">
