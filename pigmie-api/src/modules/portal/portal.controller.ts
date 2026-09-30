@@ -6,13 +6,15 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../common/types/request-user.type';
 import { PortalService } from './portal.service';
 import { CustomerPdfService } from '../customers/customer-pdf.service';
+import { PdfService } from '../loans/pdf.service';
 
 @Controller('portal')
 @UseGuards(SupabaseAuthGuard)
 export class PortalController {
   constructor(
     private readonly portalService: PortalService,
-    private readonly customerPdfService: CustomerPdfService
+    private readonly customerPdfService: CustomerPdfService,
+    private readonly pdfService: PdfService
   ) {}
 
   @Get('me')
@@ -42,6 +44,22 @@ export class PortalController {
   @Get('loans/:id/collections')
   async getLoanCollections(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     if (user.type !== 'customer') throw new ForbiddenException('Portal access is for customers only');
+    return this.portalService.getLoanCollections(user.organizationId, user.id, id);
+  }
+
+  @Get('loans/:id/statement')
+  async getLoanStatement(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
+    if (user.type !== 'customer') throw new ForbiddenException('Portal access is for customers only');
+    
+    const pdfBuffer = await this.pdfService.generateLoanStatement(id, user.organizationId);
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename=loan-statement.pdf`,
+      'Content-Length': pdfBuffer.length,
+    });
+
+    res.end(pdfBuffer);
   }
 
   @Get('passbook')

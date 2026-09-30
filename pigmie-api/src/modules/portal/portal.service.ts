@@ -69,8 +69,17 @@ export class PortalService {
       if (loan.customerId !== customerId) throw new ForbiddenException('Access denied');
       
       return tx.collection.findMany({
-        where: { loanId },
-        orderBy: { collectionDate: 'desc' }
+        where: { loanId, customerId },
+        orderBy: { collectedAt: 'desc' },
+        select: {
+          id: true,
+          amount: true,
+          collectionDate: true,
+          collectedAt: true,
+          collectionMethod: true,
+          receiptNumber: true,
+          status: true,
+        },
       });
     });
   }
