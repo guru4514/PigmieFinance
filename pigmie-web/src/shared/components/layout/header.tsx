@@ -1,4 +1,4 @@
-import { Bell, Menu, Languages } from 'lucide-react';
+import { Menu, Languages } from 'lucide-react';
 import { useAuth } from '@/shared/hooks/use-auth';
 import { useUIStore, useOfflineQueueStore } from '@/shared/stores/app-store';
 import { Badge } from '../ui/badge';

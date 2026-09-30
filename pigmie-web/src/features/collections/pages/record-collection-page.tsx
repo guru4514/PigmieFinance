@@ -23,8 +23,9 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 
 // Mocking these for now until Phase 2 (Offline mode)
-const queueCollection = async (data: any) => { /* TODO: Implement offline sync */ };
+const queueCollection = async () => { /* TODO: Implement offline sync */ };
 const useOnlineStatus = () => ({ isOnline: navigator.onLine });
+import { supabase } from '@/shared/lib/supabase';
 
 export function RecordCollectionPage() {
   const { t } = useTranslation();
@@ -40,6 +41,7 @@ export function RecordCollectionPage() {
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleCaptureLocation = () => {
@@ -62,6 +64,7 @@ export function RecordCollectionPage() {
   const handleCapturePhoto = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      setPhotoFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setPhotoUrl(reader.result as string);
@@ -74,6 +77,26 @@ export function RecordCollectionPage() {
   const onSubmit = handleSubmit(async (data) => {
     if (!loanId) return;
     setStatus('idle');
+    
+    let uploadedPhotoUrl = photoUrl;
+    
+    if (photoFile && isOnline) {
+      const fileName = `collections/${crypto.randomUUID()}.jpg`;
+      const { data: uploadData, error } = await supabase.storage
+        .from('collection-photos')
+        .upload(fileName, photoFile, {
+          contentType: photoFile.type,
+          upsert: false,
+        });
+      
+      if (!error && uploadData) {
+        const { data: urlData } = supabase.storage
+          .from('collection-photos')
+          .getPublicUrl(uploadData.path);
+        uploadedPhotoUrl = urlData.publicUrl;
+      }
+    }
+
     const collection = {
       clientGeneratedId: crypto.randomUUID(),
       loanId,
@@ -83,7 +106,7 @@ export function RecordCollectionPage() {
       collectionMethod: data.collectionMethod,
       notes: data.notes,
       ...(location ? { latitude: location.latitude, longitude: location.longitude } : {}),
-      ...(photoUrl ? { photoUrl } : {}),
+      ...(uploadedPhotoUrl ? { photoUrl: uploadedPhotoUrl } : {}),
     };
     
     if (isOnline) {

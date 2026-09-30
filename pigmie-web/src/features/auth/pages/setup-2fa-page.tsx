@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../shared/hooks/use-auth';
 import { Button } from '../../../shared/components/ui/button';
 import { Input } from '../../../shared/components/ui/input';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../../../shared/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../../shared/components/ui/card';
 
 export function Setup2FAPage() {
   const [code, setCode] = useState('');

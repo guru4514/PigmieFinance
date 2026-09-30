@@ -1,5 +1,5 @@
 import * as React from "react"
-import { X, Check, ChevronRight, Circle } from "lucide-react"
+import { X } from "lucide-react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { cn } from "@/shared/lib/utils"
 

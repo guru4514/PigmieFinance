@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui
 import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
 import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
-import { ArrowLeft, User, FileText, CreditCard, Mail, Phone, Calendar, MapPin, Download, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, User, FileText, CreditCard, Mail, Phone, Calendar, MapPin, Download } from 'lucide-react';
 import { CustomerDocuments } from '../components/customer-documents';
 import { RoleGate } from '@/shared/components/auth/role-gate';
 import { apiClient } from '@/shared/lib/api-client';
@@ -134,7 +134,7 @@ export const CustomerDetailPage = () => {
               </Button>
             </Link>
           </RoleGate>
-          {user?.role === 'org_admin' && (
+          {user?.userType === 'staff' && user.role === 'org_admin' && (
             <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}>
               Delete Customer
             </Button>

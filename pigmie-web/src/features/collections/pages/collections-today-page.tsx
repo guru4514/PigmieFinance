@@ -3,7 +3,7 @@ import { queueCollection, getPendingCount, processSyncQueue } from '@/shared/lib
 import { useCollectionsToday, useRecordCollection } from '../hooks/use-collections';
 import { Card, CardContent } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
-import { MapPin, Phone, User, IndianRupee, ListX, MessageCircle, Check, Search, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { MapPin, Phone, User, IndianRupee, ListX, MessageCircle, Check, Search, Calendar, ChevronDown, ChevronUp, Camera } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { EmptyState } from '@/shared/components/ui/empty-state';
@@ -11,6 +11,7 @@ import { useAuth } from '@/shared/hooks/use-auth';
 import { openWhatsApp, generateReminderMessage } from '@/shared/lib/whatsapp';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { supabase } from '@/shared/lib/supabase';
 
 const PresetAmountChip = ({ amount, selected, onClick }: { amount: number, selected: boolean, onClick: () => void }) => (
   <Badge 
@@ -28,11 +29,36 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
   const [customAmount, setCustomAmount] = useState<number | ''>(item.amountDue);
   const { mutate: recordCollection, isPending } = useRecordCollection(item.loanId || item.id);
   const isCollected = item.status === 'collected';
+  const [photoFile, setPhotoFile] = React.useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = React.useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = React.useState(false);
 
   const handleCollect = async () => {
     if (!customAmount || customAmount <= 0) {
       toast.error('Please enter a valid amount');
       return;
+    }
+    
+    let uploadedPhotoUrl = null;
+    
+    if (photoFile && navigator.onLine) {
+      setIsUploading(true);
+      const fileName = `collections/${crypto.randomUUID()}.${photoFile.name.split('.').pop() || 'jpg'}`;
+      const { data: uploadData, error } = await supabase.storage
+        .from('collection-photos')
+        .upload(fileName, photoFile, {
+          contentType: photoFile.type,
+          upsert: false,
+        });
+      
+      if (!error && uploadData) {
+        const { data: urlData } = supabase.storage
+          .from('collection-photos')
+          .getPublicUrl(uploadData.path);
+        uploadedPhotoUrl = urlData.publicUrl;
+      }
+      setIsUploading(false);
     }
 
     const payload: any = {
@@ -41,7 +67,8 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
       amount: Number(customAmount),
       collectionDate: new Date().toISOString(),
       collectedAt: new Date().toISOString(),
-      collectionMethod: 'cash'
+      collectionMethod: 'cash',
+      ...(uploadedPhotoUrl ? { photoUrl: uploadedPhotoUrl } : {})
     };
 
     const submitPayload = async (data: any) => {
@@ -152,12 +179,35 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
                   />
                 </div>
               </div>
+              <input 
+                type="file" 
+                accept="image/*" 
+                capture="environment" 
+                className="hidden" 
+                ref={fileInputRef}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setPhotoFile(file);
+                    const reader = new FileReader();
+                    reader.onloadend = () => setPhotoPreview(reader.result as string);
+                    reader.readAsDataURL(file);
+                  }
+                }}
+              />
+              <Button 
+                variant="outline"
+                className={`h-11 w-11 p-0 shrink-0 ${photoPreview ? 'border-primary text-primary bg-primary/10' : ''}`}
+                onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+              >
+                <Camera className="w-5 h-5" />
+              </Button>
               <Button 
                 className="h-11 px-6 bg-emerald-600 hover:bg-emerald-700 text-foreground font-semibold shadow-sm"
                 onClick={(e) => { e.stopPropagation(); handleCollect(); }}
-                disabled={isPending || !customAmount}
+                disabled={isPending || isUploading || !customAmount}
               >
-                {isPending ? t('collection.saving') : t('collection.collect')}
+                {isPending || isUploading ? t('collection.saving') : t('collection.collect')}
               </Button>
             </div>
           </div>

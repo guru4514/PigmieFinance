@@ -25,7 +25,7 @@ const organizationSchema = z.object({
 type OrganizationFormValues = z.infer<typeof organizationSchema>;
 
 export function SettingsPage() {
-  const { user } = useAuth();
+  useAuth();
   const [activeTab, setActiveTab] = useState<'organization' | 'notifications' | 'security'>('organization');
   const queryClient = useQueryClient();
   

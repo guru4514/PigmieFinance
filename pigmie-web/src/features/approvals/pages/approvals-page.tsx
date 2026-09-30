@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/shared/lib/api-client';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { ApprovalCard } from '../components/approval-card';
 import { useAuth } from '@/shared/hooks/use-auth';
 import { toast } from 'sonner';

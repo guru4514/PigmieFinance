@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { Users, Banknote, AlertCircle, TrendingUp, CreditCard, Activity } from 'lucide-react';
 import { apiClient } from '../../../shared/lib/api-client';
 import { KPICard } from '../components/kpi-card';
-import { ReportSummary } from '../../../shared/types';
 import { LoadingSpinner } from '../../../shared/components/ui/loading-spinner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../shared/components/ui/table';
 import { Badge } from '../../../shared/components/ui/badge';

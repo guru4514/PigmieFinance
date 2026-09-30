@@ -69,7 +69,7 @@ const navGroups: NavGroup[] = [
 ];
 
 export function Sidebar() {
-  const { t } = useTranslation('common');
+  useTranslation('common');
   const { user } = useAuth();
   const { sidebarOpen, setSidebarOpen } = useUIStore();
   const navigate = useNavigate();

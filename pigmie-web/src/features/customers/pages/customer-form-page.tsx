@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCreateCustomer, useCustomer, useUpdateCustomer } from '../hooks/use-customers';
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/shared/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
 import { Button } from '@/shared/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';

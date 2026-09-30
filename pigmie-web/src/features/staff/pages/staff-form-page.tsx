@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useCreateStaff, StaffRole } from '../hooks/use-staff';
+import { useCreateStaff } from '../hooks/use-staff';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
@@ -23,7 +23,7 @@ export function StaffFormPage() {
   const navigate = useNavigate();
   const createStaff = useCreateStaff();
 
-  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<StaffFormValues>({
+  const { register, handleSubmit, formState: { errors }, setValue } = useForm<StaffFormValues>({
     resolver: zodResolver(staffSchema),
   });
 
