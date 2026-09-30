@@ -48,19 +48,19 @@ export const CustomersListPage = () => {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Customers</h1>
-          <p className="text-muted-foreground mt-1 text-muted-foreground">Manage your customer base and view their details.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">{t('customers.title')}</h1>
+          <p className="text-muted-foreground mt-1 text-muted-foreground">{t('customers.subtitle')}</p>
         </div>
         <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
           <div className="flex gap-2">
             <Link to="/app/customers/import">
               <Button variant="outline" className="border-border text-foreground/80 hover:bg-muted hover:text-foreground">
-                Import CSV
+                {t('customers.importCsv')}
               </Button>
             </Link>
             <Link to="/app/customers/new">
               <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
-                <Plus className="w-4 h-4" /> Add Customer
+                <Plus className="w-4 h-4" /> {t('customers.addCustomer')}
               </Button>
             </Link>
           </div>
@@ -71,7 +71,7 @@ export const CustomersListPage = () => {
         <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
-            placeholder="Search customers..." 
+            placeholder={t('customers.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 bg-muted border-border text-foreground w-full max-w-md"
@@ -83,25 +83,25 @@ export const CustomersListPage = () => {
             value={kycFilter}
             onChange={(e) => setKycFilter(e.target.value)}
           >
-            <option value="all">All KYC Status</option>
-            <option value="not_submitted">Not Submitted</option>
-            <option value="submitted">Submitted</option>
-            <option value="verified">Verified</option>
-            <option value="rejected">Rejected</option>
+            <option value="all">{t('customers.allKyc')}</option>
+            <option value="not_submitted">{t('customers.notSubmitted')}</option>
+            <option value="submitted">{t('customers.submitted')}</option>
+            <option value="verified">{t('customers.verified')}</option>
+            <option value="rejected">{t('customers.rejected')}</option>
           </select>
           <Button 
             variant={filterMode === 'all' ? 'default' : 'outline'} 
             onClick={() => setFilterMode('all')}
             className={filterMode === 'all' ? '' : 'border-border text-foreground/80'}
           >
-            All
+            {t('loans.all')}
           </Button>
           <Button 
             variant={filterMode === 'my' ? 'default' : 'outline'} 
             onClick={() => setFilterMode('my')}
             className={filterMode === 'my' ? '' : 'border-border text-foreground/80'}
           >
-            My Assignments
+            {t('loans.myAssignments')}
           </Button>
         </div>
       </div>
@@ -109,9 +109,9 @@ export const CustomersListPage = () => {
       {filteredCustomers.length === 0 ? (
           <EmptyState 
             icon={Users} 
-            title="No customers yet" 
-            description="Get started by adding your first customer to the system." 
-            actionLabel={isAccountant ? undefined : "Add Customer"} 
+            title={t('customers.noCustomers')} 
+            description={t('customers.noCustomersDesc')} 
+            actionLabel={isAccountant ? undefined : t('customers.addCustomer')} 
             actionHref={isAccountant ? undefined : "/app/customers/new"} 
           />
         ) : (
@@ -119,12 +119,12 @@ export const CustomersListPage = () => {
             <Table>
               <TableHeader className="bg-muted">
                 <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="text-muted-foreground">Name</TableHead>
-                  <TableHead className="text-muted-foreground">Contact</TableHead>
-                  <TableHead className="text-muted-foreground">Status</TableHead>
+                  <TableHead className="text-muted-foreground">{t('customers.name')}</TableHead>
+                  <TableHead className="text-muted-foreground">{t('customers.contact')}</TableHead>
+                  <TableHead className="text-muted-foreground">{t('dashboard.status')}</TableHead>
                   <TableHead className="text-muted-foreground">KYC</TableHead>
-                  <TableHead className="text-muted-foreground">Join Date</TableHead>
-                  <TableHead className="text-muted-foreground text-right">Actions</TableHead>
+                  <TableHead className="text-muted-foreground">{t('customers.joinDate')}</TableHead>
+                  <TableHead className="text-muted-foreground text-right">{t('loans.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -159,7 +159,7 @@ export const CustomersListPage = () => {
                           'border-border text-muted-foreground'
                         }
                       >
-                        {customer.kycStatus?.replace('_', ' ').toUpperCase() || 'NOT SUBMITTED'}
+                        {customer.kycStatus?.replace('_', ' ').toUpperCase() || t('customers.notSubmittedCaps')}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">{customer.createdAt ? new Date(customer.createdAt).toLocaleDateString() : 'N/A'}</TableCell>
