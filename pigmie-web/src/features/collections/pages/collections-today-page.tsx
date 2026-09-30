@@ -35,7 +35,7 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
       return;
     }
 
-    const payload = {
+    const payload: any = {
       clientGeneratedId: crypto.randomUUID(),
       loanId: item.loanId || item.id,
       amount: Number(customAmount),
@@ -44,26 +44,42 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
       collectionMethod: 'cash'
     };
 
-    if (!navigator.onLine) {
-      await queueCollection(payload);
-      toast.success('Saved offline — will sync when back online');
-      setExpanded(false);
-      return;
-    }
-
-    recordCollection(payload, {
-      onSuccess: () => {
-        toast.success(`Collected ₹${customAmount} from ${item.customerName}`);
+    const submitPayload = async (data: any) => {
+      if (!navigator.onLine) {
+        await queueCollection(data);
+        toast.success('Saved offline — will sync when back online');
         setExpanded(false);
-      },
-      onError: (err: any) => {
-        console.error('Collection error:', err?.response?.data);
-        const msg = Array.isArray(err?.response?.data?.message) 
-          ? err.response.data.message.join(', ') 
-          : err?.response?.data?.message || 'Failed to record collection';
-        toast.error(msg);
+        return;
       }
-    });
+
+      recordCollection(data, {
+        onSuccess: () => {
+          toast.success(`Collected ₹${customAmount} from ${item.customerName}`);
+          setExpanded(false);
+        },
+        onError: (err: any) => {
+          console.error('Collection error:', err?.response?.data);
+          const msg = Array.isArray(err?.response?.data?.message) 
+            ? err.response.data.message.join(', ') 
+            : err?.response?.data?.message || 'Failed to record collection';
+          toast.error(msg);
+        }
+      });
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          payload.latitude = pos.coords.latitude;
+          payload.longitude = pos.coords.longitude;
+          submitPayload(payload);
+        },
+        () => submitPayload(payload),
+        { timeout: 5000 }
+      );
+    } else {
+      submitPayload(payload);
+    }
   };
 
   const presetAmounts = [item.amountDue, 100, 200, 500, 1000].filter((v, i, a) => a.indexOf(v) === i && v > 0).sort((a, b) => a - b);

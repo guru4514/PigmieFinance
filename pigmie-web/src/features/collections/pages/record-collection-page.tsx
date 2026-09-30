@@ -20,12 +20,14 @@ type RecordCollectionInput = z.infer<typeof collectionSchema>;
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '@/shared/lib/api-client';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 // Mocking these for now until Phase 2 (Offline mode)
 const queueCollection = async (data: any) => { /* TODO: Implement offline sync */ };
 const useOnlineStatus = () => ({ isOnline: navigator.onLine });
 
 export function RecordCollectionPage() {
+  const { t } = useTranslation();
   const { loanId } = useParams<{ loanId: string }>();
   const navigate = useNavigate();
   
@@ -112,10 +114,10 @@ export function RecordCollectionPage() {
       <Card className="glassmorphism bg-card/50 backdrop-blur-md border-border dark:text-foreground">
         <CardHeader>
           <CardTitle className="text-2xl font-bold flex items-center justify-between">
-            Record Collection
+            {t('recordCollection.title')}
             {!isOnline && (
               <span className="text-xs bg-amber-500/20 text-amber-500 px-2 py-1 rounded-full flex items-center gap-1">
-                <AlertCircle size={14} /> Offline Mode
+                <AlertCircle size={14} /> {t('recordCollection.offlineMode')}
               </span>
             )}
           </CardTitle>
@@ -123,7 +125,7 @@ export function RecordCollectionPage() {
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="amount">Amount (₹)</Label>
+              <Label htmlFor="amount">{t('recordCollection.amountLabel')}</Label>
               <Input 
                 id="amount" 
                 type="number" 
@@ -137,18 +139,18 @@ export function RecordCollectionPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="collectionMethod">Method</Label>
+              <Label htmlFor="collectionMethod">{t('recordCollection.method')}</Label>
               <Select 
                 defaultValue="cash" 
                 onValueChange={(val: any) => setValue('collectionMethod', val)}
               >
                 <SelectTrigger className="bg-background/50 border-border">
-                  <SelectValue placeholder="Select method" />
+                  <SelectValue placeholder={t('recordCollection.selectMethod')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="cheque">Cheque</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="cash">{t('recordCollection.cash')}</SelectItem>
+                  <SelectItem value="cheque">{t('recordCollection.cheque')}</SelectItem>
+                  <SelectItem value="other">{t('recordCollection.other')}</SelectItem>
                 </SelectContent>
               </Select>
               {errors.collectionMethod && (
@@ -157,11 +159,11 @@ export function RecordCollectionPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="notes">Notes (Optional)</Label>
+              <Label htmlFor="notes">{t('recordCollection.notesLabel')}</Label>
               <Input 
                 id="notes" 
                 {...register('notes')} 
-                placeholder="Any additional details..."
+                placeholder={t('recordCollection.notesPlaceholder')}
                 className="bg-background/50 border-border"
               />
             </div>
@@ -183,7 +185,7 @@ export function RecordCollectionPage() {
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Camera className="w-4 h-4 mr-2" />
-                  {photoUrl ? 'Photo Captured' : 'Photo'}
+                  {photoUrl ? t('recordCollection.photoCaptured') : t('recordCollection.photo')}
                 </Button>
                 <Button 
                   type="button" 
@@ -192,23 +194,23 @@ export function RecordCollectionPage() {
                   onClick={handleCaptureLocation}
                 >
                   <MapPin className="w-4 h-4 mr-2" />
-                  {location ? 'Location Captured' : 'Location'}
+                  {location ? t('recordCollection.locationCaptured') : t('recordCollection.location')}
                 </Button>
               </div>
               {location && (
                 <div className="text-xs text-muted-foreground text-center">
-                  Coordinates: {((location.latitude) || 0).toFixed(6)}, {((location.longitude) || 0).toFixed(6)}
+                  {t('recordCollection.coordinates')}: {((location.latitude) || 0).toFixed(6)}, {((location.longitude) || 0).toFixed(6)}
                 </div>
               )}
             </div>
 
             <Button type="submit" className="w-full font-semibold" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : 'Record Collection'}
+              {isSubmitting ? t('collection.saving') : t('recordCollection.title')}
             </Button>
 
             {status === 'success' && (
               <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-md text-sm text-center">
-                Collection recorded successfully. {isOnline ? '' : 'Will sync when online.'}
+                {t('recordCollection.successMsg')} {isOnline ? '' : t('recordCollection.syncMsg')}
               </div>
             )}
           </form>
