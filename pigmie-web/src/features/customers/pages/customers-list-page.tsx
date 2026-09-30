@@ -10,9 +10,11 @@ import { Link } from 'react-router-dom';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { useAuth } from '@/shared/hooks/use-auth';
 import { RoleGate } from '@/shared/components/auth/role-gate';
+import { useTranslation } from 'react-i18next';
 
 export const CustomersListPage = () => {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const isAccountant = user?.userType === 'staff' && user.role === 'accountant';
   const [filterMode, setFilterMode] = React.useState<'all' | 'my'>('all');
   const { data: customersResponse, isLoading } = useCustomers(filterMode === 'my' ? { agentId: (user as any)?.id } : undefined);

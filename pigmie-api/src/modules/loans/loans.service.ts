@@ -149,16 +149,18 @@ export class LoansService {
         },
       });
 
-      await this.notificationsService.notify(
-        organizationId,
-        'staff',
-        loan.assignedAgentId,
-        'loan_approved',
-        'Loan Approved',
-        `Loan ${loan.loanCode} has been approved`,
-        'loan',
-        loan.id
-      );
+      if (loan.assignedAgentId) {
+        await this.notificationsService.notify(
+          organizationId,
+          'staff',
+          loan.assignedAgentId,
+          'loan_approved',
+          'Loan Approved',
+          `Loan ${loan.loanCode} has been approved`,
+          'loan',
+          loan.id
+        );
+      }
 
       return updatedLoan;
     });
@@ -223,16 +225,18 @@ export class LoansService {
         },
       });
 
-      await this.notificationsService.notify(
-        organizationId,
-        'staff',
-        loan.assignedAgentId,
-        'loan_disbursed',
-        'Loan Disbursed',
-        `Loan ${loan.loanCode} has been disbursed`,
-        'loan',
-        loan.id
-      );
+      if (loan.assignedAgentId) {
+        await this.notificationsService.notify(
+          organizationId,
+          'staff',
+          loan.assignedAgentId,
+          'loan_disbursed',
+          'Loan Disbursed',
+          `Loan ${loan.loanCode} has been disbursed`,
+          'loan',
+          loan.id
+        );
+      }
 
       return { loan: updated, schedule: rows };
     });
