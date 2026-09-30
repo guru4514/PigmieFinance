@@ -38,17 +38,43 @@ export function NotificationBell() {
     if ('Notification' in window) {
       setPermissionState(Notification.permission);
     }
+
+    const subscribeToPush = async () => {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+      
+      try {
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') return;
+
+        const { publicKey } = await apiClient.notifications.getVapidPublicKey();
+        
+        const existingSubscription = await registration.pushManager.getSubscription();
+        if (!existingSubscription) {
+          const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicKey),
+          });
+
+          await apiClient.notifications.subscribe(subscription.toJSON());
+        }
+      } catch (error) {
+        console.error('Push subscription failed:', error);
+      }
+    };
+
+    subscribeToPush();
   }, []);
 
   const handleEnablePush = async () => {
+    // Kept for backward compatibility if button is still present
     if ('serviceWorker' in navigator && 'PushManager' in window) {
       try {
         const permission = await Notification.requestPermission();
         setPermissionState(permission);
         if (permission === 'granted') {
-          // Register service worker explicitly first to avoid hanging ready promise
-          const swRegistration = await navigator.serviceWorker.register('/service-worker.js');
-          const registration = await navigator.serviceWorker.ready;
+          const registration = await navigator.serviceWorker.register('/sw.js');
+          await navigator.serviceWorker.ready;
           const { publicKey } = await apiClient.notifications.getVapidPublicKey();
           
           const existingSubscription = await registration.pushManager.getSubscription();

@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateLoanDto } from './dto/create-loan.dto';
 import { QueryLoanDto } from './dto/query-loan.dto';
 import { RestructureLoanDto } from './dto/restructure-loan.dto';
@@ -9,7 +10,10 @@ import * as crypto from 'crypto';
 
 @Injectable()
 export class LoansService {
-  constructor(private tenantPrisma: TenantPrismaService) {}
+  constructor(
+    private tenantPrisma: TenantPrismaService,
+    private notificationsService: NotificationsService
+  ) {}
 
   async create(organizationId: string, staffId: string, dto: CreateLoanDto) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
@@ -136,7 +140,7 @@ export class LoansService {
       if (loan.status !== 'pending_approval') {
         throw new BadRequestException('Loan is not pending approval');
       }
-      return tx.loan.update({
+      const updatedLoan = await tx.loan.update({
         where: { id },
         data: {
           status: 'approved',
@@ -144,6 +148,19 @@ export class LoansService {
           approvedAt: new Date(),
         },
       });
+
+      await this.notificationsService.notify(
+        organizationId,
+        'staff',
+        loan.assignedAgentId,
+        'loan_approved',
+        'Loan Approved',
+        `Loan ${loan.loanCode} has been approved`,
+        'loan',
+        loan.id
+      );
+
+      return updatedLoan;
     });
   }
 
@@ -205,6 +222,17 @@ export class LoansService {
           expectedEndDate: new Date(rows[rows.length - 1].dueDate),
         },
       });
+
+      await this.notificationsService.notify(
+        organizationId,
+        'staff',
+        loan.assignedAgentId,
+        'loan_disbursed',
+        'Loan Disbursed',
+        `Loan ${loan.loanCode} has been disbursed`,
+        'loan',
+        loan.id
+      );
 
       return { loan: updated, schedule: rows };
     });
