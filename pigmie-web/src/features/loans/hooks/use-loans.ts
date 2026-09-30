@@ -100,7 +100,7 @@ export const useRejectLoan = () => {
 export const useDisburseLoan = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => apiClient.post(`/loans/${id}/disburse`).then(r => r.data),
+    mutationFn: (id: string) => apiClient.post(`/loans/${id}/disburse`, { startDate: new Date().toISOString().split('T')[0] }).then(r => r.data),
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['loans'] });
       queryClient.invalidateQueries({ queryKey: ['loans', id] });
