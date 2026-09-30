@@ -74,7 +74,27 @@
     "balance": "Balance",
     "actions": "Actions",
     "notDisbursed": "Not yet disbursed",
-    "view": "View"
+    "view": "View",
+    "details": "Loan Details",
+    "principal": "Principal",
+    "principalAmount": "Principal Amount",
+    "remainingBalance": "Remaining Balance",
+    "interestRate": "Interest Rate",
+    "tenure": "Tenure",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "nextPayment": "Next Payment",
+    "schedule": "Schedule",
+    "collections": "Collections",
+    "documents": "Documents",
+    "approve": "Approve",
+    "disburse": "Disburse",
+    "restructure": "Restructure",
+    "newApplication": "New Loan Application",
+    "selectCustomer": "Select Customer",
+    "selectProduct": "Select Product",
+    "submit": "Submit",
+    "overview": "Overview"
   },
   "customers": {
     "title": "Customers",
@@ -92,6 +112,99 @@
     "name": "Name",
     "contact": "Contact",
     "joinDate": "Join Date",
-    "notSubmittedCaps": "NOT SUBMITTED"
+    "notSubmittedCaps": "NOT SUBMITTED",
+    "details": "Customer Details",
+    "import": "Import",
+    "upload": "Upload",
+    "uploadCsv": "Upload CSV",
+    "loans": "Loans",
+    "kycStatus": "KYC Status",
+    "fullName": "Full Name",
+    "phone": "Phone"
+  },
+  "staff": {
+    "title": "Staff",
+    "addStaff": "Add Staff",
+    "name": "Name",
+    "email": "Email",
+    "role": "Role",
+    "branch": "Branch",
+    "actions": "Actions"
+  },
+  "approvals": {
+    "title": "Approvals",
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "review": "Review"
+  },
+  "reports": {
+    "title": "Reports",
+    "overview": "Overview",
+    "overdue": "Overdue",
+    "overdueLoans": "Overdue Loans",
+    "export": "Export",
+    "collectionEfficiency": "Collection Efficiency",
+    "agentPerformance": "Agent Performance",
+    "branchComparison": "Branch Comparison"
+  },
+  "settings": {
+    "title": "Settings",
+    "save": "Save",
+    "organization": "Organization",
+    "organizationProfile": "Organization Profile",
+    "notifications": "Notifications",
+    "smsConfig": "SMS Config"
+  },
+  "branches": {
+    "title": "Branches",
+    "addBranch": "Add Branch",
+    "address": "Address",
+    "status": "Status"
+  },
+  "deposits": {
+    "title": "Cash Deposits",
+    "recordDeposit": "Record Deposit",
+    "verify": "Verify",
+    "amount": "Amount"
+  },
+  "audit": {
+    "title": "Audit Logs",
+    "action": "Action",
+    "entity": "Entity",
+    "user": "User",
+    "timestamp": "Timestamp"
+  },
+  "loanProducts": {
+    "title": "Loan Products",
+    "newProduct": "New Product",
+    "interestRate": "Interest Rate",
+    "createProduct": "Create Loan Product"
+  },
+  "auth": {
+    "login": "Login",
+    "signIn": "Sign In",
+    "password": "Password",
+    "email": "Email",
+    "forgotPassword": "Forgot Password",
+    "signInGoogle": "Sign in with Google",
+    "createAccount": "Create Account",
+    "orgName": "Organization Name"
+  },
+  "emi": {
+    "title": "EMI Calculator",
+    "monthlyEmi": "Monthly EMI",
+    "totalInterest": "Total Interest",
+    "totalPayable": "Total Payable"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "customers": "Customers",
+    "loans": "Loans",
+    "collections": "Collections",
+    "home": "Home",
+    "collect": "Collect",
+    "more": "More",
+    "date": "Date"
   }
 }

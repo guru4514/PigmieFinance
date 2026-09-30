@@ -1,6 +1,4 @@
 import json
-import os
-import re
 
 en_file = 'pigmie-web/src/shared/locales/en.json'
 hi_file = 'pigmie-web/src/shared/locales/hi.json'
@@ -149,4 +147,4 @@ with open(en_file, 'w', encoding='utf-8') as f:
 with open(hi_file, 'w', encoding='utf-8') as f:
     f.write(json.dumps(hi_data, indent=2, ensure_ascii=False) + '\n')
 
-print("JSON updated")
+print("JSON updated successfully.")

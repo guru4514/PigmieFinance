@@ -334,7 +334,14 @@ export const LoanDetailPage: React.FC = () => {
                       {loan.collections.map((col: any) => (
                         <tr key={col.id} className="hover:bg-muted transition-colors">
                           <td className="py-3 font-mono text-xs text-foreground/80">
-                            {col.receiptNumber || `COL-${col.id.replace(/-/g, '').slice(0, 5).toUpperCase()}`}
+                            <div className="flex items-center gap-2">
+                              {col.photoUrl && (
+                                <a href={col.photoUrl} target="_blank" rel="noopener noreferrer" title="View Collection Photo">
+                                  <img src={col.photoUrl} alt="Photo" className="w-8 h-8 rounded object-cover border border-border" />
+                                </a>
+                              )}
+                              <span>{col.receiptNumber || `COL-${col.id.replace(/-/g, '').slice(0, 5).toUpperCase()}`}</span>
+                            </div>
                           </td>
                           <td className="py-3 text-foreground/80">
                             {col.collectionDate || col.collectedAt

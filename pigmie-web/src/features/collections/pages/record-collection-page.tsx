@@ -23,7 +23,7 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 
 // Mocking these for now until Phase 2 (Offline mode)
-const queueCollection = async () => { /* TODO: Implement offline sync */ };
+const queueCollection = async (_data: any) => { /* TODO: Implement offline sync */ };
 const useOnlineStatus = () => ({ isOnline: navigator.onLine });
 import { supabase } from '@/shared/lib/supabase';
 

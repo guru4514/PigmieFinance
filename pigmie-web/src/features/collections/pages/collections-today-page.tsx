@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { queueCollection, getPendingCount, processSyncQueue } from '@/shared/lib/offline-queue';
 import { useCollectionsToday, useRecordCollection } from '../hooks/use-collections';
 import { Card, CardContent } from '@/shared/components/ui/card';
