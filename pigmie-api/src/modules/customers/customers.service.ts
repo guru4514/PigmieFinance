@@ -152,12 +152,11 @@ export class CustomersService {
 
   async remove(organizationId: string, id: string) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      const customer = await tx.customer.findUnique({ where: { id, organizationId } });
+      const customer = await tx.customer.findFirst({ where: { id, organizationId } });
       if (!customer) throw new NotFoundException('Customer not found');
-
       return tx.customer.update({
-        where: { id, organizationId },
-        data: { isActive: false }
+        where: { id },
+        data: { isActive: false, portalAccessEnabled: false },
       });
     });
   }

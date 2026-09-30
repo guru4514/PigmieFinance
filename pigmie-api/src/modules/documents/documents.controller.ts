@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Param, Body, UseGuards,
+  Controller, Get, Post, Param, Body, UseGuards, Delete,
 } from '@nestjs/common';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -44,5 +44,12 @@ export class DocumentsController {
   ) {
     return this.documentsService.findByEntity(user.organizationId, entityType, entityId);
   }
+  @Delete(':id')
+  @Roles('org_admin', 'branch_manager')
+  async deleteDocument(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.documentsService.delete(user.organizationId, id);
+  }
 }
-

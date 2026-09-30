@@ -77,38 +77,50 @@ export class CashDepositsService {
     });
   }
 
-  async getReconciliation(organizationId: string) {
+  async getReconciliation(organizationId: string, startDate: string, endDate: string) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      const result = await tx.$queryRaw`
-        SELECT
-          s.id as agent_id,
-          s.full_name as agent_name,
-          COALESCE(col_sum.total, 0) as total_collected,
-          COALESCE(dep_sum.total, 0) as total_deposited,
-          COALESCE(col_sum.total, 0) - COALESCE(dep_sum.total, 0) as delta
-        FROM "staff" s
-        LEFT JOIN (
-          SELECT collected_by, SUM(amount) as total
-          FROM "collections"
-          WHERE status IN ('recorded', 'verified') AND organization_id = ${organizationId}::uuid
-          GROUP BY collected_by
-        ) col_sum ON col_sum.collected_by = s.id
-        LEFT JOIN (
-          SELECT agent_id, SUM(amount) as total
-          FROM "cash_deposits"
-          WHERE status = 'verified' AND organization_id = ${organizationId}::uuid
-          GROUP BY agent_id
-        ) dep_sum ON dep_sum.agent_id = s.id
-        WHERE s.organization_id = ${organizationId}::uuid AND s.role = 'agent'
-      `;
-      
-      // Convert BigInts from raw query to strings or numbers
-      return Array.isArray(result) ? result.map((row: any) => ({
-        ...row,
-        total_collected: row.total_collected ? Number(row.total_collected) : 0,
-        total_deposited: row.total_deposited ? Number(row.total_deposited) : 0,
-        delta: row.delta ? Number(row.delta) : 0,
-      })) : result;
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      end.setDate(end.getDate() + 1);
+
+      const agents = await tx.staff.findMany({
+        where: { organizationId, role: 'agent', isActive: true },
+        select: { id: true, fullName: true },
+      });
+
+      return Promise.all(agents.map(async (agent) => {
+        const collections = await tx.collection.aggregate({
+          where: {
+            organizationId,
+            collectedById: agent.id,
+            collectionDate: { gte: start, lt: end },
+            status: { in: ['recorded', 'verified'] },
+          },
+          _sum: { amount: true },
+        });
+
+        const deposits = await tx.cashDeposit.aggregate({
+          where: {
+            organizationId,
+            agentId: agent.id,
+            depositDate: { gte: start, lt: end },
+            status: 'verified',
+          },
+          _sum: { amount: true },
+        });
+
+        const collected = collections._sum.amount?.toNumber() || 0;
+        const deposited = deposits._sum.amount?.toNumber() || 0;
+
+        return {
+          agentId: agent.id,
+          agentName: agent.fullName,
+          totalCollected: collected,
+          totalDeposited: deposited,
+          difference: Math.round((collected - deposited) * 100) / 100,
+          status: collected === deposited ? 'balanced' : 'discrepancy',
+        };
+      }));
     });
   }
 }

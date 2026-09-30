@@ -29,6 +29,16 @@ export class CashDepositsController {
     return this.cashDepositsService.findAll(user.organizationId, query);
   }
 
+  @Get('reconciliation')
+  @Roles('org_admin', 'branch_manager', 'accountant')
+  async getReconciliation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+  ) {
+    return this.cashDepositsService.getReconciliation(user.organizationId, startDate, endDate);
+  }
+
   @Post(':id/verify')
   @HttpCode(HttpStatus.OK)
   @Roles('branch_manager', 'org_admin')
@@ -39,11 +49,5 @@ export class CashDepositsController {
     @Body() dto: VerifyCashDepositDto,
   ) {
     return this.cashDepositsService.verify(user.organizationId, id, user.id, dto);
-  }
-
-  @Get('reconciliation')
-  @Roles('branch_manager', 'org_admin')
-  async getReconciliation(@CurrentUser() user: AuthenticatedUser) {
-    return this.cashDepositsService.getReconciliation(user.organizationId);
   }
 }

@@ -93,4 +93,12 @@ export class DocumentsService {
       });
     });
   }
+
+  async delete(organizationId: string, id: string) {
+    return this.tenantPrisma.run(organizationId, async (tx) => {
+      const doc = await tx.document.findFirst({ where: { id, organizationId } });
+      if (!doc) throw new NotFoundException('Document not found');
+      return tx.document.delete({ where: { id } });
+    });
+  }
 }
