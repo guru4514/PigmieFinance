@@ -1,6 +1,7 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EmailService } from '../email/email.service';
 import { CreateLoanDto } from './dto/create-loan.dto';
 import { QueryLoanDto } from './dto/query-loan.dto';
 import { RestructureLoanDto } from './dto/restructure-loan.dto';
@@ -10,9 +11,12 @@ import * as crypto from 'crypto';
 
 @Injectable()
 export class LoansService {
+  private readonly logger = new Logger(LoansService.name);
+
   constructor(
     private tenantPrisma: TenantPrismaService,
-    private notificationsService: NotificationsService
+    private notificationsService: NotificationsService,
+    private emailService: EmailService,
   ) {}
 
   async create(organizationId: string, staffId: string, dto: CreateLoanDto) {
@@ -136,7 +140,10 @@ export class LoansService {
 
   async approve(organizationId: string, id: string, staffId: string) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      const loan = await tx.loan.findFirstOrThrow({ where: { id, organizationId } });
+      const loan = await tx.loan.findFirstOrThrow({ 
+        where: { id, organizationId },
+        include: { customer: true }
+      });
       if (loan.status !== 'pending_approval') {
         throw new BadRequestException('Loan is not pending approval');
       }
@@ -160,6 +167,18 @@ export class LoansService {
           'loan',
           loan.id
         );
+      }
+
+      try {
+        if (loan.customer.email) {
+          await this.emailService.sendLoanApproved(
+            loan.customer.email,
+            loan.loanCode,
+            loan.customer.fullName
+          );
+        }
+      } catch (e) {
+        this.logger.warn('Email send failed', e);
       }
 
       return updatedLoan;
@@ -186,7 +205,7 @@ export class LoansService {
     return this.tenantPrisma.run(organizationId, async (tx) => {
       const loan = await tx.loan.findFirstOrThrow({
         where: { id: loanId, organizationId, status: 'approved' },
-        include: { loanProduct: true },
+        include: { loanProduct: true, customer: true },
       });
 
       const rows = generateSchedule({
@@ -236,6 +255,19 @@ export class LoansService {
           'loan',
           loan.id
         );
+      }
+
+      try {
+        if (loan.customer.email) {
+          await this.emailService.sendLoanDisbursed(
+            loan.customer.email,
+            loan.loanCode,
+            loan.principalAmount.toString(),
+            loan.customer.fullName
+          );
+        }
+      } catch (e) {
+        this.logger.warn('Email send failed', e);
       }
 
       return { loan: updated, schedule: rows };

@@ -26,6 +26,7 @@ import { CashDepositsModule } from './modules/cash-deposits/cash-deposits.module
 import { JobsModule } from './modules/jobs/jobs.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { ApprovalsModule } from './modules/approvals/approvals.module';
+import { EmailModule } from './modules/email/email.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { ApprovalsModule } from './modules/approvals/approvals.module';
     JobsModule,
     AuditLogsModule,
     ApprovalsModule,
+    EmailModule,
   ],
   providers: [
     {

@@ -1,15 +1,19 @@
-import { Injectable, BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EmailService } from '../email/email.service';
 import { CreateCollectionDto, QueryCollectionDto } from './dto/collection.dto';
 import { Prisma } from '@prisma/client';
 import PDFDocument = require('pdfkit');
 
 @Injectable()
 export class CollectionsService {
+  private readonly logger = new Logger(CollectionsService.name);
+
   constructor(
     private tenantPrisma: TenantPrismaService,
     private prisma: PrismaService,
+    private emailService: EmailService,
   ) {}
 
   async getDueToday(organizationId: string, user: any, date?: string) {
@@ -77,7 +81,7 @@ export class CollectionsService {
       // Validate loan exists and is active
       const loan = await tx.loan.findFirst({
         where: { id: dto.loanId, organizationId, status: 'active' },
-        include: { customer: { select: { id: true } } },
+        include: { customer: { select: { id: true, email: true, fullName: true } } },
       });
       if (!loan) {
         throw new BadRequestException('Loan not found or not in active status');
@@ -115,6 +119,19 @@ export class CollectionsService {
 
       // Apply collection to schedule — oldest-due-first
       await this.applyToSchedule(tx, dto.loanId, dto.amount);
+
+      try {
+        if (loan.customer.email) {
+          await this.emailService.sendPaymentConfirmation(
+            loan.customer.email,
+            dto.amount.toString(),
+            receiptNumber,
+            loan.customer.fullName
+          );
+        }
+      } catch (e) {
+        this.logger.warn('Email send failed', e);
+      }
 
       return { status: 'created', collection };
     });
