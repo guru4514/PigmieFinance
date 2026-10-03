@@ -8,8 +8,10 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@
 import { openWhatsApp, generateReminderMessage } from '@/shared/lib/whatsapp';
 
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export function ReportsPage() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'par' | 'collections' | 'agents'>('par');
   
   const exportReport = useExportReport();
@@ -146,7 +148,7 @@ export function ReportsPage() {
         {activeTab === 'collections' && (
           <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle className="text-foreground">Collection Efficiency</CardTitle>
+              <CardTitle className="text-foreground"> {t('reports.collectionEfficiency')} </CardTitle>
             </CardHeader>
             <CardContent>
               {collectionsQuery.isLoading ? (
@@ -192,7 +194,7 @@ export function ReportsPage() {
         {activeTab === 'agents' && (
           <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle className="text-foreground">Agent Performance</CardTitle>
+              <CardTitle className="text-foreground"> {t('reports.agentPerformance')} </CardTitle>
             </CardHeader>
             <CardContent>
               {agentsQuery.isLoading ? (

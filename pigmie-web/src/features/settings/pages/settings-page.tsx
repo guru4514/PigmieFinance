@@ -15,6 +15,7 @@ import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
 import { Switch } from '@/shared/components/ui/switch';
 import { useAuth } from '@/shared/hooks/use-auth';
 import { RoleGate } from '@/shared/components/auth/role-gate';
+import { useTranslation } from 'react-i18next';
 
 const organizationSchema = z.object({
   name: z.string().min(2, 'Organization name is required'),
@@ -25,6 +26,7 @@ const organizationSchema = z.object({
 type OrganizationFormValues = z.infer<typeof organizationSchema>;
 
 export function SettingsPage() {
+  const { t } = useTranslation();
   useAuth();
   const [activeTab, setActiveTab] = useState<'organization' | 'notifications' | 'security'>('organization');
   const queryClient = useQueryClient();
@@ -125,7 +127,7 @@ export function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Settings</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground"> {t('settings.title')} </h1>
         <p className="text-muted-foreground mt-2">
           Manage your platform preferences and configuration.
         </p>
@@ -165,7 +167,7 @@ export function SettingsPage() {
           {activeTab === 'organization' && (
             <Card className="border-border bg-card backdrop-blur-xl">
               <CardHeader>
-                <CardTitle>Organization Profile</CardTitle>
+                <CardTitle> {t('settings.organizationProfile')} </CardTitle>
                 <CardDescription>
                   Update your company details and basic information.
                 </CardDescription>
@@ -221,7 +223,7 @@ export function SettingsPage() {
           {activeTab === 'notifications' && (
             <Card className="border-border bg-card backdrop-blur-xl">
               <CardHeader>
-                <CardTitle>Notifications</CardTitle>
+                <CardTitle> {t('settings.notifications')} </CardTitle>
                 <CardDescription>
                   Configure how you receive alerts and updates.
                 </CardDescription>

@@ -9,8 +9,10 @@ import { Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
 import { Button } from '@/shared/components/ui/button';
 import { Textarea } from '@/shared/components/ui/textarea';
+import { useTranslation } from 'react-i18next';
 
 export function ApprovalsPage() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('pending');
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [reviewNote, setReviewNote] = useState('');
@@ -73,15 +75,15 @@ export function ApprovalsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Approvals</h1>
+        <h1 className="text-2xl font-semibold text-foreground"> {t('approvals.title')} </h1>
         <p className="text-sm text-muted-foreground">Manage pending requests for sensitive actions</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full max-w-md grid-cols-3">
-          <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="approved">Approved</TabsTrigger>
-          <TabsTrigger value="rejected">Rejected</TabsTrigger>
+          <TabsTrigger value="pending"> {t('approvals.pending')} </TabsTrigger>
+          <TabsTrigger value="approved"> {t('approvals.approved')} </TabsTrigger>
+          <TabsTrigger value="rejected"> {t('approvals.rejected')} </TabsTrigger>
         </TabsList>
 
         <div className="mt-6">

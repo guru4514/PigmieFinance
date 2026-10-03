@@ -10,6 +10,7 @@ import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { ArrowLeft, UserPlus } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 const staffSchema = z.object({
   fullName: z.string().min(2, 'Name is required'),
@@ -20,6 +21,7 @@ const staffSchema = z.object({
 type StaffFormValues = z.infer<typeof staffSchema>;
 
 export function StaffFormPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const createStaff = useCreateStaff();
 
@@ -59,7 +61,7 @@ export function StaffFormPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name</Label>
+                <Label htmlFor="fullName"> {t('customers.fullName')} </Label>
                 <Input 
                   id="fullName" 
                   {...register('fullName')} 
@@ -82,7 +84,7 @@ export function StaffFormPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
+                <Label htmlFor="role"> {t('staff.role')} </Label>
                 <Select onValueChange={(val: any) => setValue('role', val)}>
                   <SelectTrigger className="bg-muted border-border">
                     <SelectValue placeholder="Select role" />

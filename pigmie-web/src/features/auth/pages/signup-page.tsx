@@ -8,8 +8,10 @@ import { supabase } from '@/shared/lib/supabase';
 import { apiClient } from '@/shared/lib/api-client';
 
 import { GoogleIcon } from '@/shared/components/icons/google-icon';
+import { useTranslation } from 'react-i18next';
 
 export function SignupPage() {
+  const { t } = useTranslation();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -146,7 +148,7 @@ export function SignupPage() {
               <form onSubmit={handleStep2} className="space-y-4">
                 {errorMsg && <div className="text-red-500 text-sm font-medium">{errorMsg}</div>}
                 <div className="space-y-2">
-                  <Label htmlFor="orgName">Organization Name</Label>
+                  <Label htmlFor="orgName"> {t('auth.orgName')} </Label>
                   <div className="relative">
                     <Building2 className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input id="orgName" value={orgName} onChange={e => setOrgName(e.target.value)} placeholder="Acme Finance Ltd" required className="pl-9 bg-background/50" />

@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, Save, User, Shield, Users } from 'lucide-react';
 import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
 import { useNavigate, Link, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 const customerSchema = z.object({
   fullName: z.string().min(2, 'Full name is required'),
@@ -27,6 +28,7 @@ const customerSchema = z.object({
 type CustomerFormValues = z.infer<typeof customerSchema>;
 
 export const CustomerFormPage = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const isEditMode = !!id;
@@ -187,7 +189,7 @@ export const CustomerFormPage = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground/80">Address</label>
+              <label className="text-sm font-medium text-foreground/80"> {t('branches.address')} </label>
               <Input 
                 {...register('address')}
                 className="bg-muted border-border text-foreground" 

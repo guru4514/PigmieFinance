@@ -3,11 +3,13 @@ import { apiClient } from '@/shared/lib/api-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
+import { useTranslation } from 'react-i18next';
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
 
 export function BranchComparisonPage() {
+  const { t } = useTranslation();
   const { data, isLoading } = useQuery({
     queryKey: ['branch-comparison'],
     queryFn: async () => {
@@ -33,7 +35,7 @@ export function BranchComparisonPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">Branch Comparison</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2"> {t('reports.branchComparison')} </h1>
         <p className="text-muted-foreground">Compare performance metrics across branches</p>
       </div>
 

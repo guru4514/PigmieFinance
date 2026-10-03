@@ -15,11 +15,13 @@ import { apiClient } from '@/shared/lib/api-client';
 import { toast } from 'sonner';
 import { openWhatsApp, generateReceiptMessage } from '@/shared/lib/whatsapp';
 import { ReceiptModal, ReceiptCollection } from '@/features/collections/components/receipt-modal';
+import { useTranslation } from 'react-i18next';
 
 type Tab = 'overview' | 'schedule' | 'collections' | 'documents';
 
 export const LoanDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { t } = useTranslation();
   const { data: loanResponse, isLoading: loading } = useLoanDetails(id || '');
   const loan = loanResponse;
   
@@ -228,31 +230,31 @@ export const LoanDetailPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="md:col-span-2 border-border bg-card backdrop-blur-xl">
               <CardHeader>
-                <CardTitle className="text-foreground text-lg">Loan Details</CardTitle>
+                <CardTitle className="text-foreground text-lg"> {t('loans.details')} </CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-y-6 gap-x-4">
                 <div>
-                  <p className="text-sm text-muted-foreground">Principal Amount</p>
+                  <p className="text-sm text-muted-foreground"> {t('loans.principalAmount')} </p>
                   <p className="text-xl font-semibold text-foreground">₹{(loan.principalAmount ?? loan.amount ?? 0).toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Remaining Balance</p>
+                  <p className="text-sm text-muted-foreground"> {t('loans.remainingBalance')} </p>
                   <p className="text-xl font-semibold text-foreground">₹{(loan.remainingBalance ?? 0).toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Interest Rate</p>
+                  <p className="text-sm text-muted-foreground"> {t('loans.interestRate')} </p>
                   <p className="text-lg font-medium text-foreground">{loan.loanProduct?.interestRateAnnual}% p.a.</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Tenure</p>
+                  <p className="text-sm text-muted-foreground"> {t('loans.tenure')} </p>
                   <p className="text-lg font-medium text-foreground">{loan.tenure} Installments</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Start Date</p>
+                  <p className="text-sm text-muted-foreground"> {t('loans.startDate')} </p>
                   <p className="text-base text-foreground">{loan.startDate ? new Date(loan.startDate).toLocaleDateString() : 'N/A'}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">End Date</p>
+                  <p className="text-sm text-muted-foreground"> {t('loans.endDate')} </p>
                   <p className="text-base text-foreground">{loan.endDate ? new Date(loan.endDate).toLocaleDateString() : 'N/A'}</p>
                 </div>
               </CardContent>
@@ -260,7 +262,7 @@ export const LoanDetailPage: React.FC = () => {
 
             <Card className="border-border bg-card backdrop-blur-xl">
               <CardHeader>
-                <CardTitle className="text-foreground text-lg">Next Payment</CardTitle>
+                <CardTitle className="text-foreground text-lg"> {t('loans.nextPayment')} </CardTitle>
               </CardHeader>
               <CardContent>
                 {loan.nextPaymentDate ? (

@@ -6,8 +6,10 @@ import { Input } from '../../../shared/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../../../shared/components/ui/card';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { GoogleIcon } from '@/shared/components/icons/google-icon';
+import { useTranslation } from 'react-i18next';
 
 export function LoginPage() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -104,7 +106,7 @@ export function LoginPage() {
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-foreground/80">Password</label>
+                <label className="text-sm font-medium text-foreground/80"> {t('auth.password')} </label>
                 <button 
                   type="button"
                   onClick={async () => {

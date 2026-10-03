@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ShieldAlert, Search } from 'lucide-react';
 import { apiClient as api } from '@/shared/lib/api-client';
+import { useTranslation } from 'react-i18next';
 
 export function AuditLogsPage() {
+  const { t } = useTranslation();
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionFilter, setActionFilter] = useState('');
@@ -85,7 +87,7 @@ export function AuditLogsPage() {
               <tr>
                 <th className="px-4 py-3 rounded-tl-lg">Date</th>
                 <th className="px-4 py-3">Actor</th>
-                <th className="px-4 py-3">Action</th>
+                <th className="px-4 py-3"> {t('audit.action')} </th>
                 <th className="px-4 py-3">Entity Type</th>
                 <th className="px-4 py-3">Old Value</th>
                 <th className="px-4 py-3 rounded-tr-lg">New Value</th>

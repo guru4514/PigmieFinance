@@ -14,6 +14,7 @@ import * as z from 'zod';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useAuth } from '@/shared/hooks/use-auth';
+import { useTranslation } from 'react-i18next';
 
 interface CashDeposit {
   id: string;
@@ -39,6 +40,7 @@ const depositSchema = z.object({
 type DepositFormValues = z.infer<typeof depositSchema>;
 
 export function CashDepositsPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const userRole = user?.userType === 'staff' ? user.role : null;
   const isAdmin = userRole === 'org_admin' || userRole === 'branch_manager' || userRole === 'accountant';
@@ -95,7 +97,7 @@ export function CashDepositsPage() {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Cash Deposits</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground"> {t('deposits.title')} </h1>
           <p className="text-muted-foreground">Manage and verify daily cash handovers</p>
         </div>
         {!isAdmin && (
@@ -134,7 +136,7 @@ export function CashDepositsPage() {
               <TableRow className="border-border hover:bg-transparent">
                 <TableHead>Date</TableHead>
                 {isAdmin && <TableHead>Agent</TableHead>}
-                <TableHead>Amount</TableHead>
+                <TableHead> {t('deposits.amount')} </TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -199,7 +201,7 @@ export function CashDepositsPage() {
           </DialogHeader>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Amount</label>
+              <label className="text-sm font-medium"> {t('deposits.amount')} </label>
               <Input
                 type="number"
                 {...register('amount', { valueAsNumber: true })}

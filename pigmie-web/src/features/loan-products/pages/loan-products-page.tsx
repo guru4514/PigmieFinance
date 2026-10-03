@@ -9,6 +9,7 @@ import { Plus, Percent, Clock, DollarSign } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
 import { Input } from '@/shared/components/ui/input';
 import { RoleGate } from '@/shared/components/auth/role-gate';
+import { useTranslation } from 'react-i18next';
 
 const ProductCard = ({ product }: { product: any }) => {
   const [showEdit, setShowEdit] = useState(false);
@@ -120,6 +121,7 @@ const ProductCard = ({ product }: { product: any }) => {
 };
 
 export const LoanProductsPage = () => {
+  const { t } = useTranslation();
   const { data: productsResponse, isLoading } = useLoanProducts();
   const products = productsResponse?.data || [];
 
@@ -135,7 +137,7 @@ export const LoanProductsPage = () => {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Loan Products</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground"> {t('loanProducts.title')} </h1>
           <p className="text-muted-foreground mt-1 text-muted-foreground">Manage available loan products and terms.</p>
         </div>
         <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>

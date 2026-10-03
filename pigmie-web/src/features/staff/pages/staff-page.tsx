@@ -19,6 +19,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Input } from '@/shared/components/ui/input';
+import { useTranslation } from 'react-i18next';
 
 const roleIcons: Record<string, React.ElementType> = {
   org_admin: Shield,
@@ -34,6 +35,7 @@ const statusColors: Record<StaffStatus, 'default' | 'secondary' | 'destructive' 
 };
 
 function StaffRowActions({ member }: { member: StaffMember }) {
+  const { t } = useTranslation();
   const updateStaff = useUpdateStaff();
   const deleteStaff = useDeleteStaff();
   
@@ -144,7 +146,7 @@ function StaffRowActions({ member }: { member: StaffMember }) {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground/80">Email</label>
+              <label className="text-sm font-medium text-foreground/80"> {t('staff.email')} </label>
               <Input 
                 type="email"
                 value={profileForm.email} 
@@ -166,6 +168,7 @@ function StaffRowActions({ member }: { member: StaffMember }) {
 }
 
 export function StaffPage() {
+  const { t } = useTranslation();
   const { data: staffResponse, isLoading, error } = useStaff();
   const staff = staffResponse?.data || [];
 
@@ -222,8 +225,8 @@ export function StaffPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="border-border hover:bg-muted">
-                    <TableHead>Name</TableHead>
-                    <TableHead>Role</TableHead>
+                    <TableHead> {t('staff.name')} </TableHead>
+                    <TableHead> {t('staff.role')} </TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Joined</TableHead>
                     <TableHead className="w-[50px]"></TableHead>

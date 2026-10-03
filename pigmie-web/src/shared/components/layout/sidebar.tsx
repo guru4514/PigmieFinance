@@ -69,6 +69,7 @@ const navGroups: NavGroup[] = [
 ];
 
 export function Sidebar() {
+  const { t } = useTranslation();
   useTranslation('common');
   const { user } = useAuth();
   const { sidebarOpen, setSidebarOpen } = useUIStore();
@@ -171,7 +172,7 @@ export function Sidebar() {
                     >
                       <div className="flex items-center gap-3">
                         <item.icon className="w-4 h-4" />
-                        {item.title}
+                        {t(item.translationKey) || item.title}
                       </div>
                       {item.title === 'Approvals' && pendingApprovals > 0 && (
                         <span className="bg-red-500 text-foreground text-[10px] font-bold px-2 py-0.5 rounded-full">

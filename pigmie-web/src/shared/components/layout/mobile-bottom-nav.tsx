@@ -21,8 +21,10 @@ import {
 import { cn } from '@/shared/lib/utils';
 import { useAuth } from '@/shared/hooks/use-auth';
 import { supabase } from '@/shared/lib/supabase';
+import { useTranslation } from 'react-i18next';
 
 export function MobileBottomNav() {
+  const { t } = useTranslation();
   const [moreOpen, setMoreOpen] = useState(false);
   const { user } = useAuth();
   
@@ -33,10 +35,10 @@ export function MobileBottomNav() {
   };
 
   const mainTabs = [
-    { title: 'Home', href: '/app/dashboard', icon: LayoutDashboard },
-    { title: 'Customers', href: '/app/customers', icon: Users },
-    { title: 'Collect', href: '/app/collections/today', icon: Banknote, isPrimary: true },
-    { title: 'Loans', href: '/app/loans', icon: CreditCard },
+    { title: t('nav.home'), href: '/app/dashboard', icon: LayoutDashboard },
+    { title: t('nav.customers'), href: '/app/customers', icon: Users },
+    { title: t('nav.collect'), href: '/app/collections/today', icon: Banknote, isPrimary: true },
+    { title: t('nav.loans'), href: '/app/loans', icon: CreditCard },
   ];
 
   const moreItems = [

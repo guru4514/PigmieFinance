@@ -9,6 +9,7 @@ import { Input } from '@/shared/components/ui/input';
 import { ArrowLeft, Save } from 'lucide-react';
 import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
 import { useCreateLoanProduct } from '../hooks/use-loan-products';
+import { useTranslation } from 'react-i18next';
 
 const productSchema = z.object({
   name: z.string().min(2, 'Name is required'),
@@ -25,6 +26,7 @@ const productSchema = z.object({
 type ProductFormValues = z.infer<typeof productSchema>;
 
 export const NewLoanProductPage = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const createProduct = useCreateLoanProduct();
   
@@ -61,7 +63,7 @@ export const NewLoanProductPage = () => {
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">Create Loan Product</h1>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight"> {t('loanProducts.createProduct')} </h1>
           <p className="text-sm text-muted-foreground mt-1">Configure terms for a new loan offering.</p>
         </div>
       </div>

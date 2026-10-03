@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient as api } from '@/shared/lib/api-client';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 interface CustomerCSVRow {
   fullName: string;
@@ -16,6 +17,7 @@ interface CustomerCSVRow {
 }
 
 export const ImportCustomersPage = () => {
+  const { t } = useTranslation();
   const [data, setData] = useState<CustomerCSVRow[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [isParsing, setIsParsing] = useState(false);
@@ -75,7 +77,7 @@ export const ImportCustomersPage = () => {
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Import Customers</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground"> {t('customers.import')} </h1>
         <p className="text-muted-foreground mt-1 text-muted-foreground">Upload a CSV file to bulk import customers.</p>
       </div>
 

@@ -13,8 +13,10 @@ import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { SmsDialog } from '../components/sms-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/shared/components/ui/dialog';
 import { useAuth } from '@/shared/hooks/use-auth';
+import { useTranslation } from 'react-i18next';
 
 export const CustomerDetailPage = () => {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -222,7 +224,7 @@ export const CustomerDetailPage = () => {
             <RoleGate allowedRoles={['org_admin', 'branch_manager']}>
               <Card className="bg-card border-border">
                 <CardHeader>
-                  <CardTitle className="text-lg text-foreground">KYC Status</CardTitle>
+                  <CardTitle className="text-lg text-foreground"> {t('customers.kycStatus')} </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">

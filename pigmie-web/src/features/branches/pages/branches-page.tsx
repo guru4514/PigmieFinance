@@ -13,6 +13,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { toast } from 'sonner';
 import { RoleGate } from '@/shared/components/auth/role-gate';
+import { useTranslation } from 'react-i18next';
 
 interface Branch {
   id: string;
@@ -30,6 +31,7 @@ const branchSchema = z.object({
 type BranchFormValues = z.infer<typeof branchSchema>;
 
 export function BranchesPage() {
+  const { t } = useTranslation();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
   const queryClient = useQueryClient();
@@ -100,7 +102,7 @@ export function BranchesPage() {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Branches</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground"> {t('branches.title')} </h1>
           <p className="text-muted-foreground">Manage your organization's branches</p>
         </div>
         <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
@@ -116,10 +118,10 @@ export function BranchesPage() {
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
-                <TableHead>Name</TableHead>
-                <TableHead>Address</TableHead>
+                <TableHead> {t('staff.name')} </TableHead>
+                <TableHead> {t('branches.address')} </TableHead>
                 <TableHead>Staff Count</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead> {t('branches.status')} </TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -187,7 +189,7 @@ export function BranchesPage() {
               {errors.name && <p className="text-sm text-rose-500">{errors.name.message}</p>}
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Address</label>
+              <label className="text-sm font-medium"> {t('branches.address')} </label>
               <Input
                 {...register('address')}
                 placeholder="Full address"

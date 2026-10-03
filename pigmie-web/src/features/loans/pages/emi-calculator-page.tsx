@@ -3,8 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/sha
 import { Input } from '@/shared/components/ui/input';
 import { Calculator } from 'lucide-react';
 import { calculateEMI, InterestType, CollectionFrequency, TenurePeriod } from '../utils/emi-calculator';
+import { useTranslation } from 'react-i18next';
 
 export const EMICalculatorPage: React.FC = () => {
+  const { t } = useTranslation();
   const [principal, setPrincipal] = useState<number>(10000);
   const [interestRate, setInterestRate] = useState<number>(12);
   const [tenure, setTenure] = useState<number>(12);
@@ -34,7 +36,7 @@ export const EMICalculatorPage: React.FC = () => {
           <Calculator className="h-6 w-6 text-indigo-400" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">EMI Calculator</h1>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight"> {t('emi.title')} </h1>
           <p className="text-sm text-muted-foreground mt-1">Preview loan repayment schedule based on terms.</p>
         </div>
       </div>
@@ -123,13 +125,13 @@ export const EMICalculatorPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="bg-card border-border backdrop-blur-sm">
               <CardContent className="p-6">
-                <div className="text-sm font-medium text-muted-foreground">Total Payable</div>
+                <div className="text-sm font-medium text-muted-foreground"> {t('emi.totalPayable')} </div>
                 <div className="text-2xl font-bold text-foreground mt-2">{formatCurrency(result.totalPayable)}</div>
               </CardContent>
             </Card>
             <Card className="bg-card border-border backdrop-blur-sm">
               <CardContent className="p-6">
-                <div className="text-sm font-medium text-muted-foreground">Total Interest</div>
+                <div className="text-sm font-medium text-muted-foreground"> {t('emi.totalInterest')} </div>
                 <div className="text-2xl font-bold text-indigo-400 mt-2">{formatCurrency(result.totalInterest)}</div>
               </CardContent>
             </Card>
