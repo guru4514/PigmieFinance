@@ -28,64 +28,81 @@ export class ScheduledTasksService {
   }
 
   private async runOverdueDetection(organizationId: string) {
-    await this.tenantPrisma.run(organizationId, async (tx) => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-      // 1. Find pending/partially_paid schedule rows where dueDate < today
-      const overdueRows = await tx.loanSchedule.findMany({
-        where: {
-          loan: { organizationId, status: 'active' },
-          dueDate: { lt: today },
-          status: { in: ['pending', 'partially_paid'] },
-        },
-        include: { loan: { include: { loanProduct: true } } },
-      });
-
-      // 2. Mark as overdue + apply late fees
-      for (const row of overdueRows) {
-        const product = row.loan.loanProduct;
-        let lateFee = 0;
-
-        if (product.lateFeeValue && product.lateFeeValue.toNumber() > 0) {
-          if (product.lateFeeType === 'flat') {
-            lateFee = product.lateFeeValue.toNumber();
-          } else if (product.lateFeeType === 'percentage') {
-            lateFee = row.dueAmount.toNumber() * (product.lateFeeValue.toNumber() / 100);
-          }
-          lateFee = Math.round(lateFee * 100) / 100;
-        }
-
-        await tx.loanSchedule.update({
-          where: { id: row.id },
-          data: {
-            status: 'overdue',
-            ...(lateFee > 0 ? { dueAmount: { increment: lateFee } } : {}),
-          },
-        });
-      }
-
-      // 3. Default loans with 90+ days overdue
-      const defaultThresholdDays = 90;
-      const thresholdDate = new Date(today);
-      thresholdDate.setDate(thresholdDate.getDate() - defaultThresholdDays);
-
-      const loansToDefault = await tx.loan.findMany({
-        where: {
-          organizationId,
-          status: 'active',
-          schedule: { some: { status: 'overdue', dueDate: { lt: thresholdDate } } },
-        },
-      });
-
-      for (const loan of loansToDefault) {
-        await tx.loan.update({
-          where: { id: loan.id },
-          data: { status: 'defaulted' },
-        });
-      }
-
-      this.logger.log(`Org ${organizationId}: ${overdueRows.length} rows overdue, ${loansToDefault.length} loans defaulted`);
+    // Step 1: Bulk mark overdue (no transaction needed — single atomic updateMany)
+    const overdueResult = await this.prisma.loanSchedule.updateMany({
+      where: {
+        loan: { organizationId, status: 'active' },
+        dueDate: { lt: today },
+        status: { in: ['pending', 'partially_paid'] },
+      },
+      data: { status: 'overdue' },
     });
+
+    // Step 2: Apply late fees — only for rows that need it
+    // Fetch products with late fees configured
+    const productsWithFees = await this.prisma.loanProduct.findMany({
+      where: {
+        organizationId,
+        lateFeeValue: { gt: 0 },
+      },
+      select: { id: true, lateFeeType: true, lateFeeValue: true },
+    });
+
+    if (productsWithFees.length > 0) {
+      // For flat fees, we can batch by product
+      for (const product of productsWithFees) {
+        if (product.lateFeeType === 'flat' && product.lateFeeValue) {
+          await this.prisma.loanSchedule.updateMany({
+            where: {
+              loan: { organizationId, loanProductId: product.id, status: 'active' },
+              status: 'overdue',
+              dueDate: { lt: today },
+            },
+            data: {
+              dueAmount: { increment: product.lateFeeValue.toNumber() },
+            },
+          });
+        }
+        // For percentage fees, we need to handle individually (less common)
+        // but outside a single transaction to avoid timeouts
+        if (product.lateFeeType === 'percentage' && product.lateFeeValue) {
+          const rows = await this.prisma.loanSchedule.findMany({
+            where: {
+              loan: { organizationId, loanProductId: product.id, status: 'active' },
+              status: 'overdue',
+              dueDate: { lt: today },
+            },
+            select: { id: true, dueAmount: true },
+          });
+          for (const row of rows) {
+            const fee = Math.round(row.dueAmount.toNumber() * (product.lateFeeValue.toNumber() / 100) * 100) / 100;
+            if (fee > 0) {
+              await this.prisma.loanSchedule.update({
+                where: { id: row.id },
+                data: { dueAmount: { increment: fee } },
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Step 3: Default loans with 90+ days overdue
+    const thresholdDate = new Date(today);
+    thresholdDate.setDate(thresholdDate.getDate() - 90);
+
+    const defaultResult = await this.prisma.loan.updateMany({
+      where: {
+        organizationId,
+        status: 'active',
+        schedule: { some: { status: 'overdue', dueDate: { lt: thresholdDate } } },
+      },
+      data: { status: 'defaulted' },
+    });
+
+    this.logger.log(`Org ${organizationId}: ${overdueResult.count} rows overdue, ${defaultResult.count} loans defaulted`);
   }
 }
