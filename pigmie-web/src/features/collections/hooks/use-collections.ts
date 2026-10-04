@@ -35,6 +35,8 @@ export function useRecordCollection(loanId?: string) {
         queryClient.invalidateQueries({ queryKey: ['loans', loanId] });
       }
       queryClient.invalidateQueries({ queryKey: ['collections'] });
+      queryClient.invalidateQueries({ queryKey: ['collections', 'due-today'] });
+      queryClient.invalidateQueries({ queryKey: ['reports', 'dashboard-summary'] });
     },
   });
 }

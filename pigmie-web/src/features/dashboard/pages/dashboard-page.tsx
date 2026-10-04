@@ -108,21 +108,15 @@ export function DashboardPage() {
                 </TableRow>
               ) : (
                 dueCollections.slice(0, 5).map((loan: any) => {
-                  const hasDueItems = loan.dueItems && loan.dueItems.length > 0;
-                  const amountDue = hasDueItems ? loan.dueItems.reduce((acc: number, item: any) => acc + Number(item.remaining), 0) : 0;
+                  const amountDue = loan.todayExpected || loan.totalRemaining || 0;
                   
-                  let statusLabel = 'N/A';
-                  let statusColor = 'text-muted-foreground';
+                  let statusLabel = t('dashboard.pending');
+                  let statusColor = 'text-amber-500';
                   
-                  if (hasDueItems) {
-                    if (amountDue <= 0) {
-                      statusLabel = t('dashboard.collected');
-                      statusColor = 'text-emerald-500';
-                    } else {
-                      statusLabel = t('dashboard.pending');
-                      statusColor = 'text-amber-500';
-                    }
-                  } else {
+                  if (loan.visitedToday) {
+                    statusLabel = t('dashboard.collected');
+                    statusColor = 'text-emerald-500';
+                  } else if (amountDue <= 0) {
                     statusLabel = t('dashboard.noDue');
                     statusColor = 'text-muted-foreground';
                   }

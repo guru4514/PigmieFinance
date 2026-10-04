@@ -289,18 +289,25 @@ export function CollectionsTodayPage() {
   
   const collections = useMemo(() => {
     return collectionsRaw.map((loan: any) => {
-      const amountDue = loan.dueItems?.reduce((acc: number, item: any) => acc + Number(item.remaining), 0) || 0;
-      const totalPaid = loan.dueItems?.reduce((acc: number, item: any) => acc + Number(item.paidAmount || 0), 0) || 0;
       return {
         id: loan.loanId,
         loanId: loan.loanId,
         customerName: loan.customer?.fullName,
         phone: loan.customer?.phone,
         location: loan.customer?.address || 'N/A',
-        amountDue: Math.round(amountDue * 100) / 100,
-        totalPaid: Math.round(totalPaid * 100) / 100,
-        status: amountDue <= 0 ? 'collected' : 'pending',
-        daysOverdue: 0,
+        // Today's expected installment only
+        todayExpected: loan.todayExpected || 0,
+        // Overdue from past days
+        overdueAmount: loan.overdueAmount || 0,
+        // Total remaining (today + overdue) — shown on the card
+        amountDue: loan.totalRemaining || 0,
+        // Amount actually collected TODAY
+        collectedToday: loan.collectedToday || 0,
+        // Whether agent visited (collected anything) today
+        visitedToday: loan.visitedToday || false,
+        // Mark as collected if nothing remaining for today
+        status: (loan.totalRemaining || 0) <= 0 ? 'collected' : 'pending',
+        daysOverdue: loan.overdueAmount > 0 ? 1 : 0,
       };
     });
   }, [collectionsRaw]);
@@ -332,17 +339,18 @@ export function CollectionsTodayPage() {
     );
   }
 
-  // "Visited" = customers where ANY payment made (partial counts), not just fully paid
-  const collectedCount = collections.filter((c: any) => c.totalPaid > 0).length;
+  // Stats — all based on TODAY's data only
   const totalCount = collections.length;
-  // "Due" = total remaining to collect (amountDue only, NOT + totalPaid)
-  const totalDue = collections.reduce((sum: number, c: any) => sum + (c.amountDue || 0), 0);
-  // "Collected" = totalPaid on these schedule items (matches what agents collected against these dues)
-  const collectedAmount = collections.reduce((sum: number, c: any) => sum + (c.totalPaid || 0), 0);
-  const remainingCount = totalCount - collectedCount;
-  // Progress = collected / (due + collected) to show % of original target achieved
-  const totalTarget = totalDue + collectedAmount;
-  const progressPercent = totalTarget > 0 ? Math.round((collectedAmount / totalTarget) * 100) : 0;
+  // "Due" = today's expected installments only (not overdue from past)
+  const totalDueToday = collections.reduce((sum: number, c: any) => sum + (c.todayExpected || 0), 0);
+  // "Collected" = amount actually collected today
+  const collectedAmount = collections.reduce((sum: number, c: any) => sum + (c.collectedToday || 0), 0);
+  // "Visited" = customers where agent collected today
+  const visitedCount = collections.filter((c: any) => c.visitedToday).length;
+  // "Left" = customers NOT visited today
+  const leftCount = totalCount - visitedCount;
+  // Progress = collected today / today's expected
+  const progressPercent = totalDueToday > 0 ? Math.round((collectedAmount / totalDueToday) * 100) : 0;
 
   const isToday = selectedDate === new Date().toISOString().split('T')[0];
   const dateLabel = isToday ? 'Today' : new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
@@ -385,7 +393,7 @@ export function CollectionsTodayPage() {
             <CardContent className="p-3 text-center">
               <IndianRupee className="w-5 h-5 mx-auto mb-1 text-blue-500" />
               <p className="text-xs text-muted-foreground mb-0.5">{t('collection.due')}</p>
-              <p className="text-sm font-bold text-foreground">₹{Math.round(totalDue).toLocaleString('en-IN')}</p>
+              <p className="text-sm font-bold text-foreground">₹{Math.round(totalDueToday).toLocaleString('en-IN')}</p>
             </CardContent>
           </Card>
           <Card className="bg-card/60 border-border">
@@ -399,14 +407,14 @@ export function CollectionsTodayPage() {
             <CardContent className="p-3 text-center">
               <User className="w-5 h-5 mx-auto mb-1 text-violet-500" />
               <p className="text-xs text-muted-foreground mb-0.5">{t('collection.visited')}</p>
-              <p className="text-sm font-bold text-foreground">{collectedCount}/{totalCount}</p>
+              <p className="text-sm font-bold text-foreground">{visitedCount}/{totalCount}</p>
             </CardContent>
           </Card>
           <Card className="bg-card/60 border-border">
             <CardContent className="p-3 text-center">
               <ListX className="w-5 h-5 mx-auto mb-1 text-amber-500" />
               <p className="text-xs text-muted-foreground mb-0.5">{t('collection.left')}</p>
-              <p className="text-sm font-bold text-amber-600 dark:text-amber-400">{remainingCount}</p>
+              <p className="text-sm font-bold text-amber-600 dark:text-amber-400">{leftCount}</p>
             </CardContent>
           </Card>
         </div>

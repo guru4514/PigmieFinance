@@ -19,52 +19,102 @@ export class CollectionsService {
   async getDueToday(organizationId: string, user: any, date?: string) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
       const targetDate = date || new Date().toISOString().split('T')[0];
-      const where: any = {
+      const dayStart = new Date(targetDate + 'T00:00:00.000Z');
+      const dayEnd = new Date(targetDate + 'T23:59:59.999Z');
+
+      // Build loan filter
+      const loanWhere: any = {
         organizationId,
         status: 'active',
-        schedule: {
-          some: {
-            dueDate: { lte: new Date(targetDate) },
-            status: { in: ['pending', 'partially_paid', 'overdue'] },
-          },
-        },
       };
-
       if (user.role === 'agent') {
-        where.assignedAgentId = user.id;
+        loanWhere.assignedAgentId = user.id;
       } else if (user.role === 'branch_manager' && user.branchId) {
-        where.customer = { branchId: user.branchId };
+        loanWhere.customer = { branchId: user.branchId };
       }
 
+      // Find all active loans that have ANY schedule due on or before target date
       const loans = await tx.loan.findMany({
-        where,
+        where: {
+          ...loanWhere,
+          schedule: {
+            some: {
+              dueDate: { lte: dayEnd },
+              status: { in: ['pending', 'partially_paid', 'overdue'] },
+            },
+          },
+        },
         include: {
           customer: { select: { id: true, fullName: true, phone: true, address: true } },
           schedule: {
             where: {
-              dueDate: { lte: new Date(targetDate) },
+              dueDate: { lte: dayEnd },
               status: { in: ['pending', 'partially_paid', 'overdue'] },
             },
             orderBy: { installmentNumber: 'asc' },
           },
+          // Get collections made specifically on the target date
+          collections: {
+            where: {
+              collectionDate: { gte: dayStart, lte: dayEnd },
+              status: { in: ['recorded', 'verified'] },
+            },
+          },
         },
       });
 
-      return loans.map((loan) => ({
-        loanId: loan.id,
-        loanCode: loan.loanCode,
-        customer: loan.customer,
-        installmentAmount: loan.installmentAmount,
-        dueItems: loan.schedule.map((s) => ({
-          scheduleId: s.id,
-          installmentNumber: s.installmentNumber,
-          dueDate: s.dueDate,
-          dueAmount: s.dueAmount,
-          paidAmount: s.paidAmount,
-          remaining: new Prisma.Decimal(s.dueAmount.toString()).minus(s.paidAmount.toString()),
-          status: s.status,
-        })),
-      }));
+      return loans.map((loan) => {
+        // Today's expected installment (only schedule items due exactly today)
+        const todayItems = loan.schedule.filter(s => {
+          const due = new Date(s.dueDate);
+          return due >= dayStart && due <= dayEnd;
+        });
+        const overdueItems = loan.schedule.filter(s => {
+          const due = new Date(s.dueDate);
+          return due < dayStart;
+        });
+
+        // Amount expected today (just today's installments)
+        const todayExpected = todayItems.reduce((sum, s) =>
+          sum + new Prisma.Decimal(s.dueAmount.toString()).minus(s.paidAmount.toString()).toNumber(), 0);
+
+        // Total overdue from past days (separate from today's expected)
+        const overdueAmount = overdueItems.reduce((sum, s) =>
+          sum + new Prisma.Decimal(s.dueAmount.toString()).minus(s.paidAmount.toString()).toNumber(), 0);
+
+        // Amount actually collected TODAY for this loan
+        const collectedToday = loan.collections.reduce((sum, c) => sum + c.amount.toNumber(), 0);
+
+        // Visited = any collection was made today
+        const visitedToday = loan.collections.length > 0;
+
+        return {
+          loanId: loan.id,
+          loanCode: loan.loanCode,
+          customer: loan.customer,
+          installmentAmount: loan.installmentAmount,
+          // Today's expected amount
+          todayExpected: Math.round(todayExpected * 100) / 100,
+          // Overdue from past days
+          overdueAmount: Math.round(overdueAmount * 100) / 100,
+          // Total remaining (today + overdue)
+          totalRemaining: Math.round((todayExpected + overdueAmount) * 100) / 100,
+          // Amount collected on this specific day
+          collectedToday: Math.round(collectedToday * 100) / 100,
+          // Whether the agent visited (collected anything) today
+          visitedToday,
+          // Schedule detail items
+          dueItems: loan.schedule.map((s) => ({
+            scheduleId: s.id,
+            installmentNumber: s.installmentNumber,
+            dueDate: s.dueDate,
+            dueAmount: s.dueAmount,
+            paidAmount: s.paidAmount,
+            remaining: new Prisma.Decimal(s.dueAmount.toString()).minus(s.paidAmount.toString()),
+            status: s.status,
+          })),
+        };
+      });
     });
   }
 
