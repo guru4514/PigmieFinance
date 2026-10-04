@@ -1,0 +1,1105 @@
+import {
+  Controller, Get, Post, Param, Query, Body, UseGuards, HttpCode, HttpStatus
+} from '@nestjs/common';
+import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../../common/types/request-user.type';
+import { ApprovalsService } from './approvals.service';
+import { CreateApprovalDto } from './dto/create-approval.dto';
+import { ReviewApprovalDto } from './dto/review-approval.dto';
+
+@Controller('approvals')
+@UseGuards(SupabaseAuthGuard, RolesGuard)
+export class ApprovalsController {
+  constructor(private readonly approvalsService: ApprovalsService) {}
+
+  @Post()
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateApprovalDto) {
+    return this.approvalsService.create(user.organizationId, user.id, dto);
+  }
+
+  @Get('pending/count')
+  @Roles('org_admin', 'branch_manager')
+  async getPendingCount(@CurrentUser() user: AuthenticatedUser) {
+    return this.approvalsService.getPendingCount(user.organizationId);
+  }
+
+  @Get()
+  @Roles('org_admin', 'branch_manager', 'agent')
+  async findAll(@CurrentUser() user: AuthenticatedUser, @Query() query: any) {
+    return this.approvalsService.findAll(user.organizationId, query, user);
+  }
+
+  @Get(':id')
+  @Roles('org_admin', 'branch_manager', 'agent')
+  async findOne(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.approvalsService.findOne(user.organizationId, id);
+  }
+
+  @Post(':id/approve')
+  @HttpCode(HttpStatus.OK)
+  @Roles('org_admin', 'branch_manager')
+  async approve(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.approvalsService.approve(user.organizationId, id, user.id);
+  }
+
+  @Post(':id/reject')
+  @HttpCode(HttpStatus.OK)
+  @Roles('org_admin', 'branch_manager')
+  async reject(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: ReviewApprovalDto) {
+    return this.approvalsService.reject(user.organizationId, id, user.id, dto);
+  }
+}
+import { Controller, Get, Query, UseGuards, ForbiddenException } from '@nestjs/common';
+import { AuditLogsService } from './audit-logs.service';
+import { QueryAuditLogsDto } from './dto/audit-log.dto';
+import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../../common/types/request-user.type';
+
+@Controller('audit-logs')
+@UseGuards(SupabaseAuthGuard, RolesGuard)
+export class AuditLogsController {
+  constructor(private readonly auditLogsService: AuditLogsService) {}
+
+  @Get()
+  @Roles('org_admin')
+  async findAll(@Query() query: QueryAuditLogsDto, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    return this.auditLogsService.findAll(user.organizationId, query);
+  }
+}
+import { Controller, Get, Post, Body, UseGuards, ForbiddenException, Req } from '@nestjs/common';
+import { Request } from 'express';
+import { AuthService } from './auth.service';
+import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuthenticatedUser, RequestUser } from '../../common/types/request-user.type';
+import { Enable2FADto } from './dto/enable-2fa.dto';
+import { Verify2FADto } from './dto/verify-2fa.dto';
+import { Disable2FADto } from './dto/disable-2fa.dto';
+import { AuditAction } from '../../common/decorators/audit-action.decorator';
+
+@Controller('auth')
+@UseGuards(SupabaseAuthGuard, RolesGuard)
+export class AuthController {
+  constructor(private readonly authService: AuthService) {}
+
+  @Get('me')
+  async getMe(@CurrentUser() user: AuthenticatedUser) {
+    return this.authService.getMe(user);
+  }
+
+  @Post('login-event')
+  @AuditAction('LOGIN')
+  async recordLoginEvent(
+    @CurrentUser() user: RequestUser,
+    @Req() req: Request,
+  ) {
+    return this.authService.logLoginEvent(user, req);
+  }
+
+  @Post('2fa/setup')
+  @AuditAction('2fa.setup')
+  async setup2FA(@CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can set up 2FA');
+    return this.authService.setup2FA(user.id, user.organizationId);
+  }
+
+  @Post('2fa/enable')
+  @AuditAction('2fa.enable')
+  async enable2FA(@CurrentUser() user: AuthenticatedUser, @Body() dto: Enable2FADto) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can enable 2FA');
+    return this.authService.enable2FA(user.id, user.organizationId, dto.code);
+  }
+
+  @Post('2fa/verify')
+  async verify2FA(@CurrentUser() user: AuthenticatedUser, @Body() dto: Verify2FADto) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can verify 2FA');
+    return this.authService.verify2FA(user.id, user.organizationId, dto.code);
+  }
+
+  @Post('2fa/disable')
+  @AuditAction('2fa.disable')
+  async disable2FA(@CurrentUser() user: AuthenticatedUser, @Body() dto: Disable2FADto) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can disable 2FA');
+    
+    const isAdminOverride = user.role === 'org_admin' && !!dto.staffId && dto.staffId !== user.id;
+    if (isAdminOverride) {
+      return this.authService.disable2FA(user.id, user.organizationId, dto.staffId, undefined, true);
+    }
+    
+    return this.authService.disable2FA(user.id, user.organizationId, user.id, dto.code, false);
+  }
+}
+
+
+import {
+  Controller, Get, Post, Param, Query, Body, UseGuards, HttpCode, HttpStatus,
+} from '@nestjs/common';
+import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuditAction } from '../../common/decorators/audit-action.decorator';
+import { AuthenticatedUser } from '../../common/types/request-user.type';
+import { CashDepositsService } from './cash-deposits.service';
+import { CreateCashDepositDto } from './dto/create-cash-deposit.dto';
+import { VerifyCashDepositDto } from './dto/verify-cash-deposit.dto';
+
+@Controller('cash-deposits')
+@UseGuards(SupabaseAuthGuard, RolesGuard)
+export class CashDepositsController {
+  constructor(private readonly cashDepositsService: CashDepositsService) {}
+
+  @Post()
+  @Roles('agent', 'branch_manager', 'org_admin')
+  @AuditAction('cash_deposit.create')
+  async create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateCashDepositDto) {
+    return this.cashDepositsService.create(user.organizationId, user.id, dto);
+  }
+
+  @Get()
+  @Roles('agent', 'branch_manager', 'org_admin')
+  async findAll(@CurrentUser() user: AuthenticatedUser, @Query() query: any) {
+    return this.cashDepositsService.findAll(user.organizationId, query);
+  }
+
+  @Get('reconciliation')
+  @Roles('org_admin', 'branch_manager', 'accountant')
+  async getReconciliation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+  ) {
+    return this.cashDepositsService.getReconciliation(user.organizationId, startDate, endDate);
+  }
+
+  @Post(':id/verify')
+  @HttpCode(HttpStatus.OK)
+  @Roles('branch_manager', 'org_admin')
+  @AuditAction('cash_deposit.verify')
+  async verify(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: VerifyCashDepositDto,
+  ) {
+    return this.cashDepositsService.verify(user.organizationId, id, user.id, dto);
+  }
+}
+import {
+  Controller, Get, Post, Param, Query, Body, UseGuards, HttpCode, HttpStatus, Res,
+} from '@nestjs/common';
+import { Response } from 'express';
+import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuditAction } from '../../common/decorators/audit-action.decorator';
+import { AuthenticatedUser } from '../../common/types/request-user.type';
+import { CollectionsService } from './collections.service';
+import { CreateCollectionDto, SyncCollectionsDto, ReverseCollectionDto, QueryCollectionDto } from './dto/collection.dto';
+
+@Controller('collections')
+@UseGuards(SupabaseAuthGuard, RolesGuard)
+export class CollectionsController {
+  constructor(private readonly collectionsService: CollectionsService) {}
+
+  @Get('due-today')
+  @Roles('org_admin', 'branch_manager', 'agent')
+  async getDueToday(@CurrentUser() user: AuthenticatedUser, @Query('date') date?: string) {
+    return this.collectionsService.getDueToday(user.organizationId, user, date);
+  }
+
+  @Get()
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async findAll(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryCollectionDto) {
+    return this.collectionsService.findAll(user.organizationId, query, user);
+  }
+
+  @Post()
+  @Roles('org_admin', 'branch_manager', 'agent')
+  @AuditAction('collection.record')
+  async record(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateCollectionDto) {
+    return this.collectionsService.recordCollection(user.organizationId, user.id, dto);
+  }
+
+  @Post('sync')
+  @HttpCode(HttpStatus.OK)
+  @Roles('org_admin', 'branch_manager', 'agent')
+  @AuditAction('collection.sync')
+  async sync(@CurrentUser() user: AuthenticatedUser, @Body() dto: SyncCollectionsDto) {
+    return this.collectionsService.syncCollections(user.organizationId, user.id, dto.collections);
+  }
+
+  @Post(':id/reverse')
+  @HttpCode(HttpStatus.OK)
+  @Roles('org_admin', 'branch_manager')
+  @AuditAction('collection.reverse')
+  async reverse(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: ReverseCollectionDto,
+  ) {
+    return this.collectionsService.reverseCollection(user.organizationId, id, user.id, dto.reason);
+  }
+
+  @Get(':id/receipt')
+  @Roles('agent', 'branch_manager', 'org_admin')
+  @AuditAction('collection.receipt')
+  async getReceipt(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.collectionsService.generateReceipt(user.organizationId, id);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'attachment; filename=receipt.pdf',
+      'Content-Length': buffer.length,
+    });
+    res.end(buffer);
+  }
+}
+
+import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Query, UseGuards, Res } from '@nestjs/common';
+import { Response } from 'express';
+import { CustomersService } from './customers.service';
+import { CustomerPdfService } from './customer-pdf.service';
+import { CreateCustomerDto } from './dto/create-customer.dto';
+import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { QueryCustomerDto } from './dto/query-customer.dto';
+import { PortalAccessDto } from './dto/portal-access.dto';
+import { ImportCustomersDto } from './dto/import-customers.dto';
+import { BulkCreateCustomerDto } from './dto/customer.dto';
+import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../../common/types/request-user.type';
+import { AuditAction } from '../../common/decorators/audit-action.decorator';
+
+@Controller('customers')
+@UseGuards(SupabaseAuthGuard, RolesGuard)
+export class CustomersController {
+  constructor(
+    private readonly customersService: CustomersService,
+    private readonly customerPdfService: CustomerPdfService
+  ) {}
+
+  @Get()
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async findAll(@Query() query: QueryCustomerDto, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.findAll(user.organizationId, query, user);
+  }
+
+  @Post()
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  @AuditAction('customer.create')
+  async create(@Body() dto: CreateCustomerDto, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.create(user.organizationId, dto);
+  }
+
+  @Post('import')
+  @Roles('org_admin')
+  @AuditAction('customer.import')
+  async importCustomers(@Body() dto: ImportCustomersDto, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.importCustomers(user.organizationId, dto);
+  }
+
+  @Post('bulk')
+  @Roles('branch_manager', 'org_admin')
+  @AuditAction('customer.bulk_create')
+  async bulkCreate(@Body() dto: BulkCreateCustomerDto, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.bulkCreate(user.organizationId, dto);
+  }
+
+  @Get('kyc-summary')
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async getKycSummary(@CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.getKycSummary(user.organizationId);
+  }
+
+  @Get(':id')
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.findOne(user.organizationId, id, user.role, user.id);
+  }
+
+  @Patch(':id')
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  @AuditAction('customer.update')
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateCustomerDto,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.update(user.organizationId, id, dto, user.role, user.id);
+  }
+
+  @Delete(':id')
+  @Roles('org_admin', 'branch_manager')
+  @AuditAction('customer.delete')
+  async remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.remove(user.organizationId, id);
+  }
+
+  @Patch(':id/kyc-status')
+  @Roles('org_admin', 'branch_manager')
+  @AuditAction('customer.update_kyc_status')
+  async updateKycStatus(
+    @Param('id') id: string,
+    @Body('status') status: any,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.updateKycStatus(user.organizationId, id, status);
+  }
+
+  @Get(':id/loans')
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async findLoans(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.findLoans(user.organizationId, id);
+  }
+
+  @Post(':id/portal-access')
+  @Roles('org_admin', 'branch_manager')
+  @AuditAction('customer.grant_portal_access')
+  async grantPortalAccess(
+    @Param('id') id: string,
+    @Body() dto: PortalAccessDto,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.grantPortalAccess(user.organizationId, id, dto);
+  }
+
+  @Delete(':id/portal-access')
+  @Roles('org_admin', 'branch_manager')
+  @AuditAction('customer.revoke_portal_access')
+  async revokePortalAccess(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.revokePortalAccess(user.organizationId, id);
+  }
+
+  @Get(':id/passbook')
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async downloadPassbook(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Res() res: Response
+  ) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    
+    // First ensure the staff member can access this customer
+    await this.customersService.findOne(user.organizationId, id, user.role, user.id);
+    
+    const customer = await this.customersService.findOne(user.organizationId, id, user.role, user.id);
+    const pdfBuffer = await this.customerPdfService.generatePassbook(id, user.organizationId);
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename=passbook-${customer.fullName.replace(/\s+/g, '_')}.pdf`,
+      'Content-Length': pdfBuffer.length,
+    });
+
+    res.end(pdfBuffer);
+  }
+}
+
+
+import {
+  Controller, Get, Post, Param, Body, UseGuards, Delete,
+} from '@nestjs/common';
+import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuditAction } from '../../common/decorators/audit-action.decorator';
+import { AuthenticatedUser } from '../../common/types/request-user.type';
+import { DocumentsService } from './documents.service';
+import { RequestUploadUrlDto, RegisterDocumentDto } from './dto/document.dto';
+
+@Controller('documents')
+@UseGuards(SupabaseAuthGuard, RolesGuard)
+export class DocumentsController {
+  constructor(private readonly documentsService: DocumentsService) {}
+
+  @Post('upload-url')
+  @Roles('org_admin', 'branch_manager', 'agent')
+  @AuditAction('document.request_upload')
+  async getUploadUrl(@CurrentUser() user: AuthenticatedUser, @Body() dto: RequestUploadUrlDto) {
+    return this.documentsService.getUploadUrl(user.organizationId, user.id, dto);
+  }
+
+  @Post()
+  @Roles('org_admin', 'branch_manager', 'agent')
+  @AuditAction('document.register')
+  async registerDocument(@CurrentUser() user: AuthenticatedUser, @Body() dto: RegisterDocumentDto) {
+    return this.documentsService.registerDocument(user.organizationId, user.id, dto);
+  }
+
+  @Get(':id/download-url')
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async getDownloadUrl(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.documentsService.getSignedDownloadUrl(user.organizationId, id);
+  }
+
+  @Get('entity/:entityType/:entityId')
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async findByEntity(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('entityType') entityType: string,
+    @Param('entityId') entityId: string,
+  ) {
+    return this.documentsService.findByEntity(user.organizationId, entityType, entityId);
+  }
+  @Delete(':id')
+  @Roles('org_admin', 'branch_manager')
+  async deleteDocument(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.documentsService.delete(user.organizationId, id);
+  }
+}
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import { HealthService } from './health.service';
+
+@Controller('health')
+export class HealthController {
+  constructor(private readonly healthService: HealthService) {}
+
+  @Get()
+  async getHealth() {
+    try {
+      return await this.healthService.checkHealth();
+    } catch (error: any) {
+      throw new ServiceUnavailableException({
+        status: 'error',
+        message: 'Database connection failed',
+        details: error.message
+      });
+    }
+  }
+}
+
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query, ForbiddenException } from '@nestjs/common';
+import { LoanProductsService } from './loan-products.service';
+import { CreateLoanProductDto } from './dto/create-loan-product.dto';
+import { UpdateLoanProductDto } from './dto/update-loan-product.dto';
+import { QueryLoanProductDto } from './dto/query-loan-product.dto';
+import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuditAction } from '../../common/decorators/audit-action.decorator';
+import { AuthenticatedUser } from '../../common/types/request-user.type';
+
+@Controller('loan-products')
+@UseGuards(SupabaseAuthGuard, RolesGuard)
+export class LoanProductsController {
+  constructor(private readonly loanProductsService: LoanProductsService) {}
+
+  @Post()
+  @Roles('org_admin')
+  @AuditAction('loan_product.create')
+  async create(@Body() createLoanProductDto: CreateLoanProductDto, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException();
+    return this.loanProductsService.create(user.organizationId, createLoanProductDto, user.id);
+  }
+
+  @Get()
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async findAll(@Query() query: QueryLoanProductDto, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException();
+    return this.loanProductsService.findAll(user.organizationId, query);
+  }
+
+  @Get(':id')
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException();
+    return this.loanProductsService.findOne(user.organizationId, id);
+  }
+
+  @Patch(':id')
+  @Roles('org_admin')
+  @AuditAction('loan_product.update')
+  async update(@Param('id') id: string, @Body() updateLoanProductDto: UpdateLoanProductDto, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException();
+    return this.loanProductsService.update(user.organizationId, id, updateLoanProductDto, user.id);
+  }
+
+  @Delete(':id')
+  @Roles('org_admin')
+  @AuditAction('loan_product.delete')
+  async remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException();
+    return this.loanProductsService.remove(user.organizationId, id, user.id);
+  }
+}
+
+
+import {
+  Controller, Get, Post, Param, Query, Body, UseGuards, HttpCode, HttpStatus, Res,
+} from '@nestjs/common';
+import { Response } from 'express';
+import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuditAction } from '../../common/decorators/audit-action.decorator';
+import { AuthenticatedUser } from '../../common/types/request-user.type';
+import { LoansService } from './loans.service';
+import { PdfService } from './pdf.service';
+import { CreateLoanDto } from './dto/create-loan.dto';
+import { DisburseLoanDto } from './dto/disburse-loan.dto';
+import { RejectLoanDto } from './dto/reject-loan.dto';
+import { WriteOffLoanDto } from './dto/write-off-loan.dto';
+import { QueryLoanDto } from './dto/query-loan.dto';
+import { RestructureLoanDto } from './dto/restructure-loan.dto';
+
+@Controller('loans')
+@UseGuards(SupabaseAuthGuard, RolesGuard)
+export class LoansController {
+  constructor(
+    private readonly loansService: LoansService,
+    private readonly pdfService: PdfService,
+  ) {}
+
+  @Get()
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async findAll(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryLoanDto) {
+    return this.loansService.findAll(user.organizationId, user, query);
+  }
+
+  @Get(':id')
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async findOne(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.loansService.findOne(user.organizationId, id);
+  }
+
+  @Post()
+  @Roles('org_admin', 'branch_manager', 'agent')
+  @AuditAction('loan.create')
+  async create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateLoanDto) {
+    return this.loansService.create(user.organizationId, user.id, dto);
+  }
+
+  @Post(':id/approve')
+  @HttpCode(HttpStatus.OK)
+  @Roles('org_admin', 'branch_manager')
+  @AuditAction('loan.approve')
+  async approve(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.loansService.approve(user.organizationId, id, user.id);
+  }
+
+  @Post(':id/reject')
+  @HttpCode(HttpStatus.OK)
+  @Roles('org_admin', 'branch_manager')
+  @AuditAction('loan.reject')
+  async reject(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: RejectLoanDto,
+  ) {
+    return this.loansService.reject(user.organizationId, id, user.id, dto.reason);
+  }
+
+  @Post(':id/disburse')
+  @HttpCode(HttpStatus.OK)
+  @Roles('org_admin', 'branch_manager')
+  @AuditAction('loan.disburse')
+  async disburse(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: DisburseLoanDto,
+  ) {
+    return this.loansService.disburse(user.organizationId, id, dto.startDate, user.id);
+  }
+
+  @Post(':id/close')
+  @HttpCode(HttpStatus.OK)
+  @Roles('org_admin', 'branch_manager')
+  @AuditAction('loan.close')
+  async close(
+    @CurrentUser() user: AuthenticatedUser, 
+    @Param('id') id: string,
+    @Body() body: any
+  ) {
+    return this.loansService.close(user.organizationId, id, user.id, body);
+  }
+
+  @Get(':id/pre-closure')
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async getPreClosureDetails(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.loansService.getPreClosureDetails(user.organizationId, id);
+  }
+
+  @Post(':id/write-off')
+  @HttpCode(HttpStatus.OK)
+  @Roles('org_admin')
+  @AuditAction('loan.write_off')
+  async writeOff(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: WriteOffLoanDto,
+  ) {
+    return this.loansService.writeOff(user.organizationId, id, dto.reason);
+  }
+
+  @Post(':id/mark-default')
+  @HttpCode(HttpStatus.OK)
+  @Roles('org_admin', 'branch_manager')
+  @AuditAction('loan.mark_default')
+  async markDefault(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.loansService.markDefault(user.organizationId, id, user.id);
+  }
+
+  @Get(':id/schedule')
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async getSchedule(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.loansService.getSchedule(user.organizationId, id);
+  }
+
+  @Post(':id/restructure')
+  @HttpCode(HttpStatus.OK)
+  @Roles('org_admin', 'branch_manager')
+  @AuditAction('loan.restructured')
+  async restructure(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: RestructureLoanDto,
+  ) {
+    return this.loansService.restructure(user.organizationId, id, user.id, dto);
+  }
+
+  @Get(':id/statement')
+  @Roles('org_admin', 'branch_manager', 'accountant', 'agent')
+  async getStatement(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.pdfService.generateLoanStatement(id, user.organizationId);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="loan-statement-${id}.pdf"`,
+      'Content-Length': buffer.length,
+    });
+    res.end(buffer);
+  }
+}
+
+import { Controller, Get, Patch, Post, Param, UseGuards, Query, Body, UnauthorizedException } from '@nestjs/common';
+import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../../common/types/request-user.type';
+import { NotificationsService } from './notifications.service';
+import { SmsService } from './sms.service';
+import { IsOptional, IsInt, Min, Max } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class NotificationQueryDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number = 1;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit?: number = 20;
+}
+
+@Controller('notifications')
+export class NotificationsController {
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    private readonly smsService: SmsService
+  ) {}
+
+  @Post('subscribe')
+  @UseGuards(SupabaseAuthGuard)
+  async subscribe(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() subscriptionData: any
+  ) {
+    return this.notificationsService.subscribe(user.organizationId, user.type, user.id, subscriptionData);
+  }
+
+  @Get('vapid-public-key')
+  getVapidPublicKey() {
+    return { publicKey: this.notificationsService.getVapidPublicKey() };
+  }
+
+  @Get()
+  @UseGuards(SupabaseAuthGuard)
+  async getNotifications(@Query() query: NotificationQueryDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.notificationsService.getNotifications(user.organizationId, user.type, user.id, query);
+  }
+
+  @Patch(':id/read')
+  @UseGuards(SupabaseAuthGuard)
+  async markAsRead(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.notificationsService.markAsRead(user.organizationId, id);
+  }
+
+  @Patch('read-all')
+  @UseGuards(SupabaseAuthGuard)
+  async markAllAsRead(@CurrentUser() user: AuthenticatedUser) {
+    return this.notificationsService.markAllAsRead(user.organizationId, user.type, user.id);
+  }
+
+  @Post('send-sms')
+  @UseGuards(SupabaseAuthGuard)
+  async sendSms(@Body() data: { phone: string; message: string }) {
+    const success = await this.smsService.sendSMS(data.phone, data.message);
+    return { success };
+  }
+
+  @Post('send-bulk-reminders')
+  @UseGuards(SupabaseAuthGuard)
+  async sendBulkReminders(@Body() data: { recipients: { phone: string; message: string }[] }) {
+    await this.smsService.sendBulkSMS(data.recipients);
+    return { success: true, count: data.recipients.length };
+  }
+}
+
+import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, ForbiddenException } from '@nestjs/common';
+import { OrganizationsService } from './organizations.service';
+import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { AuthenticatedUser } from '../../common/types/request-user.type';
+import { CreateBranchDto } from './dto/create-branch.dto';
+import { UpdateBranchDto } from './dto/update-branch.dto';
+import { AuditAction } from '../../common/decorators/audit-action.decorator';
+
+@Controller('branches')
+@UseGuards(SupabaseAuthGuard, RolesGuard)
+export class BranchesController {
+  constructor(private readonly organizationsService: OrganizationsService) {}
+
+  @Get()
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async getBranches(@CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException();
+    return this.organizationsService.getBranches(user.organizationId);
+  }
+
+  @Post()
+  @Roles('org_admin')
+  @AuditAction('branch.create')
+  async createBranch(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateBranchDto) {
+    if (user.type !== 'staff') throw new ForbiddenException();
+    return this.organizationsService.createBranch(user.organizationId, dto);
+  }
+
+  @Get(':id')
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async getBranch(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    if (user.type !== 'staff') throw new ForbiddenException();
+    return this.organizationsService.getBranch(user.organizationId, id);
+  }
+
+  @Patch(':id')
+  @Roles('org_admin')
+  @AuditAction('branch.update')
+  async updateBranch(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpdateBranchDto) {
+    if (user.type !== 'staff') throw new ForbiddenException();
+    return this.organizationsService.updateBranch(user.organizationId, id, dto);
+  }
+
+  @Delete(':id')
+  @Roles('org_admin')
+  @AuditAction('branch.delete')
+  async deleteBranch(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    if (user.type !== 'staff') throw new ForbiddenException();
+    return this.organizationsService.deleteBranch(user.organizationId, id);
+  }
+}
+
+
+import { Controller, Get, Post, Patch, Body, UseGuards, ConflictException } from '@nestjs/common';
+import { OrganizationsService } from './organizations.service';
+import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { AuthenticatedUser, RequestUser } from '../../common/types/request-user.type';
+import { CreateOrganizationDto } from './dto/create-organization.dto';
+import { UpdateOrganizationDto } from './dto/update-organization.dto';
+import { AuditAction } from '../../common/decorators/audit-action.decorator';
+
+@Controller('organizations')
+@UseGuards(SupabaseAuthGuard, RolesGuard)
+export class OrganizationsController {
+  constructor(private readonly organizationsService: OrganizationsService) {}
+
+  @Post()
+  @AuditAction('organization.create')
+  async createOrganization(@CurrentUser() user: RequestUser, @Body() dto: CreateOrganizationDto) {
+    if (user.type !== 'unprovisioned') {
+      throw new ConflictException('User is already provisioned');
+    }
+    return this.organizationsService.createOrganization(user.authUserId, dto);
+  }
+
+  @Get('me')
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async getMyOrganization(@CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ConflictException('Only staff can access this endpoint');
+    return this.organizationsService.getMyOrganization(user.organizationId);
+  }
+
+  @Patch('me')
+  @Roles('org_admin')
+  @AuditAction('organization.update')
+  async updateOrganization(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateOrganizationDto) {
+    if (user.type !== 'staff') throw new ConflictException('Only staff can access this endpoint');
+    return this.organizationsService.updateOrganization(user.organizationId, dto);
+  }
+}
+
+
+import { Controller, Get, Param, UseGuards, ForbiddenException, Res } from '@nestjs/common';
+import { Response } from 'express';
+import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
+
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../../common/types/request-user.type';
+import { PortalService } from './portal.service';
+import { CustomerPdfService } from '../customers/customer-pdf.service';
+import { PdfService } from '../loans/pdf.service';
+
+@Controller('portal')
+@UseGuards(SupabaseAuthGuard)
+export class PortalController {
+  constructor(
+    private readonly portalService: PortalService,
+    private readonly customerPdfService: CustomerPdfService,
+    private readonly pdfService: PdfService
+  ) {}
+
+  @Get('me')
+  async getMe(@CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'customer') throw new ForbiddenException('Portal access is for customers only');
+    return this.portalService.getMe(user.organizationId, user.id);
+  }
+
+  @Get('loans')
+  async getLoans(@CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'customer') throw new ForbiddenException('Portal access is for customers only');
+    return this.portalService.getLoans(user.organizationId, user.id);
+  }
+
+  @Get('loans/:id')
+  async getLoanDetails(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'customer') throw new ForbiddenException('Portal access is for customers only');
+    return this.portalService.getLoanDetails(user.organizationId, user.id, id);
+  }
+
+  @Get('loans/:id/schedule')
+  async getLoanSchedule(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'customer') throw new ForbiddenException('Portal access is for customers only');
+    return this.portalService.getLoanSchedule(user.organizationId, user.id, id);
+  }
+
+  @Get('loans/:id/collections')
+  async getLoanCollections(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'customer') throw new ForbiddenException('Portal access is for customers only');
+    return this.portalService.getLoanCollections(user.organizationId, user.id, id);
+  }
+
+  @Get('loans/:id/statement')
+  async getLoanStatement(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
+    if (user.type !== 'customer') throw new ForbiddenException('Portal access is for customers only');
+    
+    const pdfBuffer = await this.pdfService.generateLoanStatement(id, user.organizationId);
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename=loan-statement.pdf`,
+      'Content-Length': pdfBuffer.length,
+    });
+
+    res.end(pdfBuffer);
+  }
+
+  @Get('passbook')
+  async downloadPassbook(@CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
+    if (user.type !== 'customer') throw new ForbiddenException('Portal access is for customers only');
+    
+    const pdfBuffer = await this.customerPdfService.generatePassbook(user.id, user.organizationId);
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename=passbook.pdf`,
+      'Content-Length': pdfBuffer.length,
+    });
+
+    res.end(pdfBuffer);
+  }
+}
+
+import { Controller, Get, Query, UseGuards, Res, ForbiddenException } from '@nestjs/common';
+import { Response } from 'express';
+import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../../common/types/request-user.type';
+import { ReportsService } from './reports.service';
+import { OverdueQueryDto, CollectionEfficiencyQueryDto, ExportQueryDto, ReportQueryDto } from './dto/query-reports.dto';
+
+@Controller('reports')
+@UseGuards(SupabaseAuthGuard, RolesGuard)
+export class ReportsController {
+  constructor(private readonly reportsService: ReportsService) {}
+
+  @Get('dashboard-summary')
+  @Roles('org_admin', 'branch_manager')
+  async getDashboardSummary(@CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException();
+    return this.reportsService.getDashboardSummary(user.organizationId, user);
+  }
+
+  @Get('overdue')
+  @Roles('org_admin', 'branch_manager')
+  async getOverdue(@Query() query: OverdueQueryDto, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException();
+    return this.reportsService.getOverdue(user.organizationId, query, user);
+  }
+
+  @Get('portfolio-at-risk')
+  @Roles('org_admin', 'branch_manager')
+  async getPortfolioAtRisk(@CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException();
+    return this.reportsService.getPortfolioAtRisk(user.organizationId, user);
+  }
+
+  @Get('collection-efficiency')
+  @Roles('org_admin', 'branch_manager')
+  async getCollectionEfficiency(@Query() query: CollectionEfficiencyQueryDto, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException();
+    return this.reportsService.getCollectionEfficiency(user.organizationId, query, user);
+  }
+
+  @Get('agent-performance')
+  @Roles('org_admin', 'branch_manager')
+  async getAgentPerformance(@CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException();
+    return this.reportsService.getAgentPerformance(user.organizationId, user);
+  }
+
+  @Get('export')
+  @Roles('org_admin')
+  async exportData(@Query() query: ExportQueryDto, @CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
+    if (user.type !== 'staff') throw new ForbiddenException();
+    const csvString = await this.reportsService.exportData(user.organizationId, query.type);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=${query.type}-export.csv`);
+    res.send(csvString);
+  }
+
+  @Get('branch-comparison')
+  @Roles('org_admin')
+  async getBranchComparison(@CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException();
+    return this.reportsService.getBranchComparison(user.organizationId);
+  }
+}
+
+
+import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { StaffService } from './staff.service';
+import { CreateStaffDto } from './dto/create-staff.dto';
+import { UpdateStaffDto } from './dto/update-staff.dto';
+import { QueryStaffDto } from './dto/query-staff.dto';
+import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../../common/types/request-user.type';
+import { AuditAction } from '../../common/decorators/audit-action.decorator';
+
+@Controller('staff')
+@UseGuards(SupabaseAuthGuard, RolesGuard)
+export class StaffController {
+  constructor(private readonly staffService: StaffService) {}
+
+  @Get()
+  @Roles('org_admin', 'branch_manager')
+  async findAll(@Query() query: QueryStaffDto, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    return this.staffService.findAll(user.organizationId, query, user.id, user.role === 'branch_manager');
+  }
+
+  @Get(':id')
+  @Roles('org_admin', 'branch_manager')
+  async findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    return this.staffService.findOne(user.organizationId, id, user.id, user.role === 'branch_manager');
+  }
+
+  @Post()
+  @Roles('org_admin')
+  @AuditAction('staff.create')
+  async create(@Body() dto: CreateStaffDto, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    return this.staffService.create(user.organizationId, dto);
+  }
+
+  @Patch(':id')
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  @AuditAction('staff.update')
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateStaffDto,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    
+    // Only org_admin can do general updates.
+    if (user.role === 'org_admin') {
+      return this.staffService.update(user.organizationId, id, dto);
+    }
+    
+    // Others can only patch their own phone
+    if (user.id === id) {
+      if (Object.keys(dto).some(key => key !== 'phone')) {
+        throw new ForbiddenException('You can only update your phone number');
+      }
+      if (dto.phone) {
+        return this.staffService.updateOwnPhone(user.organizationId, id, dto.phone);
+      }
+      return this.staffService.findOne(user.organizationId, id);
+    }
+
+    throw new ForbiddenException('You do not have permission to update this staff member');
+  }
+
+  @Delete(':id')
+  @Roles('org_admin')
+  @AuditAction('staff.delete')
+  async remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+    return this.staffService.remove(user.organizationId, id);
+  }
+}
+
+

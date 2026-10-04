@@ -29,6 +29,8 @@ export const LoanDetailPage: React.FC = () => {
   const schedule = Array.isArray(scheduleResponse) ? scheduleResponse : scheduleResponse?.data || [];
 
   const approveLoan = useApproveLoan();
+  const rejectLoan = useRejectLoan();
+  const writeOffLoan = useWriteOffLoan();
 
 
   const disburseLoan = useDisburseLoan();

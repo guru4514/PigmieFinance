@@ -1,0 +1,617 @@
+import { IsEnum, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID } from 'class-validator';
+
+export class CreateApprovalDto {
+  @IsEnum(['delete_customer', 'reverse_collection', 'close_loan', 'write_off_loan', 'restructure_loan'])
+  @IsNotEmpty()
+  actionType: string;
+
+  @IsObject()
+  @IsNotEmpty()
+  payload: Record<string, any>;
+
+  @IsString()
+  @IsOptional()
+  reason?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  entityType: string;
+
+  @IsUUID()
+  @IsNotEmpty()
+  entityId: string;
+}
+import { IsOptional, IsString } from 'class-validator';
+
+export class ReviewApprovalDto {
+  @IsString()
+  @IsOptional()
+  reviewNote?: string;
+}
+import { IsDateString, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class QueryAuditLogsDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
+
+  @IsOptional()
+  @IsString()
+  action?: string;
+
+  @IsOptional()
+  @IsString()
+  entityType?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dateFrom?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dateTo?: string;
+}
+import { IsString, Length, IsOptional, IsUUID } from 'class-validator';
+
+export class Disable2FADto {
+  @IsOptional()
+  @IsString()
+  @Length(6, 6)
+  code?: string;
+
+  @IsOptional()
+  @IsUUID()
+  staffId?: string;
+}
+import { IsString, Length } from 'class-validator';
+
+export class Enable2FADto {
+  @IsString()
+  @Length(6, 6)
+  code: string;
+}
+import { IsString, Length } from 'class-validator';
+
+export class Verify2FADto {
+  @IsString()
+  @Length(6, 6)
+  code: string;
+}
+import { IsNumber, IsDateString, IsOptional, IsString, Min } from 'class-validator';
+
+export class CreateCashDepositDto {
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  amount: number;
+
+  @IsDateString()
+  depositDate: string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+import { IsEnum, IsOptional, IsString } from 'class-validator';
+
+export class VerifyCashDepositDto {
+  @IsEnum(['verified', 'discrepancy'])
+  status: 'verified' | 'discrepancy';
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+import { IsUUID, IsNumber, IsPositive, IsDateString, IsEnum, IsOptional, IsString, IsLatitude, IsLongitude, IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export enum CollectionMethodEnum {
+  cash = 'cash',
+  cheque = 'cheque',
+  other = 'other',
+}
+
+export class CreateCollectionDto {
+  @IsUUID()
+  clientGeneratedId: string;
+
+  @IsUUID()
+  loanId: string;
+
+  @IsNumber()
+  @IsPositive()
+  amount: number;
+
+  @IsDateString()
+  collectionDate: string;
+
+  @IsDateString()
+  collectedAt: string;
+
+  @IsEnum(CollectionMethodEnum)
+  collectionMethod: CollectionMethodEnum;
+
+  @IsOptional()
+  @IsLatitude()
+  latitude?: number;
+
+  @IsOptional()
+  @IsLongitude()
+  longitude?: number;
+
+  @IsOptional()
+  @IsString()
+  photoUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class SyncCollectionsDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateCollectionDto)
+  collections: CreateCollectionDto[];
+}
+
+export class ReverseCollectionDto {
+  @IsString()
+  reason: string;
+}
+
+export class QueryCollectionDto {
+  @IsOptional()
+  @IsUUID()
+  loanId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  agentId?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dateFrom?: string;
+
+  @IsOptional()
+  @IsDateString()
+  dateTo?: string;
+
+  @IsOptional()
+  @IsString()
+  page?: string;
+
+  @IsOptional()
+  @IsString()
+  limit?: string;
+}
+import { IsDateString, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IdProofType } from '@prisma/client';
+
+export class CreateCustomerDto {
+  @IsString() fullName: string;
+  @IsString() phone: string;
+  @IsOptional() @IsString() email?: string;
+  @IsOptional() @IsString() address?: string;
+  @IsOptional() @IsEnum(IdProofType) idProofType?: IdProofType;
+  @IsOptional() @IsString() idProofNumber?: string;
+  @IsOptional() @IsDateString() dateOfBirth?: string;
+  @IsOptional() @IsString() gender?: string;
+  @IsOptional() @IsString() guarantorName?: string;
+  @IsOptional() @IsString() guarantorPhone?: string;
+  @IsOptional() @IsUUID() branchId?: string;
+  @IsOptional() @IsUUID() assignedAgentId?: string;
+}
+import { IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { CreateCustomerDto } from './create-customer.dto';
+
+export class BulkCreateCustomerDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateCustomerDto)
+  customers: CreateCustomerDto[];
+}
+import { IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { CreateCustomerDto } from './create-customer.dto';
+
+export class ImportCustomersDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateCustomerDto)
+  customers: CreateCustomerDto[];
+}
+
+import { IsEmail, IsString } from 'class-validator';
+
+export class PortalAccessDto {
+  @IsEmail() email: string;
+}
+import { IsBoolean, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
+
+export class QueryCustomerDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number = 1;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit?: number = 20;
+  @IsOptional() @IsString() search?: string;
+  @IsOptional() @IsUUID() branchId?: string;
+  @IsOptional() @IsUUID() agentId?: string;
+  
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
+  @IsBoolean()
+  isActive?: boolean;
+}
+import { IsBoolean, IsDateString, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IdProofType } from '@prisma/client';
+
+export class UpdateCustomerDto {
+  @IsOptional() @IsString() fullName?: string;
+  @IsOptional() @IsString() phone?: string;
+  @IsOptional() @IsString() email?: string;
+  @IsOptional() @IsString() address?: string;
+  @IsOptional() @IsEnum(IdProofType) idProofType?: IdProofType;
+  @IsOptional() @IsString() idProofNumber?: string;
+  @IsOptional() @IsDateString() dateOfBirth?: string;
+  @IsOptional() @IsString() gender?: string;
+  @IsOptional() @IsString() guarantorName?: string;
+  @IsOptional() @IsString() guarantorPhone?: string;
+  @IsOptional() @IsUUID() branchId?: string;
+  @IsOptional() @IsUUID() assignedAgentId?: string;
+  @IsOptional() @IsBoolean() isActive?: boolean;
+}
+import { IsString, IsEnum, IsUUID, IsOptional, IsNumber } from 'class-validator';
+
+export enum DocumentRelatedTypeEnum {
+  customer = 'customer',
+  loan = 'loan',
+  collection = 'collection',
+}
+
+export class RequestUploadUrlDto {
+  @IsEnum(DocumentRelatedTypeEnum)
+  relatedEntityType: DocumentRelatedTypeEnum;
+
+  @IsUUID()
+  relatedEntityId: string;
+
+  @IsString()
+  documentType: string;
+
+  @IsString()
+  fileName: string;
+
+  @IsOptional()
+  @IsString()
+  mimeType?: string;
+
+  @IsOptional()
+  @IsNumber()
+  fileSizeBytes?: number;
+}
+
+export class RegisterDocumentDto {
+  @IsEnum(DocumentRelatedTypeEnum)
+  relatedEntityType: DocumentRelatedTypeEnum;
+
+  @IsUUID()
+  relatedEntityId: string;
+
+  @IsString()
+  documentType: string;
+
+  @IsString()
+  filePath: string;
+
+  @IsOptional()
+  @IsString()
+  mimeType?: string;
+
+  @IsOptional()
+  @IsNumber()
+  fileSizeBytes?: number;
+}
+import { IsString, IsEnum, IsNumber, IsPositive, IsInt, Min, IsOptional } from 'class-validator';
+import { InterestType, CollectionFrequency, LateFeeType } from '@prisma/client';
+
+export class CreateLoanProductDto {
+  @IsString() name: string;
+  @IsEnum(InterestType) interestType: InterestType;
+  @IsNumber() @IsPositive() interestRateAnnual: number;
+  @IsEnum(CollectionFrequency) collectionFrequency: CollectionFrequency;
+  @IsNumber() @IsPositive() minAmount: number;
+  @IsNumber() @IsPositive() maxAmount: number;
+  @IsInt() @Min(1) minTenure: number;
+  @IsInt() @Min(1) maxTenure: number;
+  @IsOptional() @IsEnum(LateFeeType) lateFeeType?: LateFeeType;
+  @IsOptional() @IsNumber() @Min(0) lateFeeValue?: number;
+  @IsOptional() @IsNumber() @Min(0) processingFee?: number;
+}
+import { IsOptional, IsInt, Min, Max, IsBoolean } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class QueryLoanProductDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number = 1;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit?: number = 20;
+  @IsOptional() @Type(() => Boolean) @IsBoolean() isActive?: boolean;
+}
+import { IsString, IsEnum, IsNumber, IsPositive, IsInt, Min, IsOptional, IsBoolean } from 'class-validator';
+import { InterestType, CollectionFrequency, LateFeeType } from '@prisma/client';
+
+export class UpdateLoanProductDto {
+  @IsOptional() @IsString() name?: string;
+  @IsOptional() @IsEnum(InterestType) interestType?: InterestType;
+  @IsOptional() @IsNumber() @IsPositive() interestRateAnnual?: number;
+  @IsOptional() @IsEnum(CollectionFrequency) collectionFrequency?: CollectionFrequency;
+  @IsOptional() @IsNumber() @IsPositive() minAmount?: number;
+  @IsOptional() @IsNumber() @IsPositive() maxAmount?: number;
+  @IsOptional() @IsInt() @Min(1) minTenure?: number;
+  @IsOptional() @IsInt() @Min(1) maxTenure?: number;
+  @IsOptional() @IsEnum(LateFeeType) lateFeeType?: LateFeeType;
+  @IsOptional() @IsNumber() @Min(0) lateFeeValue?: number;
+  @IsOptional() @IsNumber() @Min(0) processingFee?: number;
+  @IsOptional() @IsBoolean() isActive?: boolean;
+}
+import { IsNumber, IsPositive, IsInt, Min, IsUUID, IsOptional, IsString } from 'class-validator';
+
+export class CreateLoanDto {
+  @IsUUID() customerId: string;
+  @IsUUID() loanProductId: string;
+  @IsNumber() @IsPositive() principalAmount: number;
+  @IsInt() @Min(1) tenure: number;
+  @IsOptional() @IsString() notes?: string;
+}
+import { IsDateString } from 'class-validator';
+
+export class DisburseLoanDto {
+  @IsDateString() startDate: string;
+}
+import { IsOptional, IsInt, Min, Max, IsString, IsEnum, IsUUID } from 'class-validator';
+import { Type } from 'class-transformer';
+import { LoanStatus } from '@prisma/client';
+
+export class QueryLoanDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number = 1;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit?: number = 20;
+  @IsOptional() @IsEnum(LoanStatus) status?: LoanStatus;
+  @IsOptional() @IsUUID() customerId?: string;
+  @IsOptional() @IsUUID() agentId?: string;
+}
+import { IsString, IsNotEmpty } from 'class-validator';
+
+export class RejectLoanDto {
+  @IsString() @IsNotEmpty() reason: string;
+}
+import { IsInt, IsString, Min, IsOptional } from 'class-validator';
+
+export class RestructureLoanDto {
+  @IsInt()
+  @Min(1)
+  fromInstallmentNumber: number;
+
+  @IsInt()
+  @Min(1)
+  newTenure: number;
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}
+import { IsString, IsNumber, IsPositive, IsInt, Min, IsOptional } from 'class-validator';
+
+export class UpdateLoanDto {
+  @IsOptional() @IsNumber() @IsPositive() principalAmount?: number;
+  @IsOptional() @IsInt() @Min(1) tenure?: number;
+  @IsOptional() @IsString() purpose?: string;
+  @IsOptional() @IsString() guarantorName?: string;
+  @IsOptional() @IsString() guarantorPhone?: string;
+  @IsOptional() @IsString() guarantorIdProofType?: string;
+  @IsOptional() @IsString() guarantorIdProofNumber?: string;
+}
+import { IsString, IsNotEmpty } from 'class-validator';
+
+export class WriteOffLoanDto {
+  @IsString() @IsNotEmpty() reason: string;
+}
+import { IsString, IsOptional } from 'class-validator';
+
+export class CreateBranchDto {
+  @IsString()
+  name: string;
+
+  @IsOptional()
+  @IsString()
+  address?: string;
+}
+import { IsString, IsOptional, IsEmail } from 'class-validator';
+
+export class CreateOrganizationDto {
+  @IsString()
+  organizationName: string;
+
+  @IsOptional()
+  @IsString()
+  operatorType?: string;
+
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
+  @IsOptional()
+  @IsString()
+  timezone?: string;
+
+  @IsOptional()
+  @IsString()
+  contactPhone?: string;
+
+  @IsString()
+  adminFullName: string;
+
+  @IsEmail()
+  adminEmail: string;
+}
+import { IsString, IsOptional } from 'class-validator';
+
+export class UpdateBranchDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  address?: string;
+}
+import { IsString, IsOptional, IsEmail } from 'class-validator';
+
+export class UpdateOrganizationDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
+  @IsOptional()
+  @IsString()
+  timezone?: string;
+
+  @IsOptional()
+  @IsEmail()
+  contactEmail?: string;
+
+  @IsOptional()
+  @IsString()
+  contactPhone?: string;
+
+  @IsOptional()
+  @IsString()
+  address?: string;
+}
+import { IsOptional, IsString, IsInt, Min, Max, IsUUID, IsEnum, IsDateString, IsIn } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class ReportQueryDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number = 1;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit?: number = 20;
+}
+
+export class OverdueQueryDto extends ReportQueryDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) minDaysOverdue?: number;
+  @IsOptional() @IsUUID() branchId?: string;
+  @IsOptional() @IsUUID() agentId?: string;
+}
+
+export class CollectionEfficiencyQueryDto {
+  @IsOptional() @IsDateString() dateFrom?: string;
+  @IsOptional() @IsDateString() dateTo?: string;
+  @IsOptional() @IsIn(['agent', 'branch', 'day']) groupBy?: 'agent' | 'branch' | 'day' = 'agent';
+}
+
+export class ExportQueryDto {
+  @IsIn(['customers', 'loans', 'collections', 'schedule']) type: 'customers' | 'loans' | 'collections' | 'schedule';
+  @IsIn(['csv']) format: 'csv';
+}
+import { IsEmail, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import { UserRole } from '@prisma/client';
+
+export class CreateStaffDto {
+  @IsString()
+  fullName: string;
+
+  @IsEmail()
+  email: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsEnum(UserRole)
+  role: UserRole;
+
+  @IsOptional()
+  @IsUUID()
+  branchId?: string;
+
+  @IsOptional()
+  @IsString()
+  employeeCode?: string;
+}
+import { IsBoolean, IsEnum, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
+import { UserRole } from '@prisma/client';
+
+export class QueryStaffDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
+
+  @IsOptional()
+  @IsEnum(UserRole)
+  role?: UserRole;
+
+  @IsOptional()
+  @IsUUID()
+  branchId?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
+  @IsBoolean()
+  isActive?: boolean;
+}
+import { IsBoolean, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import { UserRole } from '@prisma/client';
+
+export class UpdateStaffDto {
+  @IsOptional()
+  @IsString()
+  fullName?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsEnum(UserRole)
+  role?: UserRole;
+
+  @IsOptional()
+  @IsUUID()
+  branchId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @IsOptional()
+  @IsString()
+  employeeCode?: string;
+}

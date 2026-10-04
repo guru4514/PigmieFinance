@@ -1,0 +1,683 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/shared/lib/api-client';
+
+export function useDueToday(date?: string) {
+  return useQuery({
+    queryKey: ['collections', 'due-today', date],
+    queryFn: () => apiClient.get('/collections/due-today', { params: date ? { date } : undefined }).then(r => r.data),
+  });
+}
+
+export const useCollectionsToday = useDueToday;
+
+export function useCollections() {
+  return useQuery({
+    queryKey: ['collections'],
+    queryFn: () => apiClient.get('/collections').then(r => r.data),
+  });
+}
+
+export function useLoan(loanId: string) {
+  return useQuery({
+    queryKey: ['loans', loanId],
+    queryFn: () => apiClient.get(`/loans/${loanId}`).then(r => r.data),
+    enabled: !!loanId,
+  });
+}
+
+export function useRecordCollection(loanId?: string) {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (data: any) => apiClient.post('/collections', data).then(r => r.data),
+    onSuccess: () => {
+      if (loanId) {
+        queryClient.invalidateQueries({ queryKey: ['loans', loanId] });
+      }
+      queryClient.invalidateQueries({ queryKey: ['collections'] });
+    },
+  });
+}
+
+export function useSyncCollections() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (data: any) => apiClient.post('/collections/sync', data).then(r => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['collections'] });
+    },
+  });
+}
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/shared/lib/api-client';
+
+export interface Customer {
+  id: string;
+  fullName: string;
+  email?: string;
+  phone: string;
+  address?: string;
+  status: 'active' | 'inactive' | 'pending';
+  createdAt?: string;
+  totalLoans?: number;
+}
+
+export const useCustomers = (params?: any) => {
+  return useQuery({
+    queryKey: ['customers', params],
+    queryFn: () => apiClient.get('/customers', { params }).then(r => r.data),
+  });
+};
+
+export const useCustomer = (id: string) => {
+  return useQuery({
+    queryKey: ['customers', id],
+    queryFn: () => apiClient.get(`/customers/${id}`).then(r => r.data),
+    enabled: !!id,
+  });
+};
+
+import { toast } from 'sonner';
+
+export const useCreateCustomer = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<Customer>) => 
+      apiClient.post('/customers', data).then(r => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      toast.success('Customer created successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to create customer');
+    }
+  });
+};
+
+export const useUpdateCustomer = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Customer> }) => 
+      apiClient.patch(`/customers/${id}`, data).then(r => r.data),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['customers', id] });
+      toast.success('Customer updated successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to update customer');
+    }
+  });
+};
+
+export const useDeleteCustomer = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/customers/${id}`).then(r => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      toast.success('Customer deleted successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to delete customer');
+    }
+  });
+};
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/shared/lib/api-client';
+import { toast } from 'sonner';
+
+export type DocumentType = 'kyc_id' | 'kyc_photo' | 'kyc_address' | 'loan_agreement' | 'other';
+export type EntityType = 'customer' | 'loan';
+
+export interface Document {
+  id: string;
+  entityType: EntityType;
+  entityId: string;
+  documentType: DocumentType;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  status: string;
+  createdAt: string;
+}
+
+export const useDocuments = (entityType: EntityType, entityId: string) => {
+  return useQuery({
+    queryKey: ['documents', entityType, entityId],
+    queryFn: () => apiClient.get(`/documents/entity/${entityType}/${entityId}`).then(r => r.data),
+    enabled: !!entityId,
+  });
+};
+
+export const useUploadDocument = (entityType: EntityType, entityId: string) => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ file, documentType }: { file: File, documentType: DocumentType }) => {
+      // 1. Get signed upload URL
+      const { data: uploadInfo } = await apiClient.post('/documents/upload-url', {
+        relatedEntityType: entityType,
+        relatedEntityId: entityId,
+        documentType,
+        fileName: file.name,
+        mimeType: file.type,
+        fileSizeBytes: file.size,
+      });
+
+      // 2. Upload file directly to Supabase storage via PUT
+      const uploadResponse = await fetch(uploadInfo.signedUrl, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload file to storage bucket');
+      }
+
+      // 3. Register document in the database
+      const { data: document } = await apiClient.post('/documents', {
+        relatedEntityType: entityType,
+        relatedEntityId: entityId,
+        documentType,
+        filePath: uploadInfo.path,
+        mimeType: file.type,
+        fileSizeBytes: file.size,
+      });
+
+      return document;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents', entityType, entityId] });
+      toast.success('Document uploaded successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || error.message || 'Failed to upload document');
+    }
+  });
+};
+
+export const useDownloadDocument = () => {
+  return useMutation({
+    mutationFn: async (documentId: string) => {
+      const { data } = await apiClient.get(`/documents/${documentId}/download-url`);
+      return data.signedDownloadUrl;
+    },
+    onSuccess: (url) => {
+      // Trigger download
+      window.open(url, '_blank');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to download document');
+    }
+  });
+};
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/shared/lib/api-client';
+
+export interface LoanProduct {
+  id: string;
+  name: string;
+  interestType: 'flat' | 'reducing';
+  interestRateAnnual: number;
+  collectionFrequency: 'daily' | 'weekly' | 'monthly';
+  minAmount: number;
+  maxAmount: number;
+  minTenure: number;
+  maxTenure: number;
+  processingFee?: number;
+  status: 'active' | 'inactive';
+}
+
+export const useLoanProducts = () => {
+  return useQuery({
+    queryKey: ['loan-products'],
+    queryFn: () => apiClient.get('/loan-products').then(r => r.data),
+  });
+};
+
+import { toast } from 'sonner';
+
+export const useCreateLoanProduct = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<LoanProduct>) => 
+      apiClient.post('/loan-products', data).then(r => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['loan-products'] });
+      toast.success('Loan product created successfully');
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to create loan product')
+  });
+};
+
+export const useUpdateLoanProduct = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<LoanProduct> }) => 
+      apiClient.patch(`/loan-products/${id}`, data).then(r => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['loan-products'] });
+      toast.success('Loan product updated successfully');
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to update loan product')
+  });
+};
+
+export const useDeleteLoanProduct = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/loan-products/${id}`).then(r => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['loan-products'] });
+      toast.success('Loan product deleted successfully');
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to delete loan product')
+  });
+};
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/shared/lib/api-client';
+
+export type LoanStatus = 'pending_approval' | 'approved' | 'active' | 'closed' | 'defaulted' | 'written_off' | 'rejected';
+
+export interface Loan {
+  id: string;
+  customerId: string;
+  loanProductId: string;
+  principalAmount: number;
+  tenure: number;
+  status: LoanStatus;
+  remainingBalance: number;
+  startDate?: string;
+  endDate?: string;
+  nextPaymentDate?: string;
+  nextPaymentAmount?: number;
+  customer?: {
+    fullName: string;
+    phone?: string;
+    phoneNumber?: string;
+  };
+  loanProduct?: {
+    interestRateAnnual: number;
+  };
+  amount?: number; // fallback
+  collections?: Array<{
+    id: string;
+    amount: number;
+    collectionDate?: string;
+    collectedAt?: string;
+    collectionMethod?: string;
+    receiptNumber?: string;
+    status?: string;
+    notes?: string;
+    collectedBy?: {
+      id: string;
+      fullName: string;
+    };
+  }>;
+}
+
+export const useLoans = (params?: any) => {
+  return useQuery({
+    queryKey: ['loans', params],
+    queryFn: () => apiClient.get('/loans', { params }).then(r => r.data),
+  });
+};
+
+export const useLoanDetails = (id: string) => {
+  return useQuery({
+    queryKey: ['loans', id],
+    queryFn: () => apiClient.get(`/loans/${id}`).then(r => r.data),
+    enabled: !!id,
+  });
+};
+
+export const useLoan = useLoanDetails;
+
+import { toast } from 'sonner';
+
+export const useCreateLoan = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => apiClient.post('/loans', data).then(r => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['loans'] });
+      toast.success('Loan created successfully');
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to create loan')
+  });
+};
+
+export const useApproveLoan = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.post(`/loans/${id}/approve`).then(r => r.data),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['loans'] });
+      queryClient.invalidateQueries({ queryKey: ['loans', id] });
+      toast.success('Loan approved');
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to approve loan')
+  });
+};
+
+export const useRejectLoan = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.post(`/loans/${id}/reject`).then(r => r.data),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['loans'] });
+      queryClient.invalidateQueries({ queryKey: ['loans', id] });
+      toast.success('Loan rejected');
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to reject loan')
+  });
+};
+
+export const useDisburseLoan = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.post(`/loans/${id}/disburse`, { startDate: new Date().toISOString().split('T')[0] }).then(r => r.data),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['loans'] });
+      queryClient.invalidateQueries({ queryKey: ['loans', id] });
+      toast.success('Loan disbursed successfully');
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to disburse loan')
+  });
+};
+
+export const useCloseLoan = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.post(`/loans/${id}/close`).then(r => r.data),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['loans'] });
+      queryClient.invalidateQueries({ queryKey: ['loans', id] });
+      toast.success('Loan closed');
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to close loan')
+  });
+};
+
+export const useWriteOffLoan = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.post(`/loans/${id}/write-off`).then(r => r.data),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['loans'] });
+      queryClient.invalidateQueries({ queryKey: ['loans', id] });
+      toast.success('Loan written off');
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to write off loan')
+  });
+};
+
+export const useMarkDefaultLoan = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.post(`/loans/${id}/mark-default`).then(r => r.data),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['loans'] });
+      queryClient.invalidateQueries({ queryKey: ['loans', id] });
+      toast.success('Loan marked as default');
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to mark loan as default')
+  });
+};
+
+export const useLoanSchedule = (loanId: string) => {
+  return useQuery({
+    queryKey: ['loans', loanId, 'schedule'],
+    queryFn: () => apiClient.get(`/loans/${loanId}/schedule`).then(r => r.data),
+    enabled: !!loanId,
+  });
+};
+
+export const useRestructureLoan = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string, data: { fromInstallmentNumber: number; newTenure: number; reason?: string } }) => 
+      apiClient.loans.restructureLoan(id, data),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ['loans'] });
+      queryClient.invalidateQueries({ queryKey: ['loans', id] });
+      toast.success('Loan restructured successfully');
+    },
+    onError: (error: { response?: { data?: { message?: string } } }) => toast.error(error?.response?.data?.message || 'Failed to restructure loan')
+  });
+};
+
+export const usePreClosureDetails = (loanId: string, enabled: boolean = false) => {
+  return useQuery({
+    queryKey: ['loans', loanId, 'pre-closure'],
+    queryFn: () => apiClient.get(`/loans/${loanId}/pre-closure`).then(r => r.data),
+    enabled: enabled && !!loanId,
+  });
+};
+
+export const usePreCloseLoan = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, preClosureAmount }: { id: string, preClosureAmount: number }) => 
+      apiClient.post(`/loans/${id}/close`, { preClosureAmount }).then(r => r.data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['loans'] });
+      queryClient.invalidateQueries({ queryKey: ['loans', variables.id] });
+      toast.success('Loan pre-closed successfully');
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to pre-close loan')
+  });
+};
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/shared/lib/api-client';
+
+export const usePortalDashboard = () => {
+  return useQuery({
+    queryKey: ['portal', 'dashboard'],
+    queryFn: () => apiClient.get('/portal/me').then(r => r.data),
+  });
+};
+
+export const usePortalLoanDetails = (loanId: string) => {
+  return useQuery({
+    queryKey: ['portal', 'loan', loanId],
+    queryFn: () => apiClient.get(`/portal/loans/${loanId}`).then(r => r.data),
+    enabled: !!loanId,
+  });
+};
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { apiClient } from '@/shared/lib/api-client';
+
+export const usePortfolioAtRisk = () => {
+  return useQuery({
+    queryKey: ['reports', 'portfolio-at-risk'],
+    queryFn: () => apiClient.get('/reports/portfolio-at-risk').then(r => {
+      const d = r.data;
+      return Array.isArray(d) ? d : (d?.data ?? []);
+    }),
+  });
+};
+
+export const useCollectionEfficiency = (startDate?: string, endDate?: string) => {
+  return useQuery({
+    queryKey: ['reports', 'collection-efficiency', startDate, endDate],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      return apiClient.get(`/reports/collection-efficiency?${params.toString()}`).then(r => {
+        const d = r.data;
+        return Array.isArray(d) ? d : (d?.data ?? []);
+      });
+    },
+  });
+};
+
+export const useAgentPerformance = () => {
+  return useQuery({
+    queryKey: ['reports', 'agent-performance'],
+    queryFn: () => apiClient.get('/reports/agent-performance').then(r => {
+      const d = r.data;
+      return Array.isArray(d) ? d : (d?.data ?? []);
+    }),
+  });
+};
+
+export const useExportReport = () => {
+  return useMutation({
+    mutationFn: async (type: 'par' | 'collections' | 'agents') => {
+      const response = await apiClient.get(`/reports/export?type=${type}`, {
+        responseType: 'blob'
+      });
+      return response.data;
+    },
+    onSuccess: (blob, type) => {
+      // Create a link to download the blob
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${type}-report-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    },
+  });
+};
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '@/shared/lib/api-client';
+
+export type StaffRole = 'org_admin' | 'branch_manager' | 'agent' | 'accountant';
+export type StaffStatus = 'active' | 'inactive' | 'suspended';
+
+export interface StaffMember {
+  id: string;
+  fullName: string;
+  email: string;
+  role: StaffRole;
+  status: StaffStatus;
+  joinedAt: string;
+}
+
+export const useStaff = () => {
+  return useQuery({
+    queryKey: ['staff'],
+    queryFn: () => apiClient.get('/staff').then(r => r.data),
+  });
+};
+
+import { toast } from 'sonner';
+
+export const useCreateStaff = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<StaffMember>) => 
+      apiClient.post('/staff', data).then(r => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff'] });
+      toast.success('Staff member created successfully');
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to create staff member')
+  });
+};
+
+export const useUpdateStaff = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<StaffMember> }) => 
+      apiClient.patch(`/staff/${id}`, data).then(r => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff'] });
+      toast.success('Staff member updated successfully');
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to update staff member')
+  });
+};
+
+export const useDeleteStaff = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/staff/${id}`).then(r => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff'] });
+      toast.success('Staff member deleted successfully');
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to delete staff member')
+  });
+};
+import { useState, useEffect } from 'react';
+import { Session } from '@supabase/supabase-js';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../lib/supabase';
+import { apiClient } from '../lib/api-client';
+import { ResolvedUser } from '../types';
+
+export function useAuth() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setSessionLoading(false);
+    });
+    
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      setSession(s);
+      setSessionLoading(false);
+    });
+    
+    return () => {
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  const profileQuery = useQuery({
+    queryKey: ['auth', 'me'],
+    queryFn: () => apiClient.get('/auth/me').then((r) => r.data),
+    enabled: !!session,
+    staleTime: 5 * 60_000,
+    retry: false
+  });
+
+  const enroll2FA = async () => {
+    const { data, error } = await supabase.auth.mfa.enroll({
+      factorType: 'totp',
+    });
+    if (error) throw error;
+    return data;
+  };
+
+  const verify2FASetup = async (factorId: string, code: string) => {
+    const { data, error } = await supabase.auth.mfa.challengeAndVerify({
+      factorId,
+      code,
+    });
+    if (error) throw error;
+    return data;
+  };
+
+  const challenge2FA = async (factorId: string, code: string) => {
+    const { data, error } = await supabase.auth.mfa.challengeAndVerify({
+      factorId,
+      code,
+    });
+    if (error) throw error;
+    return data;
+  };
+
+  return {
+    session,
+    user: profileQuery.data as ResolvedUser | undefined,
+    isLoading: sessionLoading || (!!session && profileQuery.isLoading),
+    error: profileQuery.error,
+    enroll2FA,
+    verify2FASetup,
+    challenge2FA,
+  };
+}
