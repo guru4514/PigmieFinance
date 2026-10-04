@@ -144,6 +144,7 @@ export class LoansService {
         where: { id, organizationId },
         include: { customer: true }
       });
+      await tx.$executeRaw`SELECT 1 FROM loans WHERE id = ${id}::uuid FOR UPDATE`;
       if (loan.status !== 'pending_approval') {
         throw new BadRequestException('Loan is not pending approval');
       }
@@ -188,6 +189,7 @@ export class LoansService {
   async reject(organizationId: string, id: string, staffId: string, reason: string) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
       const loan = await tx.loan.findFirstOrThrow({ where: { id, organizationId } });
+      await tx.$executeRaw`SELECT 1 FROM loans WHERE id = ${id}::uuid FOR UPDATE`;
       if (loan.status !== 'pending_approval') {
         throw new BadRequestException('Loan is not pending approval');
       }
@@ -207,6 +209,7 @@ export class LoansService {
         where: { id: loanId, organizationId, status: 'approved' },
         include: { loanProduct: true, customer: true },
       });
+      await tx.$executeRaw`SELECT 1 FROM loans WHERE id = ${loanId}::uuid FOR UPDATE`;
 
       const rows = generateSchedule({
         principal: loan.principalAmount.toNumber(),
@@ -277,11 +280,18 @@ export class LoansService {
   async close(organizationId: string, id: string, staffId: string, body?: { preClosureAmount?: number }) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
       const loan = await tx.loan.findFirstOrThrow({ where: { id, organizationId } });
+      await tx.$executeRaw`SELECT 1 FROM loans WHERE id = ${id}::uuid FOR UPDATE`;
       if (loan.status !== 'active') {
         throw new BadRequestException('Loan is not active');
       }
 
       if (body?.preClosureAmount !== undefined) {
+         const outstanding = loan.outstandingBalance.toNumber();
+         if (body.preClosureAmount < outstanding) {
+           throw new BadRequestException(
+             `Pre-closure amount (₹${body.preClosureAmount}) must be at least the outstanding balance (₹${outstanding})`
+           );
+         }
          const preClosureAmount = new Prisma.Decimal(body.preClosureAmount.toString());
          const today = new Date();
          const dateString = today.toISOString().split('T')[0];
@@ -511,8 +521,10 @@ export class LoansService {
       await tx.loanSchedule.createMany({ data: scheduleData });
 
       const newDueAmountSum = newRows.reduce((sum, r) => sum + r.dueAmount, 0);
-      const newTotalPayable = loan.totalPayable.toNumber() - deletedDueAmountSum + newDueAmountSum;
-      const newOutstandingBalance = loan.outstandingBalance.toNumber() - deletedDueAmountSum + newDueAmountSum;
+      const newDueAmountSumDec = new Prisma.Decimal(newDueAmountSum);
+      const deletedDueAmountSumDec = new Prisma.Decimal(deletedDueAmountSum);
+      const newTotalPayable = loan.totalPayable.minus(deletedDueAmountSumDec).plus(newDueAmountSumDec);
+      const newOutstandingBalance = loan.outstandingBalance.minus(deletedDueAmountSumDec).plus(newDueAmountSumDec);
       const newExpectedEndDate = new Date(newRows[newRows.length - 1].dueDate);
       const newTenureTotal = dto.fromInstallmentNumber - 1 + dto.newTenure;
 
@@ -520,8 +532,8 @@ export class LoansService {
         where: { id },
         data: {
           tenure: newTenureTotal,
-          totalPayable: new Prisma.Decimal(newTotalPayable),
-          outstandingBalance: new Prisma.Decimal(newOutstandingBalance),
+          totalPayable: newTotalPayable,
+          outstandingBalance: newOutstandingBalance,
           expectedEndDate: newExpectedEndDate,
           notes: dto.reason ? `${loan.notes ? loan.notes + '\n' : ''}Restructured: ${dto.reason}` : loan.notes,
         }

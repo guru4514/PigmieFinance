@@ -97,25 +97,33 @@ export class CollectionsService {
       const receiptNumber = `RCP-${dto.collectionDate.replace(/-/g, '')}-${String(countToday + 1).padStart(4, '0')}`;
 
       // Create the collection record
-      const collection = await tx.collection.create({
-        data: {
-          clientGeneratedId: dto.clientGeneratedId,
-          organizationId,
-          loanId: dto.loanId,
-          customerId: loan.customer.id,
-          collectedById: staffId,
-          amount: dto.amount,
-          collectionDate: new Date(dto.collectionDate),
-          collectedAt: new Date(dto.collectedAt),
-          collectionMethod: dto.collectionMethod as any,
-          receiptNumber,
-          latitude: dto.latitude,
-          longitude: dto.longitude,
-          photoUrl: dto.photoUrl,
-          notes: dto.notes,
-          status: 'recorded',
-        },
-      });
+      let collection;
+      try {
+        collection = await tx.collection.create({
+          data: {
+            clientGeneratedId: dto.clientGeneratedId,
+            organizationId,
+            loanId: dto.loanId,
+            customerId: loan.customer.id,
+            collectedById: staffId,
+            amount: dto.amount,
+            collectionDate: new Date(dto.collectionDate),
+            collectedAt: new Date(dto.collectedAt),
+            collectionMethod: dto.collectionMethod as any,
+            receiptNumber,
+            latitude: dto.latitude,
+            longitude: dto.longitude,
+            photoUrl: dto.photoUrl,
+            notes: dto.notes,
+            status: 'recorded',
+          },
+        });
+      } catch (error: any) {
+        if (error.code === 'P2002') {
+          return { status: 'duplicate', collection: await tx.collection.findFirst({ where: { clientGeneratedId: dto.clientGeneratedId } }) };
+        }
+        throw error;
+      }
 
       // Apply collection to schedule — oldest-due-first
       await this.applyToSchedule(tx, dto.loanId, dto.amount);
@@ -271,6 +279,7 @@ export class CollectionsService {
   }
 
   private async applyToSchedule(tx: any, loanId: string, amount: number) {
+    await tx.$executeRaw`SELECT 1 FROM loan_schedule WHERE loan_id = ${loanId}::uuid FOR UPDATE`;
     let remaining = new Prisma.Decimal(amount.toString());
 
     // Phase 1: Apply to pending/partially_paid/overdue rows, oldest first
@@ -326,6 +335,12 @@ export class CollectionsService {
           },
         });
       }
+    }
+
+    if (remaining.toNumber() > 0) {
+      throw new BadRequestException(
+        `Payment of ₹${amount} exceeds total outstanding. Maximum payable: ₹${amount - remaining.toNumber()}`
+      );
     }
 
     // Check if loan is fully paid — auto-close

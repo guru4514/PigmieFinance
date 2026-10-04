@@ -7,6 +7,8 @@ import { SmsService } from './sms.service';
 import { IsOptional, IsInt, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
+import { Roles } from '../../common/decorators/roles.decorator';
+
 export class NotificationQueryDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number = 1;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit?: number = 20;
@@ -20,6 +22,7 @@ export class NotificationsController {
   ) {}
 
   @Post('subscribe')
+  @Roles('org_admin', 'branch_manager')
   @UseGuards(SupabaseAuthGuard)
   async subscribe(
     @CurrentUser() user: AuthenticatedUser,
@@ -34,24 +37,28 @@ export class NotificationsController {
   }
 
   @Get()
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
   @UseGuards(SupabaseAuthGuard)
   async getNotifications(@Query() query: NotificationQueryDto, @CurrentUser() user: AuthenticatedUser) {
     return this.notificationsService.getNotifications(user.organizationId, user.type, user.id, query);
   }
 
   @Patch(':id/read')
+  @Roles('org_admin', 'branch_manager')
   @UseGuards(SupabaseAuthGuard)
   async markAsRead(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.notificationsService.markAsRead(user.organizationId, id);
   }
 
   @Patch('read-all')
+  @Roles('org_admin', 'branch_manager')
   @UseGuards(SupabaseAuthGuard)
   async markAllAsRead(@CurrentUser() user: AuthenticatedUser) {
     return this.notificationsService.markAllAsRead(user.organizationId, user.type, user.id);
   }
 
   @Post('send-sms')
+  @Roles('org_admin', 'branch_manager')
   @UseGuards(SupabaseAuthGuard)
   async sendSms(@Body() data: { phone: string; message: string }) {
     const success = await this.smsService.sendSMS(data.phone, data.message);
@@ -59,6 +66,7 @@ export class NotificationsController {
   }
 
   @Post('send-bulk-reminders')
+  @Roles('org_admin', 'branch_manager')
   @UseGuards(SupabaseAuthGuard)
   async sendBulkReminders(@Body() data: { recipients: { phone: string; message: string }[] }) {
     await this.smsService.sendBulkSMS(data.recipients);

@@ -7,6 +7,16 @@ import { OverdueQueryDto, CollectionEfficiencyQueryDto } from './dto/query-repor
 export class ReportsService {
   constructor(private readonly tenantPrisma: TenantPrismaService) {}
 
+  private sanitizeCsvField(field: string): string {
+    let sanitized = String(field ?? '');
+    // Prevent formula injection
+    if (/^[=+\-@\t\r]/.test(sanitized)) {
+      sanitized = "'" + sanitized;
+    }
+    // Escape quotes and wrap in quotes
+    return '"' + sanitized.replace(/"/g, '""') + '"';
+  }
+
   async getDashboardSummary(organizationId: string, user: any) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
       const today = new Date();
@@ -202,11 +212,11 @@ export class ReportsService {
       if (type === 'customers') {
         const data = await tx.customer.findMany({ where: { organizationId } });
         if (!data.length) return 'id,fullName\n';
-        return `id,fullName\n` + data.map(c => `${c.id},${c.fullName}`).join('\n');
+        return `id,fullName\n` + data.map(c => `${this.sanitizeCsvField(c.id)},${this.sanitizeCsvField(c.fullName)}`).join('\n');
       } else if (type === 'loans') {
         const data = await tx.loan.findMany({ where: { organizationId } });
         if (!data.length) return 'id,amount,status\n';
-        return `id,amount,status\n` + data.map(c => `${c.id},${c.principalAmount},${c.status}`).join('\n');
+        return `id,amount,status\n` + data.map(c => `${this.sanitizeCsvField(c.id)},${this.sanitizeCsvField(c.principalAmount.toString())},${this.sanitizeCsvField(c.status)}`).join('\n');
       }
       return 'id\n';
     });
