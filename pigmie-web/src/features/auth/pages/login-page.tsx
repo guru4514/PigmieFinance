@@ -84,7 +84,7 @@ export function LoginPage() {
             <div className="w-6 h-6 bg-gradient-to-tr from-indigo-500 to-emerald-500 rounded-md"></div>
           </div>
           <CardTitle className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-zinc-400 bg-clip-text text-transparent">Welcome back</CardTitle>
-          <CardDescription className="text-muted-foreground">Sign in to your Pigmie account</CardDescription>
+          <CardDescription className="text-muted-foreground">{t('auth.signIn')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
@@ -94,7 +94,7 @@ export function LoginPage() {
               </div>
             )}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground/80">Email address</label>
+              <label className="text-sm font-medium text-foreground/80">{t('auth.email')}</label>
               <Input 
                 type="email" 
                 placeholder="name@example.com"
@@ -126,7 +126,7 @@ export function LoginPage() {
                     }
                   }}
                   className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                >Forgot password?</button>
+                >{t('auth.forgotPassword')}</button>
               </div>
               <Input 
                 type="password" 

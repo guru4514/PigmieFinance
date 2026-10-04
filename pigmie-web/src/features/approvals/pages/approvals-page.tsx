@@ -127,7 +127,7 @@ export function ApprovalsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectingId(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setRejectingId(null)}>{t('nav.cancel')}</Button>
             <Button 
               variant="destructive" 
               onClick={handleReject} 

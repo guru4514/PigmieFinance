@@ -123,7 +123,7 @@ function StaffRowActions({ member }: { member: StaffMember }) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsEditRoleOpen(false)}>Cancel</Button>
+            <Button variant="ghost" onClick={() => setIsEditRoleOpen(false)}>{t('nav.cancel')}</Button>
             <Button onClick={handleUpdateRole} disabled={updateStaff.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
               {updateStaff.isPending ? <LoadingSpinner className="h-4 w-4" /> : 'Save Changes'}
             </Button>
@@ -138,7 +138,7 @@ function StaffRowActions({ member }: { member: StaffMember }) {
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground/80">Full Name</label>
+              <label className="text-sm font-medium text-foreground/80">{t('customers.fullName')}</label>
               <Input 
                 value={profileForm.fullName} 
                 onChange={e => setProfileForm({ ...profileForm, fullName: e.target.value })}
@@ -156,7 +156,7 @@ function StaffRowActions({ member }: { member: StaffMember }) {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsEditProfileOpen(false)}>Cancel</Button>
+            <Button variant="ghost" onClick={() => setIsEditProfileOpen(false)}>{t('nav.cancel')}</Button>
             <Button onClick={handleUpdateProfile} disabled={updateStaff.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
               {updateStaff.isPending ? <LoadingSpinner className="h-4 w-4" /> : 'Save Changes'}
             </Button>
@@ -192,7 +192,7 @@ export function StaffPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Staff Management</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">{t('staff.title')}</h1>
           <p className="text-muted-foreground mt-2">
             Manage your organization's staff members and their roles.
           </p>
@@ -227,7 +227,7 @@ export function StaffPage() {
                   <TableRow className="border-border hover:bg-muted">
                     <TableHead> {t('staff.name')} </TableHead>
                     <TableHead> {t('staff.role')} </TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>{t('branches.status')}</TableHead>
                     <TableHead>Joined</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
                   </TableRow>

@@ -85,7 +85,7 @@ export function AuditLogsPage() {
           <table className="w-full text-left text-sm">
             <thead className="text-xs text-muted-foreground bg-muted/50">
               <tr>
-                <th className="px-4 py-3 rounded-tl-lg">Date</th>
+                <th className="px-4 py-3 rounded-tl-lg">{t('nav.date')}</th>
                 <th className="px-4 py-3">Actor</th>
                 <th className="px-4 py-3"> {t('audit.action')} </th>
                 <th className="px-4 py-3">Entity Type</th>

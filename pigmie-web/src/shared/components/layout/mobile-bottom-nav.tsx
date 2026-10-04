@@ -35,22 +35,22 @@ export function MobileBottomNav() {
   };
 
   const mainTabs = [
-    { title: t('nav.home'), href: '/app/dashboard', icon: LayoutDashboard },
-    { title: t('nav.customers'), href: '/app/customers', icon: Users },
-    { title: t('nav.collect'), href: '/app/collections/today', icon: Banknote, isPrimary: true },
-    { title: t('nav.loans'), href: '/app/loans', icon: CreditCard },
+    { title: 'Home', translationKey: 'nav.home', href: '/app/dashboard', icon: LayoutDashboard },
+    { title: 'Customers', translationKey: 'nav.customers', href: '/app/customers', icon: Users },
+    { title: 'Collect', translationKey: 'nav.collect', href: '/app/collections/today', icon: Banknote, isPrimary: true },
+    { title: 'Loans', translationKey: 'nav.loans', href: '/app/loans', icon: CreditCard },
   ];
 
   const moreItems = [
-    { title: 'Loan Products', href: '/app/loan-products', icon: Package, roles: ['org_admin', 'branch_manager'] },
-    { title: 'EMI Calculator', href: '/app/emi-calculator', icon: Calculator, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'] },
-    { title: 'Cash Deposits', href: '/app/cash-deposits', icon: Wallet, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'] },
-    { title: 'Approvals', href: '/app/approvals', icon: ClipboardCheck, roles: ['org_admin', 'branch_manager'] },
-    { title: 'Reports', href: '/app/reports', icon: FileText, roles: ['org_admin', 'branch_manager', 'accountant'] },
-    { title: 'Staff', href: '/app/staff', icon: UserCog, roles: ['org_admin'] },
-    { title: 'Branches', href: '/app/branches', icon: GitBranch, roles: ['org_admin'] },
-    { title: 'Audit Logs', href: '/app/audit-logs', icon: ShieldAlert, roles: ['org_admin', 'accountant'] },
-    { title: 'Settings', href: '/app/settings', icon: Settings, roles: ['org_admin'] },
+    { title: 'Loan Products', translationKey: 'nav.loanProducts', href: '/app/loan-products', icon: Package, roles: ['org_admin', 'branch_manager'] },
+    { title: 'EMI Calculator', translationKey: 'nav.emiCalculator', href: '/app/emi-calculator', icon: Calculator, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'] },
+    { title: 'Cash Deposits', translationKey: 'nav.cashDeposits', href: '/app/cash-deposits', icon: Wallet, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'] },
+    { title: 'Approvals', translationKey: 'nav.approvals', href: '/app/approvals', icon: ClipboardCheck, roles: ['org_admin', 'branch_manager'] },
+    { title: 'Reports', translationKey: 'nav.reports', href: '/app/reports', icon: FileText, roles: ['org_admin', 'branch_manager', 'accountant'] },
+    { title: 'Staff', translationKey: 'nav.staff', href: '/app/staff', icon: UserCog, roles: ['org_admin'] },
+    { title: 'Branches', translationKey: 'nav.branches', href: '/app/branches', icon: GitBranch, roles: ['org_admin'] },
+    { title: 'Audit Logs', translationKey: 'nav.auditLogs', href: '/app/audit-logs', icon: ShieldAlert, roles: ['org_admin', 'accountant'] },
+    { title: 'Settings', translationKey: 'nav.settings', href: '/app/settings', icon: Settings, roles: ['org_admin'] },
   ];
 
   const filteredMoreItems = moreItems.filter(item => userRole && item.roles.includes(userRole));
@@ -87,7 +87,7 @@ export function MobileBottomNav() {
                     "text-[10px] font-medium",
                     tab.isPrimary && "text-emerald-700 dark:text-emerald-400"
                   )}>
-                    {tab.title}
+                    {(tab as any).translationKey ? t((tab as any).translationKey) : tab.title}
                   </span>
                 </>
               )}
@@ -101,7 +101,7 @@ export function MobileBottomNav() {
             <div className="flex items-center justify-center w-8 h-8 rounded-full transition-all">
               <Menu className="w-5 h-5" />
             </div>
-            <span className="text-[10px] font-medium">More</span>
+            <span className="text-[10px] font-medium">{t('nav.more')}</span>
           </button>
         </div>
       </nav>
@@ -112,7 +112,7 @@ export function MobileBottomNav() {
           <div className="absolute inset-0" onClick={() => setMoreOpen(false)} />
           <div className="relative bg-white dark:bg-card w-full rounded-t-2xl max-h-[85vh] flex flex-col shadow-xl pb-safe animate-in slide-in-from-bottom-full duration-300">
             <div className="sticky top-0 bg-white dark:bg-card border-b border-gray-100 dark:border-border p-4 flex items-center justify-between z-10 rounded-t-2xl">
-              <h2 className="text-lg font-semibold text-foreground">More</h2>
+              <h2 className="text-lg font-semibold text-foreground">{t('nav.more')}</h2>
               <button 
                 onClick={() => setMoreOpen(false)}
                 className="p-2 rounded-full bg-muted text-muted-foreground hover:text-foreground"
@@ -135,7 +135,7 @@ export function MobileBottomNav() {
                   )}
                 >
                   <item.icon className="w-5 h-5" />
-                  {item.title}
+                  {(item as any).translationKey ? t((item as any).translationKey) : item.title}
                 </NavLink>
               ))}
               

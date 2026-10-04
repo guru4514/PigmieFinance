@@ -180,7 +180,7 @@ export function SettingsPage() {
                 ) : (
                   <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-foreground">Organization Name</label>
+                      <label className="text-sm font-medium text-foreground">{t('auth.orgName')}</label>
                       <Input 
                         {...register('name')}
                         className="bg-muted border-border" 

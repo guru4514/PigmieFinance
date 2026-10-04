@@ -93,10 +93,10 @@ export function ReportsPage() {
                       <TableRow className="border-border">
                         <TableHead>Loan ID</TableHead>
                         <TableHead>Customer</TableHead>
-                        <TableHead>Principal</TableHead>
+                        <TableHead>{t('loans.principal')}</TableHead>
                         <TableHead>Outstanding Balance</TableHead>
                         <TableHead>Days Overdue</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead className="text-right">{t('loans.actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -158,7 +158,7 @@ export function ReportsPage() {
                   <Table>
                     <TableHeader className="bg-muted">
                       <TableRow className="border-border">
-                        <TableHead>Date</TableHead>
+                        <TableHead>{t('nav.date')}</TableHead>
                         <TableHead>Expected Collections</TableHead>
                         <TableHead>Actual Collections</TableHead>
                         <TableHead>Efficiency %</TableHead>

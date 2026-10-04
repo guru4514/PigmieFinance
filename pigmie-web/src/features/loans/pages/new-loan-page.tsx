@@ -23,6 +23,7 @@ const loanSchema = z.object({
 type LoanFormValues = z.infer<typeof loanSchema>;
 
 export const NewLoanPage: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const createLoan = useCreateLoan();
   
@@ -61,7 +62,7 @@ export const NewLoanPage: React.FC = () => {
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">Create New Loan</h1>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">{t('loans.newApplication')}</h1>
           <p className="text-sm text-muted-foreground mt-1">Issue a new loan to a registered customer.</p>
         </div>
       </div>
@@ -69,7 +70,7 @@ export const NewLoanPage: React.FC = () => {
       <form onSubmit={handleSubmit(onSubmit)}>
         <Card className="bg-card border-border backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-xl text-foreground">Loan Details</CardTitle>
+            <CardTitle className="text-xl text-foreground">{t('loans.details')}</CardTitle>
             <CardDescription className="text-muted-foreground">
               Select a customer and a loan product to determine the terms.
             </CardDescription>
@@ -152,3 +153,4 @@ export const NewLoanPage: React.FC = () => {
     </div>
   );
 };
+import { useTranslation } from 'react-i18next';

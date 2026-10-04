@@ -102,7 +102,7 @@ export function StaffFormPage() {
 
             <div className="flex justify-end gap-4 pt-4 border-t border-border">
               <Link to="/app/staff">
-                <Button type="button" variant="ghost">Cancel</Button>
+                <Button type="button" variant="ghost">{t('nav.cancel')}</Button>
               </Link>
               <Button type="submit" disabled={createStaff.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
                 <UserPlus className="w-4 h-4" />

@@ -109,15 +109,15 @@ export function SignupPage() {
                 <form onSubmit={handleStep1} className="space-y-4">
                   {errorMsg && <div className="text-red-500 text-sm font-medium">{errorMsg}</div>}
                   <div className="space-y-2">
-                    <Label htmlFor="fullName">Full Name</Label>
+                    <Label htmlFor="fullName">{t('customers.fullName')}</Label>
                     <Input id="fullName" value={adminFullName} onChange={e => setAdminFullName(e.target.value)} placeholder="John Doe" required className="bg-background/50" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">{t('staff.email')}</Label>
                     <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="m@example.com" required className="bg-background/50" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="password">{t('auth.password')}</Label>
                     <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required className="bg-background/50" />
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>

@@ -205,6 +205,20 @@
     "home": "Home",
     "collect": "Collect",
     "more": "More",
-    "date": "Date"
+    "date": "Date",
+    "daily": "Daily",
+    "tools": "Tools",
+    "management": "Management",
+    "insights": "Insights",
+    "system": "System",
+    "emiCalculator": "EMI Calculator",
+    "cashDeposits": "Cash Deposits",
+    "staff": "Staff",
+    "branches": "Branches",
+    "loanProducts": "Loan Products",
+    "approvals": "Approvals",
+    "reports": "Reports",
+    "auditLogs": "Audit Logs",
+    "settings": "Settings"
   }
 }

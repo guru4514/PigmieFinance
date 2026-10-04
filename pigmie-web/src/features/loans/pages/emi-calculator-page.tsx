@@ -71,7 +71,7 @@ export const EMICalculatorPage: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground/80">Tenure</label>
+                <label className="text-sm font-medium text-foreground/80">{t('loans.tenure')}</label>
                 <div className="flex gap-2">
                   <Input
                     type="number"
@@ -157,10 +157,10 @@ export const EMICalculatorPage: React.FC = () => {
                     <thead className="text-xs text-muted-foreground bg-card/80 sticky top-0 uppercase">
                       <tr>
                         <th className="px-4 py-3">#</th>
-                        <th className="px-4 py-3">Principal</th>
+                        <th className="px-4 py-3">{t('loans.principal')}</th>
                         <th className="px-4 py-3">Interest</th>
                         <th className="px-4 py-3">Total Installment</th>
-                        <th className="px-4 py-3">Balance</th>
+                        <th className="px-4 py-3">{t('loans.balance')}</th>
                       </tr>
                     </thead>
                     <tbody>

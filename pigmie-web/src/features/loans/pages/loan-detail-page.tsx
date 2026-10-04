@@ -270,7 +270,7 @@ export const LoanDetailPage: React.FC = () => {
                     <div className="p-4 rounded-xl bg-muted border border-border">
                       <p className="text-sm text-muted-foreground mb-1">Due Date</p>
                       <p className="text-lg font-medium text-foreground mb-3">{new Date(loan.nextPaymentDate).toLocaleDateString()}</p>
-                      <p className="text-sm text-muted-foreground mb-1">Amount</p>
+                      <p className="text-sm text-muted-foreground mb-1">{t('deposits.amount')}</p>
                       <p className="text-2xl font-bold text-primary">₹{((loan.nextPaymentAmount) || 0).toLocaleString()}</p>
                     </div>
                     <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
@@ -324,12 +324,12 @@ export const LoanDetailPage: React.FC = () => {
                     <thead className="border-b border-border text-xs text-muted-foreground uppercase">
                       <tr>
                         <th className="pb-3 font-medium">Receipt #</th>
-                        <th className="pb-3 font-medium">Date</th>
+                        <th className="pb-3 font-medium">{t('nav.date')}</th>
                         <th className="pb-3 font-medium">Method</th>
-                        <th className="pb-3 font-medium">Amount</th>
+                        <th className="pb-3 font-medium">{t('deposits.amount')}</th>
                         <th className="pb-3 font-medium">Collected By</th>
-                        <th className="pb-3 font-medium">Status</th>
-                        <th className="pb-3 font-medium text-right">Action</th>
+                        <th className="pb-3 font-medium">{t('branches.status')}</th>
+                        <th className="pb-3 font-medium text-right">{t('audit.action')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">

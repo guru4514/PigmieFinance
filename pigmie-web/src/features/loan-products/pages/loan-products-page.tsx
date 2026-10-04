@@ -12,6 +12,7 @@ import { RoleGate } from '@/shared/components/auth/role-gate';
 import { useTranslation } from 'react-i18next';
 
 const ProductCard = ({ product }: { product: any }) => {
+  const { t } = useTranslation();
   const [showEdit, setShowEdit] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   
@@ -60,7 +61,7 @@ const ProductCard = ({ product }: { product: any }) => {
             </div>
           </div>
           <div className="mt-6 pt-4 border-t border-border/50 flex gap-3">
-            <Button onClick={() => setShowEdit(true)} variant="outline" className="w-full border-border text-foreground/80 hover:bg-muted hover:text-foreground">Edit</Button>
+            <Button onClick={() => setShowEdit(true)} variant="outline" className="w-full border-border text-foreground/80 hover:bg-muted hover:text-foreground">{t('nav.edit')}</Button>
             <Button onClick={() => setShowDetails(true)} variant="outline" className="w-full border-border text-foreground/80 hover:bg-muted hover:text-foreground">Details</Button>
           </div>
         </CardContent>
@@ -73,7 +74,7 @@ const ProductCard = ({ product }: { product: any }) => {
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground/80">Name</label>
+              <label className="text-sm font-medium text-foreground/80">{t('staff.name')}</label>
               <Input 
                 value={editForm.name} 
                 onChange={e => setEditForm({ ...editForm, name: e.target.value })}
@@ -81,7 +82,7 @@ const ProductCard = ({ product }: { product: any }) => {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground/80">Status</label>
+              <label className="text-sm font-medium text-foreground/80">{t('branches.status')}</label>
               <select 
                 value={editForm.status} 
                 onChange={e => setEditForm({ ...editForm, status: e.target.value as any })}
@@ -93,7 +94,7 @@ const ProductCard = ({ product }: { product: any }) => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowEdit(false)}>Cancel</Button>
+            <Button variant="ghost" onClick={() => setShowEdit(false)}>{t('nav.cancel')}</Button>
             <Button onClick={handleUpdate} disabled={updateProduct.isPending} className="bg-primary text-primary-foreground">
               {updateProduct.isPending ? <LoadingSpinner className="w-4 h-4" /> : 'Save'}
             </Button>

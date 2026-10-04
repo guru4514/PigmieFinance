@@ -205,6 +205,20 @@
     "home": "होम",
     "collect": "वसूलें",
     "more": "अधिक",
-    "date": "तारीख"
+    "date": "तारीख",
+    "daily": "दैनिक",
+    "tools": "उपकरण",
+    "management": "प्रबंधन",
+    "insights": "अंतर्दृष्टि",
+    "system": "प्रणाली",
+    "emiCalculator": "ईएमआई कैलकुलेटर",
+    "cashDeposits": "नकद जमा",
+    "staff": "स्टाफ",
+    "branches": "शाखाएं",
+    "loanProducts": "ऋण उत्पाद",
+    "approvals": "अनुमोदन",
+    "reports": "रिपोर्ट",
+    "auditLogs": "ऑडिट लॉग",
+    "settings": "सेटिंग्स"
   }
 }

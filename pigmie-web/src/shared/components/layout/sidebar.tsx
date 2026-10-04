@@ -40,7 +40,7 @@ const navGroups: NavGroup[] = [
   {
     label: 'Tools',
     items: [
-      { title: 'EMI Calculator', href: '/app/emi-calculator', icon: Calculator, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'EMI Calculator' },
+      { title: 'EMI Calculator', href: '/app/emi-calculator', icon: Calculator, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.emiCalculator' },
       { title: 'Cash Deposits', href: '/app/cash-deposits', icon: Wallet, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.cashDeposits' },
     ]
   },
@@ -49,8 +49,8 @@ const navGroups: NavGroup[] = [
     items: [
       { title: 'Staff', href: '/app/staff', icon: UserCog, roles: ['org_admin'], translationKey: 'nav.staff' },
       { title: 'Branches', href: '/app/branches', icon: GitBranch, roles: ['org_admin'], translationKey: 'nav.branches' },
-      { title: 'Loan Products', href: '/app/loan-products', icon: Package, roles: ['org_admin', 'branch_manager'], translationKey: 'Loan Products' },
-      { title: 'Approvals', href: '/app/approvals', icon: ClipboardCheck, roles: ['org_admin', 'branch_manager'], translationKey: 'Approvals' },
+      { title: 'Loan Products', href: '/app/loan-products', icon: Package, roles: ['org_admin', 'branch_manager'], translationKey: 'nav.loanProducts' },
+      { title: 'Approvals', href: '/app/approvals', icon: ClipboardCheck, roles: ['org_admin', 'branch_manager'], translationKey: 'nav.approvals' },
     ]
   },
   {
@@ -155,7 +155,7 @@ export function Sidebar() {
             return (
               <div key={group.label} className="px-3">
                 <h3 className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  {group.label}
+                  {t(`nav.${group.label.toLowerCase()}`) || group.label}
                 </h3>
                 <div className="space-y-0.5">
                   {groupItems.map((item) => (

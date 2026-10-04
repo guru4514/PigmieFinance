@@ -122,7 +122,7 @@ export function BranchesPage() {
                 <TableHead> {t('branches.address')} </TableHead>
                 <TableHead>Staff Count</TableHead>
                 <TableHead> {t('branches.status')} </TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-right">{t('loans.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

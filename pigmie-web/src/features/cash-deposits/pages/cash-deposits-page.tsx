@@ -134,11 +134,11 @@ export function CashDepositsPage() {
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
-                <TableHead>Date</TableHead>
+                <TableHead>{t('nav.date')}</TableHead>
                 {isAdmin && <TableHead>Agent</TableHead>}
                 <TableHead> {t('deposits.amount')} </TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t('branches.status')}</TableHead>
+                <TableHead className="text-right">{t('loans.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

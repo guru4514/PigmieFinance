@@ -6,6 +6,7 @@ import { App } from './App.tsx';
 import './index.css';
 import '@/shared/lib/i18n';
 import { initTheme } from '@/shared/lib/theme';
+// @ts-ignore
 import { registerSW } from 'virtual:pwa-register';
 
 initTheme();
