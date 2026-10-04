@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 
 const productSchema = z.object({
   name: z.string().min(2, 'Name is required'),
-  interestType: z.enum(['flat', 'reducing']),
+  interestType: z.enum(['flat', 'reducing_balance']),
   interestRateAnnual: z.number().min(0, 'Interest rate must be positive'),
   collectionFrequency: z.enum(['daily', 'weekly', 'monthly']),
   minAmount: z.number().min(0),
@@ -81,7 +81,7 @@ export const NewLoanProductPage = () => {
                 className="bg-muted border-border text-foreground" 
                 placeholder="e.g. Daily Personal Loan" 
               />
-              {errors.name && <p className="text-sm text-red-400">{errors.name.message}</p>}
+              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -92,9 +92,9 @@ export const NewLoanProductPage = () => {
                   className="flex h-10 w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   <option value="flat">Flat Rate</option>
-                  <option value="reducing">Reducing Balance</option>
+                  <option value="reducing_balance">Reducing Balance</option>
                 </select>
-                {errors.interestType && <p className="text-sm text-red-400">{errors.interestType.message}</p>}
+                {errors.interestType && <p className="text-sm text-destructive">{errors.interestType.message}</p>}
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground/80">Interest Rate (Annual %)</label>
@@ -104,7 +104,7 @@ export const NewLoanProductPage = () => {
                   {...register('interestRateAnnual', { valueAsNumber: true })} 
                   className="bg-muted border-border text-foreground" 
                 />
-                {errors.interestRateAnnual && <p className="text-sm text-red-400">{errors.interestRateAnnual.message}</p>}
+                {errors.interestRateAnnual && <p className="text-sm text-destructive">{errors.interestRateAnnual.message}</p>}
               </div>
             </div>
 
@@ -119,7 +119,7 @@ export const NewLoanProductPage = () => {
                   <option value="weekly">Weekly</option>
                   <option value="monthly">Monthly</option>
                 </select>
-                {errors.collectionFrequency && <p className="text-sm text-red-400">{errors.collectionFrequency.message}</p>}
+                {errors.collectionFrequency && <p className="text-sm text-destructive">{errors.collectionFrequency.message}</p>}
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground/80">Processing Fee (Flat ₹)</label>

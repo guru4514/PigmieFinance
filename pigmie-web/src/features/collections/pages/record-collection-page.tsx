@@ -78,22 +78,26 @@ export function RecordCollectionPage() {
     if (!loanId) return;
     setStatus('idle');
     
-    let uploadedPhotoUrl = photoUrl;
+    let uploadedPhotoUrl = null;
     
-    if (photoFile && isOnline) {
-      const fileName = `collections/${crypto.randomUUID()}.jpg`;
-      const { data: uploadData, error } = await supabase.storage
-        .from('collection-photos')
-        .upload(fileName, photoFile, {
-          contentType: photoFile.type,
-          upsert: false,
-        });
-      
-      if (!error && uploadData) {
-        const { data: urlData } = supabase.storage
+    if (photoFile) {
+      if (isOnline) {
+        const fileName = `collections/${crypto.randomUUID()}.jpg`;
+        const { data: uploadData, error } = await supabase.storage
           .from('collection-photos')
-          .getPublicUrl(uploadData.path);
-        uploadedPhotoUrl = urlData.publicUrl;
+          .upload(fileName, photoFile, {
+            contentType: photoFile.type,
+            upsert: false,
+          });
+        
+        if (!error && uploadData) {
+          const { data: urlData } = supabase.storage
+            .from('collection-photos')
+            .getPublicUrl(uploadData.path);
+          uploadedPhotoUrl = urlData.publicUrl;
+        }
+      } else {
+        toast.warning('Photos cannot be uploaded offline. Collection will be saved without photo.');
       }
     }
 

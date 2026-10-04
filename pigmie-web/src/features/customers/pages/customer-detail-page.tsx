@@ -29,7 +29,7 @@ export const CustomerDetailPage = () => {
     });
   };
 
-  const { data: customerRes, isLoading } = useCustomer(id || '');
+  const { data: customerRes, isLoading, isError, refetch } = useCustomer(id || '');
   const customer = customerRes?.data || customerRes; // handle wrapped response or direct
   const [activeTab, setActiveTab] = useState<'profile' | 'loans' | 'documents'>('profile');
   const [isDownloading, setIsDownloading] = useState(false);
@@ -74,14 +74,19 @@ export const CustomerDetailPage = () => {
     }
   };
 
-  if (isLoading || !customer) {
-
-    return (
-      <div className="flex h-full items-center justify-center min-h-[400px]">
-        <LoadingSpinner className="w-8 h-8 text-primary" />
-      </div>
-    );
-  }
+  if (isLoading) return <div className="flex justify-center p-8"><LoadingSpinner className="w-8 h-8 text-primary" /></div>;
+  if (isError) return (
+    <div className="flex flex-col items-center justify-center min-h-[400px] text-muted-foreground">
+      <p className="text-lg">Failed to load customer details</p>
+      <Button variant="outline" onClick={() => refetch()} className="mt-4">Retry</Button>
+    </div>
+  );
+  if (!customer) return (
+    <div className="flex flex-col items-center justify-center min-h-[400px] text-muted-foreground">
+      <p className="text-lg">Customer not found</p>
+      <Link to="/app/customers"><Button variant="outline" className="mt-4">Back to Customers</Button></Link>
+    </div>
+  );
 
   return (
     <div className="space-y-6 p-6 max-w-6xl mx-auto">
@@ -96,9 +101,9 @@ export const CustomerDetailPage = () => {
             {customer.fullName}
             <Badge 
               variant="default"
-              className={customer.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' : 'bg-muted text-muted-foreground'}
+              className={customer.isActive === 'active' ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' : 'bg-muted text-muted-foreground'}
             >
-              {customer.status}
+              {customer.isActive}
             </Badge>
             <Badge 
               variant="outline"

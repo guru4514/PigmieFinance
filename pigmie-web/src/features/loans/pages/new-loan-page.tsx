@@ -87,7 +87,7 @@ export const NewLoanPage: React.FC = () => {
                   <option key={c.id} value={c.id}>{c.fullName} ({c.phone})</option>
                 ))}
               </select>
-              {errors.customerId && <p className="text-sm text-red-400">{errors.customerId.message}</p>}
+              {errors.customerId && <p className="text-sm text-destructive">{errors.customerId.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -101,7 +101,7 @@ export const NewLoanPage: React.FC = () => {
                   <option key={p.id} value={p.id}>{p.name} ({p.interestRateAnnual}% {p.interestType})</option>
                 ))}
               </select>
-              {errors.loanProductId && <p className="text-sm text-red-400">{errors.loanProductId.message}</p>}
+              {errors.loanProductId && <p className="text-sm text-destructive">{errors.loanProductId.message}</p>}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -113,7 +113,7 @@ export const NewLoanPage: React.FC = () => {
                   className="bg-muted border-border text-foreground"
                   placeholder="10000"
                 />
-                {errors.principalAmount && <p className="text-sm text-red-400">{errors.principalAmount.message}</p>}
+                {errors.principalAmount && <p className="text-sm text-destructive">{errors.principalAmount.message}</p>}
               </div>
 
               <div className="space-y-2">
@@ -124,7 +124,7 @@ export const NewLoanPage: React.FC = () => {
                   className="bg-muted border-border text-foreground"
                   placeholder="100"
                 />
-                {errors.tenure && <p className="text-sm text-red-400">{errors.tenure.message}</p>}
+                {errors.tenure && <p className="text-sm text-destructive">{errors.tenure.message}</p>}
               </div>
             </div>
 

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { processSyncQueue } from '@/shared/lib/offline-queue';
+import { Routes, Route, Navigate, Link } from 'react-router-dom';
+import { processSyncQueue, getPendingCount } from '@/shared/lib/offline-queue';
 import { toast } from 'sonner';
 import { ErrorBoundary } from '@/shared/components/error-boundary';
 import { Toaster } from '@/shared/components/ui/sonner';
@@ -40,13 +40,14 @@ import { BranchComparisonPage } from '@/features/reports/pages/branch-comparison
 export function App() {
   useEffect(() => {
     const handleOnline = async () => {
-      const count = await processSyncQueue();
-      if (count > 0) toast.success(`Synced ${count} offline collection(s)`);
+      const count = await getPendingCount();
+      if (count > 0) {
+        const synced = await processSyncQueue();
+        if (synced > 0) toast.success(`Synced ${synced} offline collection(s)`);
+      }
     };
     window.addEventListener('online', handleOnline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-    };
+    return () => window.removeEventListener('online', handleOnline);
   }, []);
 
   return (
@@ -106,7 +107,14 @@ export function App() {
         <Route path="dashboard" element={<PortalDashboardPage />} />
         <Route path="loans/:id" element={<PortalLoanDetailPage />} />
       </Route>
-    </Routes>
+      <Route path="*" element={
+          <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground">
+            <h1 className="text-6xl font-bold text-muted-foreground">404</h1>
+            <p className="text-xl text-muted-foreground mt-4">Page not found</p>
+            <Link to="/app/dashboard" className="mt-6 text-primary hover:underline">Go to Dashboard</Link>
+          </div>
+        } />
+      </Routes>
     <Toaster />
     </>
   );

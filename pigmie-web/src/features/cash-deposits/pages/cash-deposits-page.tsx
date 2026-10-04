@@ -62,14 +62,16 @@ export function CashDepositsPage() {
   const { data: summary } = useQuery<ReconciliationSummary>({
     queryKey: ['cash-deposits-reconciliation'],
     queryFn: async () => {
-      const res = await apiClient.get('/cash-deposits/reconciliation');
+      const today = new Date().toISOString().split('T')[0];
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+      const res = await apiClient.get(`/cash-deposits/reconciliation?startDate=${thirtyDaysAgo}&endDate=${today}`);
       return res.data;
     },
     enabled: isAdmin,
   });
 
   const recordMutation = useMutation({
-    mutationFn: (data: DepositFormValues) => apiClient.post('/cash-deposits', data),
+    mutationFn: (data: DepositFormValues) => apiClient.post('/cash-deposits', { ...data, depositDate: new Date().toISOString().split('T')[0] }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cash-deposits'] });
       toast.success('Deposit recorded successfully');
@@ -80,7 +82,7 @@ export function CashDepositsPage() {
   });
 
   const verifyMutation = useMutation({
-    mutationFn: (id: string) => apiClient.post(`/cash-deposits/${id}/verify`),
+    mutationFn: (id: string) => apiClient.post(`/cash-deposits/${id}/verify`, { status: 'verified' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cash-deposits'] });
       queryClient.invalidateQueries({ queryKey: ['cash-deposits-reconciliation'] });

@@ -58,7 +58,7 @@ export function MobileBottomNav() {
   return (
     <>
       {/* Mobile Bottom Nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-card border-t border-gray-200 dark:border-border pb-safe">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border pb-safe">
         <div className="flex items-center justify-around h-[68px] px-2">
           {mainTabs.map((tab) => (
             <NavLink
@@ -67,7 +67,7 @@ export function MobileBottomNav() {
               className={({ isActive }) => cn(
                 "flex flex-col items-center justify-center w-full h-full space-y-1",
                 isActive 
-                  ? (tab.isPrimary ? "text-emerald-600 dark:text-emerald-500" : "text-indigo-600 dark:text-indigo-400") 
+                  ? (tab.isPrimary ? "text-emerald-600 dark:text-emerald-500" : "text-primary") 
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -76,7 +76,7 @@ export function MobileBottomNav() {
                   <div className={cn(
                     "flex items-center justify-center rounded-full transition-all",
                     tab.isPrimary ? "w-11 h-11 bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "w-8 h-8",
-                    isActive && !tab.isPrimary && "bg-indigo-100 dark:bg-indigo-500/10"
+                    isActive && !tab.isPrimary && "bg-primary/10"
                   )}>
                     <tab.icon className={cn(
                       tab.isPrimary ? "w-6 h-6" : "w-5 h-5",
@@ -110,8 +110,8 @@ export function MobileBottomNav() {
       {moreOpen && (
         <div className="lg:hidden fixed inset-0 z-[60] bg-background/80 backdrop-blur-sm flex flex-col justify-end">
           <div className="absolute inset-0" onClick={() => setMoreOpen(false)} />
-          <div className="relative bg-white dark:bg-card w-full rounded-t-2xl max-h-[85vh] flex flex-col shadow-xl pb-safe animate-in slide-in-from-bottom-full duration-300">
-            <div className="sticky top-0 bg-white dark:bg-card border-b border-gray-100 dark:border-border p-4 flex items-center justify-between z-10 rounded-t-2xl">
+          <div className="relative bg-card w-full rounded-t-2xl max-h-[85vh] flex flex-col shadow-xl pb-safe animate-in slide-in-from-bottom-full duration-300">
+            <div className="sticky top-0 bg-card border-b border-border p-4 flex items-center justify-between z-10 rounded-t-2xl">
               <h2 className="text-lg font-semibold text-foreground">{t('nav.more')}</h2>
               <button 
                 onClick={() => setMoreOpen(false)}
@@ -130,7 +130,7 @@ export function MobileBottomNav() {
                   className={({ isActive }) => cn(
                     "flex items-center gap-3 p-3 rounded-xl text-sm font-medium transition-all",
                     isActive 
-                      ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400" 
+                      ? "bg-primary/10 text-primary" 
                       : "text-muted-foreground hover:bg-muted"
                   )}
                 >
@@ -139,7 +139,7 @@ export function MobileBottomNav() {
                 </NavLink>
               ))}
               
-              <div className="h-px bg-gray-100 dark:bg-muted my-4" />
+              <div className="h-px bg-muted my-4" />
               
               <button 
                 onClick={handleLogout}

@@ -53,7 +53,7 @@ function StaffRowActions({ member }: { member: StaffMember }) {
 
   const handleDeactivate = () => {
     if (confirm(`Are you sure you want to deactivate ${member.fullName}?`)) {
-      updateStaff.mutate({ id: member.id, data: { status: 'inactive' } });
+      updateStaff.mutate({ id: member.id, data: { status: 'inactive', isActive: false } as any });
     }
   };
 
@@ -86,7 +86,7 @@ function StaffRowActions({ member }: { member: StaffMember }) {
               <Edit className="mr-2 h-4 w-4" />
               Edit Role
             </DropdownMenuItem>
-            {member.status === 'active' && (
+            {(member.status === 'active' || member.isActive) && (
               <DropdownMenuItem onClick={handleDeactivate}>
                 <PowerOff className="mr-2 h-4 w-4" />
                 Deactivate
@@ -250,8 +250,8 @@ export function StaffPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={statusColors[member.status]} className="capitalize">
-                            {member.status}
+                          <Badge variant={statusColors[member.status || (member.isActive ? 'active' : 'inactive')]} className="capitalize">
+                            {member.status || (member.isActive ? 'active' : 'inactive')}
                           </Badge>
                         </TableCell>
                         <TableCell>

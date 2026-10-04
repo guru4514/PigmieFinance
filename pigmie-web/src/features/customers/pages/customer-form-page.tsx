@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 const customerSchema = z.object({
   fullName: z.string().min(2, 'Full name is required'),
   email: z.string().email('Invalid email address').optional().or(z.literal('')),
-  phone: z.string().min(10, 'Valid phone number is required'),
+  phone: z.string().regex(/^[6-9]\d{9}$/, 'Enter a valid 10-digit Indian phone number'),
   address: z.string().optional(),
   dateOfBirth: z.string().optional(),
   gender: z.string().optional(),
@@ -136,7 +136,7 @@ export const CustomerFormPage = () => {
                 className="bg-muted border-border text-foreground" 
                 placeholder="e.g. Raju Kumar" 
               />
-              {errors.fullName && <p className="text-sm text-red-400">{errors.fullName.message}</p>}
+              {errors.fullName && <p className="text-sm text-destructive">{errors.fullName.message}</p>}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -147,7 +147,7 @@ export const CustomerFormPage = () => {
                   className="bg-muted border-border text-foreground" 
                   placeholder="+91 9876543210" 
                 />
-                {errors.phone && <p className="text-sm text-red-400">{errors.phone.message}</p>}
+                {errors.phone && <p className="text-sm text-destructive">{errors.phone.message}</p>}
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground/80">Email Address (Optional)</label>
@@ -157,7 +157,7 @@ export const CustomerFormPage = () => {
                   className="bg-muted border-border text-foreground" 
                   placeholder="john.doe@example.com" 
                 />
-                {errors.email && <p className="text-sm text-red-400">{errors.email.message}</p>}
+                {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
               </div>
             </div>
 

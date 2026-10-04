@@ -10,6 +10,7 @@ export interface StaffMember {
   email: string;
   role: StaffRole;
   status: StaffStatus;
+  isActive?: boolean;
   joinedAt: string;
 }
 

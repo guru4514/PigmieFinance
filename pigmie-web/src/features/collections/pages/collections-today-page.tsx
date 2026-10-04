@@ -12,6 +12,7 @@ import { openWhatsApp, generateReminderMessage } from '@/shared/lib/whatsapp';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/shared/lib/supabase';
+import { ReceiptModal, ReceiptCollection } from '@/features/collections/components/receipt-modal';
 
 const PresetAmountChip = ({ amount, selected, onClick }: { amount: number, selected: boolean, onClick: () => void }) => (
   <Badge 
@@ -33,6 +34,8 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
   const [photoPreview, setPhotoPreview] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = React.useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [receiptData, setReceiptData] = useState<ReceiptCollection | null>(null);
 
   const handleCollect = async () => {
     if (!customAmount || customAmount <= 0) {
@@ -80,9 +83,20 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
       }
 
       recordCollection(data, {
-        onSuccess: () => {
+        onSuccess: (res: any) => {
           toast.success(`Collected ₹${customAmount} from ${item.customerName}`);
           setExpanded(false);
+          setReceiptData({
+            id: res?.id || res?.data?.id || 'pending',
+            amount: Number(customAmount),
+            collectionDate: data.collectionDate,
+            collectionMethod: 'cash',
+            customerName: item.customerName,
+            customerPhone: item.phone,
+            loanId: item.loanId || item.id,
+            outstandingBalance: (item.amountDue || 0) - Number(customAmount),
+          });
+          setShowReceipt(true);
         },
         onError: (err: any) => {
           console.error('Collection error:', err?.response?.data);
@@ -101,8 +115,11 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
           payload.longitude = pos.coords.longitude;
           submitPayload(payload);
         },
-        () => submitPayload(payload),
-        { timeout: 5000 }
+        () => {
+          toast.warning('Location unavailable. Saving without GPS coordinates.');
+          submitPayload(payload);
+        },
+        { timeout: 5000, enableHighAccuracy: false }
       );
     } else {
       submitPayload(payload);
@@ -245,6 +262,11 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
           )}
         </div>
       </CardContent>
+      <ReceiptModal 
+        open={showReceipt} 
+        onClose={() => setShowReceipt(false)} 
+        collection={receiptData} 
+      />
     </Card>
   );
 };

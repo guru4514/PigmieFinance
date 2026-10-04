@@ -87,10 +87,10 @@ export const useApproveLoan = () => {
 export const useRejectLoan = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => apiClient.post(`/loans/${id}/reject`).then(r => r.data),
-    onSuccess: (_, id) => {
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => apiClient.post(`/loans/${id}/reject`, { reason }).then(r => r.data),
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['loans'] });
-      queryClient.invalidateQueries({ queryKey: ['loans', id] });
+      queryClient.invalidateQueries({ queryKey: ['loans', variables.id] });
       toast.success('Loan rejected');
     },
     onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to reject loan')
@@ -126,10 +126,10 @@ export const useCloseLoan = () => {
 export const useWriteOffLoan = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => apiClient.post(`/loans/${id}/write-off`).then(r => r.data),
-    onSuccess: (_, id) => {
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => apiClient.post(`/loans/${id}/write-off`, { reason }).then(r => r.data),
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['loans'] });
-      queryClient.invalidateQueries({ queryKey: ['loans', id] });
+      queryClient.invalidateQueries({ queryKey: ['loans', variables.id] });
       toast.success('Loan written off');
     },
     onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to write off loan')

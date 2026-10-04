@@ -88,7 +88,7 @@ export const RestructureLoanDialog: React.FC<RestructureLoanDialogProps> = ({ lo
                   </option>
                 ))}
               </select>
-              {errors.fromInstallmentNumber && <p className="text-sm text-red-400">{errors.fromInstallmentNumber.message}</p>}
+              {errors.fromInstallmentNumber && <p className="text-sm text-destructive">{errors.fromInstallmentNumber.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -99,7 +99,7 @@ export const RestructureLoanDialog: React.FC<RestructureLoanDialogProps> = ({ lo
                 className="bg-muted border-border text-foreground"
                 placeholder="e.g. 10"
               />
-              {errors.newTenure && <p className="text-sm text-red-400">{errors.newTenure.message}</p>}
+              {errors.newTenure && <p className="text-sm text-destructive">{errors.newTenure.message}</p>}
             </div>
 
             <div className="space-y-2">
@@ -109,7 +109,7 @@ export const RestructureLoanDialog: React.FC<RestructureLoanDialogProps> = ({ lo
                 className="flex min-h-[80px] w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="Why is this loan being restructured?"
               />
-              {errors.reason && <p className="text-sm text-red-400">{errors.reason.message}</p>}
+              {errors.reason && <p className="text-sm text-destructive">{errors.reason.message}</p>}
             </div>
 
             <DialogFooter className="pt-4">

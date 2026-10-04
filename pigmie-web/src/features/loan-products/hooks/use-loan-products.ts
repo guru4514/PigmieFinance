@@ -4,7 +4,7 @@ import { apiClient } from '@/shared/lib/api-client';
 export interface LoanProduct {
   id: string;
   name: string;
-  interestType: 'flat' | 'reducing';
+  interestType: 'flat' | 'reducing_balance';
   interestRateAnnual: number;
   collectionFrequency: 'daily' | 'weekly' | 'monthly';
   minAmount: number;

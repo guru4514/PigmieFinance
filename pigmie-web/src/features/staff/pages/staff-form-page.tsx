@@ -68,7 +68,7 @@ export function StaffFormPage() {
                   className="bg-muted border-border" 
                   placeholder="e.g. Jane Doe"
                 />
-                {errors.fullName && <p className="text-xs text-red-400">{errors.fullName.message}</p>}
+                {errors.fullName && <p className="text-xs text-destructive">{errors.fullName.message}</p>}
               </div>
               
               <div className="space-y-2">
@@ -80,7 +80,7 @@ export function StaffFormPage() {
                   className="bg-muted border-border" 
                   placeholder="e.g. jane@pigmie.com"
                 />
-                {errors.email && <p className="text-xs text-red-400">{errors.email.message}</p>}
+                {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
               </div>
 
               <div className="space-y-2">
@@ -96,7 +96,7 @@ export function StaffFormPage() {
                     <SelectItem value="accountant">Accountant</SelectItem>
                   </SelectContent>
                 </Select>
-                {errors.role && <p className="text-xs text-red-400">{errors.role.message}</p>}
+                {errors.role && <p className="text-xs text-destructive">{errors.role.message}</p>}
               </div>
             </div>
 

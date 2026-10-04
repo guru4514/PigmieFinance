@@ -46,7 +46,7 @@ export const PreCloseLoanDialog: React.FC<PreCloseLoanDialogProps> = ({ loanId, 
               <LoadingSpinner className="w-8 h-8 text-primary" />
             </div>
           ) : !data ? (
-            <div className="text-center py-6 text-red-400">Failed to load details</div>
+            <div className="text-center py-6 text-destructive">Failed to load details</div>
           ) : (
             <div className="space-y-4 py-4">
               <div className="flex justify-between items-center py-2 border-b border-border">

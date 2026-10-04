@@ -141,14 +141,14 @@ export const CustomersListPage = () => {
                     </TableCell>
                     <TableCell>
                       <Badge 
-                        variant={customer.status === 'active' ? 'default' : customer.status === 'pending' ? 'outline' : 'secondary'}
+                        variant={customer.isActive === 'active' ? 'default' : customer.isActive === 'pending' ? 'outline' : 'secondary'}
                         className={
-                          customer.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' : 
-                          customer.status === 'pending' ? 'border-amber-500/50 text-amber-500' :
+                          customer.isActive === 'active' ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20' : 
+                          customer.isActive === 'pending' ? 'border-amber-500/50 text-amber-500' :
                           'bg-muted text-muted-foreground'
                         }
                       >
-                        {customer.status}
+                        {customer.isActive}
                       </Badge>
                     </TableCell>
                     <TableCell>

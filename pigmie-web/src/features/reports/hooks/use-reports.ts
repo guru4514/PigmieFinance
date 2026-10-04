@@ -11,13 +11,13 @@ export const usePortfolioAtRisk = () => {
   });
 };
 
-export const useCollectionEfficiency = (startDate?: string, endDate?: string) => {
+export const useCollectionEfficiency = (dateFrom?: string, dateTo?: string) => {
   return useQuery({
-    queryKey: ['reports', 'collection-efficiency', startDate, endDate],
+    queryKey: ['reports', 'collection-efficiency', dateFrom, dateTo],
     queryFn: () => {
       const params = new URLSearchParams();
-      if (startDate) params.append('startDate', startDate);
-      if (endDate) params.append('endDate', endDate);
+      if (dateFrom) params.append('dateFrom', dateFrom);
+      if (dateTo) params.append('dateTo', dateTo);
       return apiClient.get(`/reports/collection-efficiency?${params.toString()}`).then(r => {
         const d = r.data;
         return Array.isArray(d) ? d : (d?.data ?? []);

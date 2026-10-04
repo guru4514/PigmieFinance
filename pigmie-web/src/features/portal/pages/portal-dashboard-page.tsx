@@ -133,7 +133,7 @@ export function PortalDashboardPage() {
                       </span>
                       <span className="text-xs text-muted-foreground">of ₹{((loan.amount) || 0).toLocaleString('en-IN')}</span>
                     </div>
-                    <Link to={`/app/portal/loans/${loan.id}`}>
+                    <Link to={`/portal/loans/${loan.id}`}>
                       <button className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-foreground rounded-md text-sm font-medium transition-colors">
                         View Details
                       </button>

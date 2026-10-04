@@ -7,7 +7,7 @@ export interface Customer {
   email?: string;
   phone: string;
   address?: string;
-  status: 'active' | 'inactive' | 'pending';
+  isActive: boolean;
   createdAt?: string;
   totalLoans?: number;
 }

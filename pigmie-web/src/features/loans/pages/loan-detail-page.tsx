@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useLoanDetails, useApproveLoan, useDisburseLoan, useLoanSchedule, useMarkDefaultLoan } from '../hooks/use-loans';
+import { useLoanDetails, useApproveLoan, useDisburseLoan, useLoanSchedule, useMarkDefaultLoan, useRejectLoan, useWriteOffLoan } from '../hooks/use-loans';
 import { useDocuments, useUploadDocument, useDownloadDocument } from '@/features/documents/hooks/use-documents';
 import { LoanStatusBadge } from '../components/loan-status-badge';
 import { LoanScheduleTable } from '../components/loan-schedule-table';
@@ -29,6 +29,8 @@ export const LoanDetailPage: React.FC = () => {
   const schedule = Array.isArray(scheduleResponse) ? scheduleResponse : scheduleResponse?.data || [];
 
   const approveLoan = useApproveLoan();
+
+
   const disburseLoan = useDisburseLoan();
   const markDefaultLoan = useMarkDefaultLoan();
   
@@ -85,7 +87,7 @@ export const LoanDetailPage: React.FC = () => {
   }
 
   if (!loan) {
-    return <div className="p-8 text-center text-red-400">Loan not found</div>;
+    return <div className="p-8 text-center text-destructive">Loan not found</div>;
   }
 
   return (
@@ -150,14 +152,26 @@ export const LoanDetailPage: React.FC = () => {
           </RoleGate>
           <RoleGate allowedRoles={['org_admin', 'branch_manager']}>
             {loan.status === 'pending_approval' && (
-              <Button 
-                onClick={() => approveLoan.mutate(loan.id)}
-                disabled={approveLoan.isPending}
-                className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 gap-2"
-              >
-                {approveLoan.isPending ? <LoadingSpinner className="w-4 h-4" /> : <CheckCircle className="h-4 w-4" />}
-                Approve
-              </Button>
+              <>
+                <Button 
+                  onClick={() => approveLoan.mutate(loan.id)}
+                  disabled={approveLoan.isPending}
+                  className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 gap-2"
+                >
+                  {approveLoan.isPending ? <LoadingSpinner className="w-4 h-4" /> : <CheckCircle className="h-4 w-4" />}
+                  Approve
+                </Button>
+                <Button 
+                  onClick={() => {
+                    const reason = prompt('Enter rejection reason:');
+                    if (reason) rejectLoan.mutate({ id: loan.id, reason });
+                  }}
+                  disabled={rejectLoan.isPending}
+                  className="bg-red-500/20 text-destructive hover:bg-red-500/30 border border-red-500/30 gap-2"
+                >
+                  Reject
+                </Button>
+              </>
             )}
             {loan.status === 'approved' && (
               <Button 
@@ -198,8 +212,18 @@ export const LoanDetailPage: React.FC = () => {
                   disabled={markDefaultLoan.isPending}
                   className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border border-yellow-500/30 gap-2"
                 >
-                  {markDefaultLoan.isPending ? <LoadingSpinner className="w-4 h-4" /> : <AlertTriangle className="h-4 w-4" />}
+                  {markDefaultLoan.isPending ? <LoadingSpinner className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                   Mark Default
+                </Button>
+                <Button 
+                  onClick={() => {
+                    const reason = prompt('Enter write-off reason:');
+                    if (reason) writeOffLoan.mutate({ id: loan.id, reason });
+                  }}
+                  disabled={writeOffLoan.isPending}
+                  className="bg-red-500/20 text-destructive hover:bg-red-500/30 border border-red-500/30 gap-2"
+                >
+                  Write Off
                 </Button>
               </>
             )}
@@ -362,7 +386,7 @@ export const LoanDetailPage: React.FC = () => {
                           <td className="py-3">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                               col.status === 'reversed'
-                                ? 'bg-red-500/20 text-red-400'
+                                ? 'bg-red-500/20 text-destructive'
                                 : 'bg-emerald-500/20 text-emerald-400'
                             }`}>
                               {(col.status || 'recorded').toUpperCase()}
