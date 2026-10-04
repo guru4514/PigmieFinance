@@ -18,9 +18,13 @@ export class CollectionsService {
 
   async getDueToday(organizationId: string, user: any, date?: string) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      const targetDate = date || new Date().toISOString().split('T')[0];
-      const dayStart = new Date(targetDate + 'T00:00:00.000Z');
-      const dayEnd = new Date(targetDate + 'T23:59:59.999Z');
+      const targetDate = date || (() => {
+        // Use IST date string
+        const istOffset = 5.5 * 60 * 60 * 1000;
+        return new Date(Date.now() + istOffset).toISOString().split('T')[0];
+      })();
+      const dayStart = new Date(targetDate + 'T00:00:00.000+05:30');
+      const dayEnd = new Date(targetDate + 'T23:59:59.999+05:30');
 
       // Build loan filter
       const loanWhere: any = {

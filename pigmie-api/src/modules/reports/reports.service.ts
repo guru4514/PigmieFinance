@@ -19,34 +19,54 @@ export class ReportsService {
 
   async getDashboardSummary(organizationId: string, user: any) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
+      // Use IST-aware day boundaries (offset +5:30)
+      const now = new Date();
+      const istOffset = 5.5 * 60 * 60 * 1000; // IST = UTC + 5:30
+      const istNow = new Date(now.getTime() + istOffset);
+      const istDateStr = istNow.toISOString().split('T')[0]; // e.g. "2026-10-04"
+      
+      // Today boundaries in UTC (representing IST midnight-to-midnight)
+      const todayStart = new Date(istDateStr + 'T00:00:00.000+05:30');
+      const tomorrowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+      
+      // This month boundaries
+      const monthStart = new Date(istDateStr.slice(0, 7) + '-01T00:00:00.000+05:30');
 
       const loanWhere: any = { organizationId, status: 'active' };
-      const collectionWhere: any = { organizationId, collectionDate: { gte: today, lt: tomorrow }, status: { in: ['recorded', 'verified'] } };
+      const collectionTodayWhere: any = { organizationId, collectionDate: { gte: todayStart, lt: tomorrowStart }, status: { in: ['recorded', 'verified'] } };
+      const collectionMonthWhere: any = { organizationId, collectionDate: { gte: monthStart, lt: tomorrowStart }, status: { in: ['recorded', 'verified'] } };
 
       if (user.role === 'branch_manager' && user.branchId) {
         loanWhere.customer = { branchId: user.branchId };
-        collectionWhere.customer = { branchId: user.branchId };
+        collectionTodayWhere.customer = { branchId: user.branchId };
+        collectionMonthWhere.customer = { branchId: user.branchId };
       }
 
-      const activeLoansCount = await tx.loan.count({ where: loanWhere });
-      const activeLoans = await tx.loan.findMany({ where: loanWhere });
+      const [
+        activeLoansCount,
+        activeLoans,
+        collectionsToday,
+        collectionsThisMonth,
+        dueTodaySchedules,
+        overdueCount,
+      ] = await Promise.all([
+        tx.loan.count({ where: loanWhere }),
+        tx.loan.findMany({ where: loanWhere }),
+        tx.collection.findMany({ where: collectionTodayWhere }),
+        tx.collection.aggregate({ where: collectionMonthWhere, _sum: { amount: true } }),
+        tx.loanSchedule.findMany({
+          where: { loan: loanWhere, dueDate: { gte: todayStart, lt: tomorrowStart }, status: { in: ['pending', 'partially_paid'] } }
+        }),
+        tx.loanSchedule.count({
+          where: { loan: loanWhere, status: 'overdue' }
+        }),
+      ]);
+
       const totalOutstanding = activeLoans.reduce((sum, loan) => sum + loan.outstandingBalance.toNumber(), 0);
-
-      const collectionsToday = await tx.collection.findMany({ where: collectionWhere });
       const collectedToday = collectionsToday.reduce((sum, col) => sum + col.amount.toNumber(), 0);
-
-      const dueTodaySchedules = await tx.loanSchedule.findMany({
-        where: { loan: loanWhere, dueDate: { gte: today, lt: tomorrow }, status: { in: ['pending', 'partially_paid'] } }
-      });
-      const dueToday = dueTodaySchedules.reduce((sum, sch) => sum + sch.dueAmount.toNumber(), 0);
-
-      const overdueCount = await tx.loanSchedule.count({
-        where: { loan: loanWhere, status: 'overdue' }
-      });
+      const dueToday = dueTodaySchedules.reduce((sum, sch) => sum + sch.dueAmount.toNumber() - sch.paidAmount.toNumber(), 0);
+      const thisMonthCollection = collectionsThisMonth._sum.amount?.toNumber() || 0;
+      const collectionEfficiency = dueToday > 0 ? Math.round((collectedToday / dueToday) * 100) : (collectedToday > 0 ? 100 : 0);
 
       const parStats: any[] = await tx.$queryRaw`
         select
@@ -68,6 +88,8 @@ export class ReportsService {
         totalOutstanding,
         collectedToday,
         dueToday,
+        collectionEfficiency,
+        thisMonthCollection,
         overdueCount,
         portfolioAtRisk30
       };

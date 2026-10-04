@@ -48,7 +48,7 @@ export function DashboardPage() {
         <p className="text-muted-foreground">{t('dashboard.subtitle')}</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         <KPICard 
           title={t('dashboard.totalOutstanding')} 
           value={formatCurrency(summary?.totalOutstanding || 0)} 
@@ -69,6 +69,13 @@ export function DashboardPage() {
           icon={Activity} 
         />
         <KPICard 
+          title="Today's Efficiency" 
+          value={`${summary?.collectionEfficiency || 0}%`} 
+          icon={TrendingUp} 
+          className={`${(summary?.collectionEfficiency || 0) >= 80 ? 'border-emerald-500/20 bg-emerald-500/5' : (summary?.collectionEfficiency || 0) >= 50 ? 'border-amber-500/20 bg-amber-500/5' : 'border-rose-500/20 bg-rose-500/5'}`}
+          valueClassName={`${(summary?.collectionEfficiency || 0) >= 80 ? 'text-emerald-600 dark:text-emerald-400' : (summary?.collectionEfficiency || 0) >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}
+        />
+        <KPICard 
           title={t('dashboard.activeLoans')} 
           value={summary?.activeLoans || 0} 
           icon={CreditCard} 
@@ -84,6 +91,13 @@ export function DashboardPage() {
           title={t('dashboard.par30')} 
           value={`${((summary?.portfolioAtRisk30 || 0) * 100).toFixed(1)}%`} 
           icon={Users} 
+        />
+        <KPICard 
+          title="This Month" 
+          value={formatCurrency(summary?.thisMonthCollection || 0)} 
+          icon={Banknote} 
+          className="border-violet-500/20 bg-violet-500/5"
+          valueClassName="text-violet-600 dark:text-violet-400"
         />
       </div>
 
