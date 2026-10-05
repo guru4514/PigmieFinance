@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
 import { Prisma } from '@prisma/client';
 import { OverdueQueryDto, CollectionEfficiencyQueryDto } from './dto/query-reports.dto';
 
 @Injectable()
 export class ReportsService {
+  private readonly logger = new Logger(ReportsService.name);
   constructor(private readonly tenantPrisma: TenantPrismaService) {}
 
   private sanitizeCsvField(field: string): string {
@@ -19,22 +20,31 @@ export class ReportsService {
 
   async getDashboardSummary(organizationId: string, user: any) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      // Use IST-aware day boundaries (offset +5:30)
+      // Get today's date in IST as a plain date (no time component)
       const now = new Date();
       const istOffset = 5.5 * 60 * 60 * 1000; // IST = UTC + 5:30
       const istNow = new Date(now.getTime() + istOffset);
-      const istDateStr = istNow.toISOString().split('T')[0]; // e.g. "2026-10-04"
+      const istDateStr = istNow.toISOString().split('T')[0]; // "2026-10-05"
       
-      // Today boundaries in UTC (representing IST midnight-to-midnight)
-      const todayStart = new Date(istDateStr + 'T00:00:00.000+05:30');
-      const tomorrowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+      // For @db.Date columns, use midnight UTC of the IST date
+      // This matches how Prisma stores date-only values
+      const todayDate = new Date(istDateStr + 'T00:00:00.000Z');
       
-      // This month boundaries
-      const monthStart = new Date(istDateStr.slice(0, 7) + '-01T00:00:00.000+05:30');
+      // Month start for "This Month" metric
+      const monthStartStr = istDateStr.slice(0, 7) + '-01';
+      const monthStartDate = new Date(monthStartStr + 'T00:00:00.000Z');
 
       const loanWhere: any = { organizationId, status: 'active' };
-      const collectionTodayWhere: any = { organizationId, collectionDate: { gte: todayStart, lt: tomorrowStart }, status: { in: ['recorded', 'verified'] } };
-      const collectionMonthWhere: any = { organizationId, collectionDate: { gte: monthStart, lt: tomorrowStart }, status: { in: ['recorded', 'verified'] } };
+      const collectionTodayWhere: any = { 
+        organizationId, 
+        collectionDate: todayDate,  // Exact date match for @db.Date
+        status: { in: ['recorded', 'verified'] } 
+      };
+      const collectionMonthWhere: any = { 
+        organizationId, 
+        collectionDate: { gte: monthStartDate, lte: todayDate },  // Date range for @db.Date
+        status: { in: ['recorded', 'verified'] } 
+      };
 
       if (user.role === 'branch_manager' && user.branchId) {
         loanWhere.customer = { branchId: user.branchId };
@@ -55,7 +65,11 @@ export class ReportsService {
         tx.collection.findMany({ where: collectionTodayWhere }),
         tx.collection.aggregate({ where: collectionMonthWhere, _sum: { amount: true } }),
         tx.loanSchedule.findMany({
-          where: { loan: loanWhere, dueDate: { gte: todayStart, lt: tomorrowStart }, status: { in: ['pending', 'partially_paid'] } }
+          where: { 
+            loan: loanWhere, 
+            dueDate: todayDate,  // Exact date match for @db.Date
+            status: { in: ['pending', 'partially_paid'] } 
+          }
         }),
         tx.loanSchedule.count({
           where: { loan: loanWhere, status: 'overdue' }
@@ -67,6 +81,11 @@ export class ReportsService {
       const dueToday = dueTodaySchedules.reduce((sum, sch) => sum + sch.dueAmount.toNumber() - sch.paidAmount.toNumber(), 0);
       const thisMonthCollection = collectionsThisMonth._sum.amount?.toNumber() || 0;
       const collectionEfficiency = dueToday > 0 ? Math.round((collectedToday / dueToday) * 100) : (collectedToday > 0 ? 100 : 0);
+
+      // DEBUG: trace what's happening
+      this.logger.log(`[Dashboard Debug] IST Date: ${istDateStr}, todayDate: ${todayDate.toISOString()}`);
+      this.logger.log(`[Dashboard Debug] Collections found today: ${collectionsToday.length}, total: ₹${collectedToday}`);
+      this.logger.log(`[Dashboard Debug] Due today schedules: ${dueTodaySchedules.length}, total due: ₹${dueToday}`);
 
       const parStats: any[] = await tx.$queryRaw`
         select

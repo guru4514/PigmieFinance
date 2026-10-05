@@ -105,7 +105,7 @@ export function RecordCollectionPage() {
       clientGeneratedId: crypto.randomUUID(),
       loanId,
       amount: data.amount,
-      collectionDate: new Date().toISOString(),
+      collectionDate: new Date().toISOString().split('T')[0],
       collectedAt: new Date().toISOString(),
       collectionMethod: data.collectionMethod,
       notes: data.notes,

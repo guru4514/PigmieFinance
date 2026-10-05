@@ -68,7 +68,7 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
       clientGeneratedId: crypto.randomUUID(),
       loanId: item.loanId || item.id,
       amount: Number(customAmount),
-      collectionDate: new Date().toISOString(),
+      collectionDate: new Date().toISOString().split('T')[0],
       collectedAt: new Date().toISOString(),
       collectionMethod: 'cash',
       ...(uploadedPhotoUrl ? { photoUrl: uploadedPhotoUrl } : {})

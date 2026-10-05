@@ -23,8 +23,8 @@ export class CollectionsService {
         const istOffset = 5.5 * 60 * 60 * 1000;
         return new Date(Date.now() + istOffset).toISOString().split('T')[0];
       })();
-      const dayStart = new Date(targetDate + 'T00:00:00.000+05:30');
-      const dayEnd = new Date(targetDate + 'T23:59:59.999+05:30');
+      // For @db.Date columns, Prisma uses midnight UTC internally
+      const todayDate = new Date(targetDate + 'T00:00:00.000Z');
 
       // Build loan filter
       const loanWhere: any = {
@@ -43,7 +43,7 @@ export class CollectionsService {
           ...loanWhere,
           schedule: {
             some: {
-              dueDate: { lte: dayEnd },
+              dueDate: { lte: todayDate },
               status: { in: ['pending', 'partially_paid', 'overdue'] },
             },
           },
@@ -52,7 +52,7 @@ export class CollectionsService {
           customer: { select: { id: true, fullName: true, phone: true, address: true } },
           schedule: {
             where: {
-              dueDate: { lte: dayEnd },
+              dueDate: { lte: todayDate },
               status: { in: ['pending', 'partially_paid', 'overdue'] },
             },
             orderBy: { installmentNumber: 'asc' },
@@ -60,7 +60,7 @@ export class CollectionsService {
           // Get collections made specifically on the target date
           collections: {
             where: {
-              collectionDate: { gte: dayStart, lte: dayEnd },
+              collectionDate: todayDate,  // Exact date match for @db.Date
               status: { in: ['recorded', 'verified'] },
             },
           },
@@ -70,12 +70,12 @@ export class CollectionsService {
       return loans.map((loan) => {
         // Today's expected installment (only schedule items due exactly today)
         const todayItems = loan.schedule.filter(s => {
-          const due = new Date(s.dueDate);
-          return due >= dayStart && due <= dayEnd;
+          const dueStr = new Date(s.dueDate).toISOString().split('T')[0];
+          return dueStr === targetDate;
         });
         const overdueItems = loan.schedule.filter(s => {
-          const due = new Date(s.dueDate);
-          return due < dayStart;
+          const dueStr = new Date(s.dueDate).toISOString().split('T')[0];
+          return dueStr < targetDate;
         });
 
         // Amount expected today (just today's installments)
