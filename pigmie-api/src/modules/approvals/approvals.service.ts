@@ -17,7 +17,7 @@ export class ApprovalsService {
 
   async create(organizationId: string, staffId: string, dto: CreateApprovalDto) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      return tx.approvalRequest.create({
+      const request = await tx.approvalRequest.create({
         data: {
           organizationId,
           submittedById: staffId,

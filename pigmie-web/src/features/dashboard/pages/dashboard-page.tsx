@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/shared/hooks/use-auth';
 import { Users, Banknote, AlertCircle, TrendingUp, CreditCard, Activity } from 'lucide-react';
 import { apiClient } from '../../../shared/lib/api-client';
 import { KPICard } from '../components/kpi-card';
@@ -10,6 +11,8 @@ import { useTranslation } from 'react-i18next';
 
 export function DashboardPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const isAgent = (user as any)?.role === 'agent';
   const { data: summaryRes, isLoading } = useQuery({
     queryKey: ['reports', 'dashboard-summary'],
     queryFn: () => apiClient.get('/reports/dashboard-summary').then(res => res.data),
@@ -49,12 +52,19 @@ export function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+        {!isAgent && (
+          <KPICard 
+            title={t('dashboard.totalOutstanding')} 
+            value={formatCurrency(summary?.totalOutstanding || 0)} 
+            icon={Banknote} 
+            className="border-indigo-500/20 bg-indigo-500/5"
+            valueClassName="text-indigo-600 dark:text-indigo-400"
+          />
+        )}
         <KPICard 
-          title={t('dashboard.totalOutstanding')} 
-          value={formatCurrency(summary?.totalOutstanding || 0)} 
-          icon={Banknote} 
-          className="border-indigo-500/20 bg-indigo-500/5"
-          valueClassName="text-indigo-600 dark:text-indigo-400"
+          title={t('dashboard.dueToday')} 
+          value={formatCurrency(summary?.dueToday || 0)} 
+          icon={Activity} 
         />
         <KPICard 
           title={t('dashboard.collectedToday')} 
@@ -64,33 +74,11 @@ export function DashboardPage() {
           valueClassName="text-emerald-600 dark:text-emerald-400"
         />
         <KPICard 
-          title={t('dashboard.dueToday')} 
-          value={formatCurrency(summary?.dueToday || 0)} 
-          icon={Activity} 
-        />
-        <KPICard 
           title="Today's Efficiency" 
           value={`${summary?.collectionEfficiency || 0}%`} 
           icon={TrendingUp} 
           className={`${(summary?.collectionEfficiency || 0) >= 80 ? 'border-emerald-500/20 bg-emerald-500/5' : (summary?.collectionEfficiency || 0) >= 50 ? 'border-amber-500/20 bg-amber-500/5' : 'border-rose-500/20 bg-rose-500/5'}`}
           valueClassName={`${(summary?.collectionEfficiency || 0) >= 80 ? 'text-emerald-600 dark:text-emerald-400' : (summary?.collectionEfficiency || 0) >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`}
-        />
-        <KPICard 
-          title={t('dashboard.activeLoans')} 
-          value={summary?.activeLoans || 0} 
-          icon={CreditCard} 
-        />
-        <KPICard 
-          title={t('dashboard.overdueAccounts')} 
-          value={summary?.overdueCount || 0} 
-          icon={AlertCircle} 
-          className="border-rose-500/20 bg-rose-500/5"
-          valueClassName="text-rose-600 dark:text-rose-400"
-        />
-        <KPICard 
-          title={t('dashboard.par30')} 
-          value={`${((summary?.portfolioAtRisk30 || 0) * 100).toFixed(1)}%`} 
-          icon={Users} 
         />
         <KPICard 
           title="This Month" 
@@ -99,6 +87,27 @@ export function DashboardPage() {
           className="border-violet-500/20 bg-violet-500/5"
           valueClassName="text-violet-600 dark:text-violet-400"
         />
+        <KPICard 
+          title={t('dashboard.activeLoans')} 
+          value={summary?.activeLoans || 0} 
+          icon={CreditCard} 
+        />
+        {!isAgent && (
+          <>
+            <KPICard 
+              title={t('dashboard.overdueAccounts')} 
+              value={summary?.overdueCount || 0} 
+              icon={AlertCircle} 
+              className="border-rose-500/20 bg-rose-500/5"
+              valueClassName="text-rose-600 dark:text-rose-400"
+            />
+            <KPICard 
+              title={t('dashboard.par30')} 
+              value={`${((summary?.portfolioAtRisk30 || 0) * 100).toFixed(1)}%`} 
+              icon={Users} 
+            />
+          </>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -122,7 +131,7 @@ export function DashboardPage() {
                 </TableRow>
               ) : (
                 dueCollections.slice(0, 5).map((loan: any) => {
-                  const amountDue = loan.todayExpected || loan.totalRemaining || 0;
+                  const amountDue = loan.todayExpected || 0;
                   
                   let statusLabel = t('dashboard.pending');
                   let statusColor = 'text-amber-500';

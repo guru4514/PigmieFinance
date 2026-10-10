@@ -67,7 +67,7 @@ export const useCreateLoan = () => {
       queryClient.invalidateQueries({ queryKey: ['loans'] });
       toast.success('Loan created successfully');
     },
-    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to create loan')
+    onError: (error: any) => toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to create loan')
   });
 };
 
@@ -78,9 +78,11 @@ export const useApproveLoan = () => {
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['loans'] });
       queryClient.invalidateQueries({ queryKey: ['loans', id] });
+      queryClient.invalidateQueries({ queryKey: ['reports', 'dashboard-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['reports', 'portfolio-at-risk'] });
       toast.success('Loan approved');
     },
-    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to approve loan')
+    onError: (error: any) => toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to approve loan')
   });
 };
 
@@ -91,9 +93,11 @@ export const useRejectLoan = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['loans'] });
       queryClient.invalidateQueries({ queryKey: ['loans', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['reports', 'dashboard-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['reports', 'portfolio-at-risk'] });
       toast.success('Loan rejected');
     },
-    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to reject loan')
+    onError: (error: any) => toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to reject loan')
   });
 };
 
@@ -104,9 +108,11 @@ export const useDisburseLoan = () => {
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['loans'] });
       queryClient.invalidateQueries({ queryKey: ['loans', id] });
+      queryClient.invalidateQueries({ queryKey: ['reports', 'dashboard-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['reports', 'portfolio-at-risk'] });
       toast.success('Loan disbursed successfully');
     },
-    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to disburse loan')
+    onError: (error: any) => toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to disburse loan')
   });
 };
 
@@ -117,9 +123,11 @@ export const useCloseLoan = () => {
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['loans'] });
       queryClient.invalidateQueries({ queryKey: ['loans', id] });
+      queryClient.invalidateQueries({ queryKey: ['reports', 'dashboard-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['reports', 'portfolio-at-risk'] });
       toast.success('Loan closed');
     },
-    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to close loan')
+    onError: (error: any) => toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to close loan')
   });
 };
 
@@ -130,9 +138,11 @@ export const useWriteOffLoan = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['loans'] });
       queryClient.invalidateQueries({ queryKey: ['loans', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['reports', 'dashboard-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['reports', 'portfolio-at-risk'] });
       toast.success('Loan written off');
     },
-    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to write off loan')
+    onError: (error: any) => toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to write off loan')
   });
 };
 
@@ -143,9 +153,11 @@ export const useMarkDefaultLoan = () => {
     onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ['loans'] });
       queryClient.invalidateQueries({ queryKey: ['loans', id] });
+      queryClient.invalidateQueries({ queryKey: ['reports', 'dashboard-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['reports', 'portfolio-at-risk'] });
       toast.success('Loan marked as default');
     },
-    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to mark loan as default')
+    onError: (error: any) => toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to mark loan as default')
   });
 };
 
@@ -165,9 +177,11 @@ export const useRestructureLoan = () => {
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['loans'] });
       queryClient.invalidateQueries({ queryKey: ['loans', id] });
+      queryClient.invalidateQueries({ queryKey: ['reports', 'dashboard-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['reports', 'portfolio-at-risk'] });
       toast.success('Loan restructured successfully');
     },
-    onError: (error: { response?: { data?: { message?: string } } }) => toast.error(error?.response?.data?.message || 'Failed to restructure loan')
+    onError: (error: any) => toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to restructure loan')
   });
 };
 
@@ -189,6 +203,6 @@ export const usePreCloseLoan = () => {
       queryClient.invalidateQueries({ queryKey: ['loans', variables.id] });
       toast.success('Loan pre-closed successfully');
     },
-    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to pre-close loan')
+    onError: (error: any) => toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to pre-close loan')
   });
 };

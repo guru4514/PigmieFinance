@@ -31,7 +31,7 @@ export class CustomersController {
   }
 
   @Post()
-  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  @Roles('org_admin', 'branch_manager', 'agent')
   @AuditAction('customer.create')
   async create(@Body() dto: CreateCustomerDto, @CurrentUser() user: AuthenticatedUser) {
     if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
@@ -69,7 +69,7 @@ export class CustomersController {
   }
 
   @Patch(':id')
-  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  @Roles('org_admin', 'branch_manager', 'agent')
   @AuditAction('customer.update')
   async update(
     @Param('id') id: string,

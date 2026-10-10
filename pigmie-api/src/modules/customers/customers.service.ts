@@ -74,7 +74,7 @@ export class CustomersService {
 
   async findOne(organizationId: string, id: string, requestUserRole: string, requestUserId: string) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      const customer = await tx.customer.findUnique({ where: { id, organizationId } });
+      const customer = await tx.customer.findUnique({ where: { id, organizationId }, include: { assignedAgent: { select: { fullName: true } }, branch: { select: { name: true } } } });
       if (!customer) throw new NotFoundException('Customer not found');
 
       if (requestUserRole === 'agent' && customer.assignedAgentId !== requestUserId) {
@@ -143,10 +143,23 @@ export class CustomersService {
       }
       delete updateData.idProofNumber;
 
-      return tx.customer.update({
+      const updatedCustomer = await tx.customer.update({
         where: { id, organizationId },
         data: updateData
       });
+
+      if (dto.assignedAgentId !== undefined && dto.assignedAgentId !== customer.assignedAgentId) {
+        await tx.loan.updateMany({
+          where: { 
+            customerId: id, 
+            organizationId, 
+            status: { in: ['active', 'approved'] } 
+          },
+          data: { assignedAgentId: dto.assignedAgentId === null ? null : dto.assignedAgentId }
+        });
+      }
+
+      return updatedCustomer;
     });
   }
 

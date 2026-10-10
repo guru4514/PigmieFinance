@@ -45,33 +45,46 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
     
     let uploadedPhotoUrl = null;
     
-    if (photoFile && navigator.onLine) {
-      setIsUploading(true);
-      const fileName = `collections/${crypto.randomUUID()}.${photoFile.name.split('.').pop() || 'jpg'}`;
-      const { data: uploadData, error } = await supabase.storage
-        .from('collection-photos')
-        .upload(fileName, photoFile, {
-          contentType: photoFile.type,
-          upsert: false,
-        });
-      
-      if (!error && uploadData) {
-        const { data: urlData } = supabase.storage
+    
+    let offlinePhotoBase64 = null;
+    if (photoFile) {
+      if (navigator.onLine) {
+        setIsUploading(true);
+        const fileName = `collections/${crypto.randomUUID()}.${photoFile.name.split('.').pop() || 'jpg'}`;
+        const { data: uploadData, error } = await supabase.storage
           .from('collection-photos')
-          .getPublicUrl(uploadData.path);
-        uploadedPhotoUrl = urlData.publicUrl;
+          .upload(fileName, photoFile, {
+            contentType: photoFile.type,
+            upsert: false,
+          });
+        
+        if (!error && uploadData) {
+          const { data: urlData } = supabase.storage
+            .from('collection-photos')
+            .getPublicUrl(uploadData.path);
+          uploadedPhotoUrl = urlData.publicUrl;
+        }
+        setIsUploading(false);
+      } else {
+        // Convert to base64 for offline storage
+        offlinePhotoBase64 = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(photoFile);
+        });
       }
-      setIsUploading(false);
     }
+
 
     const payload: any = {
       clientGeneratedId: crypto.randomUUID(),
       loanId: item.loanId || item.id,
       amount: Number(customAmount),
-      collectionDate: new Date().toISOString().split('T')[0],
+      collectionDate: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0],
       collectedAt: new Date().toISOString(),
       collectionMethod: 'cash',
-      ...(uploadedPhotoUrl ? { photoUrl: uploadedPhotoUrl } : {})
+      ...(uploadedPhotoUrl ? { photoUrl: uploadedPhotoUrl } : {}),
+      ...(offlinePhotoBase64 ? { offlinePhotoBase64 } : {})
     };
 
     const submitPayload = async (data: any) => {

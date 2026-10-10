@@ -9,12 +9,15 @@ import { Type } from 'class-transformer';
 
 import { Roles } from '../../common/decorators/roles.decorator';
 
+import { RolesGuard } from '../../common/guards/roles.guard';
+
 export class NotificationQueryDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number = 1;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit?: number = 20;
 }
 
 @Controller('notifications')
+@UseGuards(SupabaseAuthGuard, RolesGuard)
 export class NotificationsController {
   constructor(
     private readonly notificationsService: NotificationsService,
@@ -22,8 +25,7 @@ export class NotificationsController {
   ) {}
 
   @Post('subscribe')
-  @Roles('org_admin', 'branch_manager')
-  @UseGuards(SupabaseAuthGuard)
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
   async subscribe(
     @CurrentUser() user: AuthenticatedUser,
     @Body() subscriptionData: any
@@ -32,34 +34,31 @@ export class NotificationsController {
   }
 
   @Get('vapid-public-key')
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
   getVapidPublicKey() {
     return { publicKey: this.notificationsService.getVapidPublicKey() };
   }
 
   @Get()
   @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
-  @UseGuards(SupabaseAuthGuard)
   async getNotifications(@Query() query: NotificationQueryDto, @CurrentUser() user: AuthenticatedUser) {
     return this.notificationsService.getNotifications(user.organizationId, user.type, user.id, query);
   }
 
   @Patch(':id/read')
-  @Roles('org_admin', 'branch_manager')
-  @UseGuards(SupabaseAuthGuard)
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
   async markAsRead(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.notificationsService.markAsRead(user.organizationId, id);
   }
 
   @Patch('read-all')
-  @Roles('org_admin', 'branch_manager')
-  @UseGuards(SupabaseAuthGuard)
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
   async markAllAsRead(@CurrentUser() user: AuthenticatedUser) {
     return this.notificationsService.markAllAsRead(user.organizationId, user.type, user.id);
   }
 
   @Post('send-sms')
   @Roles('org_admin', 'branch_manager')
-  @UseGuards(SupabaseAuthGuard)
   async sendSms(@Body() data: { phone: string; message: string }) {
     const success = await this.smsService.sendSMS(data.phone, data.message);
     return { success };
@@ -67,7 +66,6 @@ export class NotificationsController {
 
   @Post('send-bulk-reminders')
   @Roles('org_admin', 'branch_manager')
-  @UseGuards(SupabaseAuthGuard)
   async sendBulkReminders(@Body() data: { recipients: { phone: string; message: string }[] }) {
     await this.smsService.sendBulkSMS(data.recipients);
     return { success: true, count: data.recipients.length };

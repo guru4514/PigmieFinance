@@ -3,6 +3,9 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCreateCustomer, useCustomer, useUpdateCustomer } from '../hooks/use-customers';
+import { useStaff } from '@/features/staff/hooks/use-staff';
+import { useBranches } from '@/features/branches/hooks/use-branches';
+import { useAuth } from '@/shared/hooks/use-auth';
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
 import { Button } from '@/shared/components/ui/button';
@@ -23,6 +26,8 @@ const customerSchema = z.object({
   idProofNumber: z.string().optional(),
   guarantorName: z.string().optional(),
   guarantorPhone: z.string().optional(),
+  assignedAgentId: z.string().optional(),
+  branchId: z.string().optional(),
 });
 
 type CustomerFormValues = z.infer<typeof customerSchema>;
@@ -36,6 +41,11 @@ export const CustomerFormPage = () => {
   const createCustomer = useCreateCustomer();
   const updateCustomer = useUpdateCustomer();
   const { data: customer, isLoading: isLoadingCustomer } = useCustomer(id as string);
+  const { user } = useAuth();
+  const { data: agentsRes } = useStaff({ role: 'agent', limit: 100 });
+  const agents = agentsRes?.data || [];
+  const { data: branchesRes } = useBranches({ limit: 100 });
+  const branches = branchesRes?.data || [];
 
   const { register, handleSubmit, reset, formState: { errors }, setValue, watch } = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
@@ -50,6 +60,8 @@ export const CustomerFormPage = () => {
       idProofNumber: '',
       guarantorName: '',
       guarantorPhone: '',
+      assignedAgentId: '',
+      branchId: '',
     }
   });
 
@@ -66,6 +78,8 @@ export const CustomerFormPage = () => {
         idProofNumber: customer.idProofNumber || '',
         guarantorName: customer.guarantorName || '',
         guarantorPhone: customer.guarantorPhone || '',
+        assignedAgentId: customer.assignedAgentId || '',
+        branchId: customer.branchId || '',
       });
     }
   }, [isEditMode, customer, reset]);
@@ -83,6 +97,8 @@ export const CustomerFormPage = () => {
         idProofNumber: data.idProofNumber || undefined,
         guarantorName: data.guarantorName || undefined,
         guarantorPhone: data.guarantorPhone || undefined,
+        assignedAgentId: data.assignedAgentId || undefined,
+        branchId: data.branchId || undefined,
       };
       
       if (isEditMode) {
@@ -265,6 +281,76 @@ export const CustomerFormPage = () => {
             </div>
           </CardContent>
         </Card>
+
+
+        {/* Agent & Branch Assignment */}
+        {((user as any)?.role === 'org_admin' || (user as any)?.role === 'branch_manager') && (
+          <Card className="bg-card border-border">
+            <CardHeader className="flex flex-row items-center gap-2 pb-4">
+              <Users className="w-5 h-5 text-primary" />
+              <CardTitle className="text-xl text-foreground">Assignment</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {(user as any)?.role === 'org_admin' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground/80">Branch</label>
+                    <Select 
+                      value={watch('branchId') || ''} 
+                      onValueChange={(val) => setValue('branchId', val === '_none_' ? '' : val)}
+                    >
+                      <SelectTrigger className="bg-muted border-border">
+                        <SelectValue placeholder="Select Branch (Optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none_">No Branch</SelectItem>
+                        {branches.map((b: any) => (
+                          <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground/80">Assign Agent</label>
+                    <Select 
+                      value={watch('assignedAgentId') || ''} 
+                      onValueChange={(val) => setValue('assignedAgentId', val === '_none_' ? '' : val)}
+                    >
+                      <SelectTrigger className="bg-muted border-border">
+                        <SelectValue placeholder="Select Agent (Optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none_">Unassigned</SelectItem>
+                        {agents.map((a: any) => (
+                          <SelectItem key={a.id} value={a.id}>{a.fullName} {a.employeeCode ? '- ' + a.employeeCode : ''}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+              {(user as any)?.role === 'branch_manager' && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground/80">Assign Agent</label>
+                  <Select 
+                    value={watch('assignedAgentId') || ''} 
+                    onValueChange={(val) => setValue('assignedAgentId', val === '_none_' ? '' : val)}
+                  >
+                    <SelectTrigger className="bg-muted border-border">
+                      <SelectValue placeholder="Select Agent (Optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none_">Unassigned</SelectItem>
+                      {agents.map((a: any) => (
+                        <SelectItem key={a.id} value={a.id}>{a.fullName} {a.employeeCode ? '- ' + a.employeeCode : ''}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Actions */}
         <div className="flex justify-end gap-3">

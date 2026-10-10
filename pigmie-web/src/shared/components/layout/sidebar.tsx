@@ -34,6 +34,7 @@ const navGroups: NavGroup[] = [
       { title: 'Dashboard', href: '/app/dashboard', icon: LayoutDashboard, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.dashboard' },
       { title: 'Customers', href: '/app/customers', icon: Users, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.customers' },
       { title: 'Collections', href: '/app/collections/today', icon: Banknote, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.collections' },
+      { title: 'Collection History', href: '/app/collections/history', icon: Banknote, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.collectionsHistory' },
       { title: 'Loans', href: '/app/loans', icon: CreditCard, roles: ['org_admin', 'branch_manager', 'agent', 'accountant'], translationKey: 'nav.loans' },
     ]
   },

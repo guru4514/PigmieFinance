@@ -31,48 +31,31 @@ export class ScheduledTasksService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Step 1: Bulk mark overdue (no transaction needed — single atomic updateMany)
-    const overdueResult = await this.prisma.loanSchedule.updateMany({
-      where: {
-        loan: { organizationId, status: 'active' },
-        dueDate: { lt: today },
-        status: { in: ['pending', 'partially_paid'] },
-      },
-      data: { status: 'overdue' },
-    });
-
-    // Step 2: Apply late fees — only for rows that need it
+    // Step 1: Apply late fees ONCE for schedules that are BECOMING overdue today
     // Fetch products with late fees configured
     const productsWithFees = await this.prisma.loanProduct.findMany({
-      where: {
-        organizationId,
-        lateFeeValue: { gt: 0 },
-      },
+      where: { organizationId, lateFeeValue: { gt: 0 } },
       select: { id: true, lateFeeType: true, lateFeeValue: true },
     });
 
     if (productsWithFees.length > 0) {
-      // For flat fees, we can batch by product
       for (const product of productsWithFees) {
         if (product.lateFeeType === 'flat' && product.lateFeeValue) {
+          // Apply flat fee exactly once before marking overdue
           await this.prisma.loanSchedule.updateMany({
             where: {
               loan: { organizationId, loanProductId: product.id, status: 'active' },
-              status: 'overdue',
+              status: { in: ['pending', 'partially_paid'] },
               dueDate: { lt: today },
             },
-            data: {
-              dueAmount: { increment: product.lateFeeValue.toNumber() },
-            },
+            data: { dueAmount: { increment: product.lateFeeValue.toNumber() } },
           });
         }
-        // For percentage fees, we need to handle individually (less common)
-        // but outside a single transaction to avoid timeouts
         if (product.lateFeeType === 'percentage' && product.lateFeeValue) {
           const rows = await this.prisma.loanSchedule.findMany({
             where: {
               loan: { organizationId, loanProductId: product.id, status: 'active' },
-              status: 'overdue',
+              status: { in: ['pending', 'partially_paid'] },
               dueDate: { lt: today },
             },
             select: { id: true, dueAmount: true },
@@ -90,6 +73,16 @@ export class ScheduledTasksService {
       }
     }
 
+    // Step 2: Bulk mark overdue (now that penalties are applied)
+    const overdueResult = await this.prisma.loanSchedule.updateMany({
+      where: {
+        loan: { organizationId, status: 'active' },
+        dueDate: { lt: today },
+        status: { in: ['pending', 'partially_paid'] },
+      },
+      data: { status: 'overdue' },
+    });
+
     // Step 3: Default loans with 90+ days overdue
     const thresholdDate = new Date(today);
     thresholdDate.setDate(thresholdDate.getDate() - 90);
@@ -104,5 +97,26 @@ export class ScheduledTasksService {
     });
 
     this.logger.log(`Org ${organizationId}: ${overdueResult.count} rows overdue, ${defaultResult.count} loans defaulted`);
+  }
+
+  // Runs daily at 2:00 AM to purge old audit logs and prevent DB bloat
+  @Cron('0 2 * * *')
+  async archiveOldAuditLogs() {
+    this.logger.log('Starting daily audit log purge...');
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+    try {
+      const result = await this.prisma.auditLog.deleteMany({
+        where: {
+          createdAt: {
+            lt: ninetyDaysAgo,
+          },
+        },
+      });
+      this.logger.log(`Successfully purged ${result.count} audit logs older than 90 days.`);
+    } catch (error) {
+      this.logger.error('Failed to purge old audit logs', error);
+    }
   }
 }

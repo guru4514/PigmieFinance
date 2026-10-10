@@ -39,7 +39,7 @@ export const useCreateCustomer = () => {
       toast.success('Customer created successfully');
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to create customer');
+      toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to create customer');
     }
   });
 };
@@ -55,7 +55,7 @@ export const useUpdateCustomer = () => {
       toast.success('Customer updated successfully');
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to update customer');
+      toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to update customer');
     }
   });
 };
@@ -69,7 +69,15 @@ export const useDeleteCustomer = () => {
       toast.success('Customer deleted successfully');
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to delete customer');
+      toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to delete customer');
     }
+  });
+};
+
+export const useCustomerLoans = (id: string) => {
+  return useQuery({
+    queryKey: ['customers', id, 'loans'],
+    queryFn: () => apiClient.get(`/customers/${id}/loans`).then(r => r.data),
+    enabled: !!id,
   });
 };

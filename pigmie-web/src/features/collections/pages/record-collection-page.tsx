@@ -80,6 +80,8 @@ export function RecordCollectionPage() {
     
     let uploadedPhotoUrl = null;
     
+    
+    let offlinePhotoBase64 = null;
     if (photoFile) {
       if (isOnline) {
         const fileName = `collections/${crypto.randomUUID()}.jpg`;
@@ -97,20 +99,27 @@ export function RecordCollectionPage() {
           uploadedPhotoUrl = urlData.publicUrl;
         }
       } else {
-        toast.warning('Photos cannot be uploaded offline. Collection will be saved without photo.');
+        // Convert to base64 for offline storage
+        offlinePhotoBase64 = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(photoFile);
+        });
       }
     }
+
 
     const collection = {
       clientGeneratedId: crypto.randomUUID(),
       loanId,
       amount: data.amount,
-      collectionDate: new Date().toISOString().split('T')[0],
+      collectionDate: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0],
       collectedAt: new Date().toISOString(),
       collectionMethod: data.collectionMethod,
       notes: data.notes,
       ...(location ? { latitude: location.latitude, longitude: location.longitude } : {}),
       ...(uploadedPhotoUrl ? { photoUrl: uploadedPhotoUrl } : {}),
+      ...(offlinePhotoBase64 ? { offlinePhotoBase64 } : {}),
     };
     
     if (isOnline) {
@@ -122,9 +131,9 @@ export function RecordCollectionPage() {
       }
       catch (error: any) { 
         console.error('Collection error:', error?.response?.data);
-        const msg = Array.isArray(error?.response?.data?.message) 
+        const msg = Array.isArray((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message))) 
           ? error.response.data.message.join(', ') 
-          : error?.response?.data?.message || 'Failed to record collection';
+          : (error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to record collection';
         toast.error(msg);
         setStatus('error');
       } 

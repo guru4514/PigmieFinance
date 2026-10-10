@@ -70,7 +70,7 @@ function StaffRowActions({ member }: { member: StaffMember }) {
 
   return (
     <>
-      <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+      <RoleGate allowedRoles={['org_admin', 'branch_manager']}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted">
@@ -197,7 +197,7 @@ export function StaffPage() {
             Manage your organization's staff members and their roles.
           </p>
         </div>
-        <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+        <RoleGate allowedRoles={['org_admin', 'branch_manager']}>
           <Button className="shrink-0 gap-2" asChild>
             <Link to="/app/staff/new">
               <Plus className="h-4 w-4" />

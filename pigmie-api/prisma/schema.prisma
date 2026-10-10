@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider = "postgresql"
 }
 
 enum UserRole {
@@ -34,7 +34,6 @@ enum KycStatus {
 
   @@map("kyc_status")
 }
-
 
 enum InterestType {
   flat
@@ -148,16 +147,16 @@ model Organization {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime @default(now()) @map("updated_at") @db.Timestamptz
 
-  branches      Branch[]
-  staff         Staff[]
-  customers     Customer[]
-  loanProducts  LoanProduct[]
-  loans         Loan[]
-  collections   Collection[]
-  cashDeposits  CashDeposit[]
-  documents     Document[]
-  notifications Notification[]
-  auditLogs     AuditLog[]
+  branches         Branch[]
+  staff            Staff[]
+  customers        Customer[]
+  loanProducts     LoanProduct[]
+  loans            Loan[]
+  collections      Collection[]
+  cashDeposits     CashDeposit[]
+  documents        Document[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]
   approvalRequests ApprovalRequest[]
 
   @@map("organizations")
@@ -200,18 +199,18 @@ model Staff {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   branch       Branch?      @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
-  assignedCustomers     Customer[]     @relation("CustomerAgent")
-  appliedLoans          Loan[]         @relation("LoanAppliedBy")
-  approvedLoans         Loan[]         @relation("LoanApprovedBy")
-  disbursedLoans        Loan[]         @relation("LoanDisbursedBy")
-  assignedLoans         Loan[]         @relation("LoanAssignedAgent")
-  collections           Collection[]   @relation("CollectionAgent")
-  reversedCollections   Collection[]   @relation("CollectionReverser")
-  cashDeposits          CashDeposit[]  @relation("DepositAgent")
-  verifiedDeposits      CashDeposit[]  @relation("DepositVerifier")
-  uploadedDocuments     Document[]     @relation("DocumentUploader")
-  receivedNotifications Notification[] @relation("NotificationStaffRecipient")
-  auditLogs             AuditLog[]     @relation("AuditLogActor")
+  assignedCustomers     Customer[]        @relation("CustomerAgent")
+  appliedLoans          Loan[]            @relation("LoanAppliedBy")
+  approvedLoans         Loan[]            @relation("LoanApprovedBy")
+  disbursedLoans        Loan[]            @relation("LoanDisbursedBy")
+  assignedLoans         Loan[]            @relation("LoanAssignedAgent")
+  collections           Collection[]      @relation("CollectionAgent")
+  reversedCollections   Collection[]      @relation("CollectionReverser")
+  cashDeposits          CashDeposit[]     @relation("DepositAgent")
+  verifiedDeposits      CashDeposit[]     @relation("DepositVerifier")
+  uploadedDocuments     Document[]        @relation("DocumentUploader")
+  receivedNotifications Notification[]    @relation("NotificationStaffRecipient")
+  auditLogs             AuditLog[]        @relation("AuditLogActor")
   submittedApprovals    ApprovalRequest[] @relation("SubmittedApprovals")
   reviewedApprovals     ApprovalRequest[] @relation("ReviewedApprovals")
 
@@ -357,6 +356,7 @@ model LoanSchedule {
   @@unique([loanId, installmentNumber])
   @@index([loanId])
   @@index([dueDate, status])
+  @@index([loanId, status, dueDate])
   @@map("loan_schedule")
 }
 
@@ -397,6 +397,7 @@ model Collection {
   @@unique([organizationId, receiptNumber])
   @@index([loanId])
   @@index([organizationId, collectionDate])
+  @@index([organizationId, collectionDate, status])
   @@index([collectedById, collectionDate])
   @@map("collections")
 }
@@ -487,35 +488,35 @@ model AuditLog {
 }
 
 model PushSubscription {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  authUserId     String   @map("auth_user_id") @db.Uuid
-  endpoint       String   @unique
-  p256dh         String
-  auth           String
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authUserId String   @map("auth_user_id") @db.Uuid
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   @@index([authUserId])
   @@map("push_subscriptions")
 }
-  
-model ApprovalRequest {  
-  id              String             @id @default(uuid()) @db.Uuid  
-  organizationId  String             @db.Uuid  
-  organization    Organization       @relation(fields: [organizationId], references: [id])  
-  actionType      ApprovalActionType  
-  status          ApprovalStatus     @default(pending)  
-  payload         Json  
-  reason          String?  
-  entityType      String  
-  entityId        String             @db.Uuid  
-  submittedById   String             @db.Uuid  
-  submittedBy     Staff              @relation("SubmittedApprovals", fields: [submittedById], references: [id])  
-  reviewedById    String?            @db.Uuid  
-  reviewedBy      Staff?             @relation("ReviewedApprovals", fields: [reviewedById], references: [id])  
-  reviewNote      String?  
-  createdAt       DateTime           @default(now())  
-  updatedAt       DateTime           @updatedAt  
-  reviewedAt      DateTime?  
-  
-  @@map("approval_requests")  
-} 
+
+model ApprovalRequest {
+  id             String             @id @default(uuid()) @db.Uuid
+  organizationId String             @db.Uuid
+  organization   Organization       @relation(fields: [organizationId], references: [id])
+  actionType     ApprovalActionType
+  status         ApprovalStatus     @default(pending)
+  payload        Json
+  reason         String?
+  entityType     String
+  entityId       String             @db.Uuid
+  submittedById  String             @db.Uuid
+  submittedBy    Staff              @relation("SubmittedApprovals", fields: [submittedById], references: [id])
+  reviewedById   String?            @db.Uuid
+  reviewedBy     Staff?             @relation("ReviewedApprovals", fields: [reviewedById], references: [id])
+  reviewNote     String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  reviewedAt     DateTime?
+
+  @@map("approval_requests")
+}

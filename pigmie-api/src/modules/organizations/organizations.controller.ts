@@ -1,3 +1,4 @@
+import { Throttle } from '@nestjs/throttler';
 import { Controller, Get, Post, Patch, Body, UseGuards, ConflictException } from '@nestjs/common';
 import { OrganizationsService } from './organizations.service';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
@@ -9,6 +10,9 @@ import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 
+import { AllowUnprovisioned } from '../../common/decorators/allow-unprovisioned.decorator';
+import { AllowAnyRole } from '../../common/decorators/allow-any-role.decorator';
+
 @Controller('organizations')
 @UseGuards(SupabaseAuthGuard, RolesGuard)
 export class OrganizationsController {
@@ -16,6 +20,8 @@ export class OrganizationsController {
 
   @Post()
   @AuditAction('organization.create')
+  @AllowUnprovisioned()
+  @AllowAnyRole()
   async createOrganization(@CurrentUser() user: RequestUser, @Body() dto: CreateOrganizationDto) {
     if (user.type !== 'unprovisioned') {
       throw new ConflictException('User is already provisioned');

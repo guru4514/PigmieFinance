@@ -12,6 +12,8 @@ import { useCustomers } from "../../customers/hooks/use-customers";
 import { useLoanProducts } from '../../loan-products/hooks/use-loan-products';
 import { useCreateLoan } from '../hooks/use-loans';
 
+
+
 const loanSchema = z.object({
   customerId: z.string().min(1, 'Customer is required'),
   loanProductId: z.string().min(1, 'Loan Product is required'),
@@ -27,7 +29,8 @@ export const NewLoanPage: React.FC = () => {
   const navigate = useNavigate();
   const createLoan = useCreateLoan();
   
-  const { data: customersRes } = useCustomers();
+  const { data: customersRes } = useCustomers({ limit: 100 });
+  
   const { data: productsRes } = useLoanProducts();
   
   const customers = customersRes?.data || [];

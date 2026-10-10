@@ -141,7 +141,7 @@ export const LoanProductsPage = () => {
           <h1 className="text-3xl font-bold tracking-tight text-foreground"> {t('loanProducts.title')} </h1>
           <p className="text-muted-foreground mt-1 text-muted-foreground">Manage available loan products and terms.</p>
         </div>
-        <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+        <RoleGate allowedRoles={['org_admin']}>
           <Link to="/app/loan-products/new">
             <Button className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
               <Plus className="w-4 h-4" /> Create Product

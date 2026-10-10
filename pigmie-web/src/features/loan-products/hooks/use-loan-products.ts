@@ -33,7 +33,7 @@ export const useCreateLoanProduct = () => {
       queryClient.invalidateQueries({ queryKey: ['loan-products'] });
       toast.success('Loan product created successfully');
     },
-    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to create loan product')
+    onError: (error: any) => toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to create loan product')
   });
 };
 
@@ -46,7 +46,7 @@ export const useUpdateLoanProduct = () => {
       queryClient.invalidateQueries({ queryKey: ['loan-products'] });
       toast.success('Loan product updated successfully');
     },
-    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to update loan product')
+    onError: (error: any) => toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to update loan product')
   });
 };
 
@@ -58,6 +58,6 @@ export const useDeleteLoanProduct = () => {
       queryClient.invalidateQueries({ queryKey: ['loan-products'] });
       toast.success('Loan product deleted successfully');
     },
-    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to delete loan product')
+    onError: (error: any) => toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to delete loan product')
   });
 };

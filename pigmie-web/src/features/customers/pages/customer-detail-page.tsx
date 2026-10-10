@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useCustomer, useDeleteCustomer } from '../hooks/use-customers';
+import { useCustomer, useDeleteCustomer, useCustomerLoans } from '../hooks/use-customers';
+const formatCurrency = (amount: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/ui/card';
 import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
 import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
 import { ArrowLeft, User, FileText, CreditCard, Mail, Phone, Calendar, MapPin, Download } from 'lucide-react';
 import { CustomerDocuments } from '../components/customer-documents';
@@ -30,7 +32,10 @@ export const CustomerDetailPage = () => {
   };
 
   const { data: customerRes, isLoading, isError, refetch } = useCustomer(id || '');
+  const { data: loansRes } = useCustomerLoans(id || '');
   const customer = customerRes?.data || customerRes; // handle wrapped response or direct
+  const loans = loansRes?.data || loansRes || [];
+  const totalOutstanding = loans.reduce((sum: number, l: any) => sum + Number(l.outstandingBalance || 0), 0);
   const [activeTab, setActiveTab] = useState<'profile' | 'loans' | 'documents'>('profile');
   const [isDownloading, setIsDownloading] = useState(false);
   const [kycStatusInput, setKycStatusInput] = useState<string>('');
@@ -39,7 +44,7 @@ export const CustomerDetailPage = () => {
   const updateKycMutation = useMutation({
     mutationFn: (status: string) => apiClient.customers.updateKycStatus(id!, status),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['customer', id] });
+      queryClient.invalidateQueries({ queryKey: ['customers', id] });
       alert('KYC Status updated successfully');
     },
     onError: () => {
@@ -201,6 +206,18 @@ export const CustomerDetailPage = () => {
                   <Calendar className="w-5 h-5 text-muted-foreground" />
                   <span>Joined {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString() : 'N/A'}</span>
                 </div>
+                {customer.assignedAgent && (
+                  <div className="flex items-center gap-3 text-foreground/80">
+                    <User className="w-5 h-5 text-muted-foreground" />
+                    <span>Agent: <span className="font-medium text-primary">{customer.assignedAgent.fullName}</span></span>
+                  </div>
+                )}
+                {customer.branch && (
+                  <div className="flex items-center gap-3 text-foreground/80">
+                    <MapPin className="w-5 h-5 text-muted-foreground" />
+                    <span>Branch: <span className="font-medium text-primary">{customer.branch.name}</span></span>
+                  </div>
+                )}
               </CardContent>
             </Card>
             
@@ -212,11 +229,11 @@ export const CustomerDetailPage = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between py-2 border-b border-border/50">
                     <span className="text-muted-foreground">Total Loans</span>
-                    <span className="text-foreground font-medium">{customer.totalLoans || 0}</span>
+                    <span className="text-foreground font-medium">{loans.length}</span>
                   </div>
                   <div className="flex justify-between py-2 border-b border-border/50">
                     <span className="text-muted-foreground">Outstanding Balance</span>
-                    <span className="text-foreground font-medium">₹0</span>
+                    <span className="text-foreground font-medium">{formatCurrency(totalOutstanding)}</span>
                   </div>
                   <div className="flex justify-between py-2">
                     <span className="text-muted-foreground">Credit Score</span>
@@ -261,14 +278,52 @@ export const CustomerDetailPage = () => {
 
         {activeTab === 'loans' && (
           <Card className="bg-card border-border">
-            <CardContent className="p-12 text-center text-muted-foreground">
-              <CreditCard className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>No active loans found for this customer.</p>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Loan History</CardTitle>
               <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
                 <Link to="/app/loans/new">
-                  <Button variant="outline" className="mt-4 border-border text-foreground/80">Issue New Loan</Button>
+                  <Button variant="outline" size="sm" className="border-border">Issue New Loan</Button>
                 </Link>
               </RoleGate>
+            </CardHeader>
+            <CardContent>
+              {loans.length === 0 ? (
+                <div className="p-12 text-center text-muted-foreground">
+                  <CreditCard className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No active loans found for this customer.</p>
+                </div>
+              ) : (
+                <div className="rounded-md border border-border overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-muted">
+                      <TableRow className="border-border">
+                        <TableHead className="text-muted-foreground">Loan ID</TableHead>
+                        <TableHead className="text-muted-foreground text-right">Amount</TableHead>
+                        <TableHead className="text-muted-foreground text-right">Balance</TableHead>
+                        <TableHead className="text-muted-foreground">Status</TableHead>
+                        <TableHead className="text-muted-foreground text-right">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {loans.map((loan: any) => (
+                        <TableRow key={loan.id} className="border-border">
+                          <TableCell className="font-medium text-foreground">{loan.id.split('-')[0]}</TableCell>
+                          <TableCell className="text-right text-foreground">{formatCurrency(loan.principalAmount)}</TableCell>
+                          <TableCell className="text-right font-medium text-foreground">{formatCurrency(loan.outstandingBalance)}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={loan.status === 'active' ? 'border-emerald-500/20 text-emerald-500 bg-emerald-500/10' : 'border-border text-muted-foreground'}>
+                              {loan.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Link to={`/app/loans/${loan.id}`} className="text-primary hover:underline text-sm font-medium">View</Link>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

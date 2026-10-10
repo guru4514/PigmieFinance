@@ -8,6 +8,7 @@ import { ProtectedRoute } from '@/shared/components/auth/protected-route';
 import { AppLayout } from '@/shared/components/layout/app-layout';
 import { PortalLayout } from '@/shared/components/layout/portal-layout';
 import { LoginPage } from '@/features/auth/pages/login-page';
+import { UpdatePasswordPage } from '@/features/auth/pages/update-password-page';
 import { SignupPage } from '@/features/auth/pages/signup-page';
 import { Setup2FAPage } from '@/features/auth/pages/setup-2fa-page';
 import { Verify2FAPage } from '@/features/auth/pages/verify-2fa-page';
@@ -22,6 +23,7 @@ import { LoanDetailPage } from '@/features/loans/pages/loan-detail-page';
 import { NewLoanPage } from '@/features/loans/pages/new-loan-page';
 import { EMICalculatorPage } from '@/features/loans/pages/emi-calculator-page';
 import { CollectionsTodayPage } from '@/features/collections/pages/collections-today-page';
+import { CollectionHistoryPage } from '@/features/collections/pages/collection-history-page';
 import { RecordCollectionPage } from '@/features/collections/pages/record-collection-page';
 import { LoanProductsPage } from '@/features/loan-products/pages/loan-products-page';
 import { NewLoanProductPage } from '@/features/loan-products/pages/new-loan-product-page';
@@ -56,6 +58,7 @@ export function App() {
       {/* Public Routes */}
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<LoginPage />} />
+        <Route path="/update-password" element={<UpdatePasswordPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/onboarding" element={<SignupPage />} />
       <Route path="/setup-2fa" element={<Setup2FAPage />} />
@@ -78,20 +81,21 @@ export function App() {
         <Route path="customers/:id/edit" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent']}><CustomerFormPage /></ProtectedRoute>} />
         <Route path="loans" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent', 'accountant']}><LoansListPage /></ProtectedRoute>} />
         <Route path="loans/new" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent']}><NewLoanPage /></ProtectedRoute>} />
-        <Route path="emi-calculator" element={<EMICalculatorPage />} />
+        <Route path="emi-calculator" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent', 'accountant']}><EMICalculatorPage /></ProtectedRoute>} />
         <Route path="loans/:id" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent', 'accountant']}><LoanDetailPage /></ProtectedRoute>} />
         <Route path="collections/today" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent', 'accountant']}><CollectionsTodayPage /></ProtectedRoute>} />
+        <Route path="collections/history" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent', 'accountant']}><CollectionHistoryPage /></ProtectedRoute>} />
         <Route path="collections/record/:loanId" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent']}><RecordCollectionPage /></ProtectedRoute>} />
-        <Route path="loan-products/new" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager']}><NewLoanProductPage /></ProtectedRoute>} />
-        <Route path="loan-products" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager']}><LoanProductsPage /></ProtectedRoute>} />
+        <Route path="loan-products/new" element={<ProtectedRoute allowedRoles={['org_admin']}><NewLoanProductPage /></ProtectedRoute>} />
+        <Route path="loan-products" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent', 'accountant']}><LoanProductsPage /></ProtectedRoute>} />
         <Route path="reports" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'accountant']}><ReportsPage /></ProtectedRoute>} />
         <Route path="reports/branch-comparison" element={<ProtectedRoute allowedRoles={['org_admin']}><BranchComparisonPage /></ProtectedRoute>} />
         <Route path="approvals" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager']}><ApprovalsPage /></ProtectedRoute>} />
-        <Route path="staff" element={<ProtectedRoute allowedRoles={['org_admin']}><StaffPage /></ProtectedRoute>} />
-        <Route path="staff/new" element={<ProtectedRoute allowedRoles={['org_admin']}><StaffFormPage /></ProtectedRoute>} />
-        <Route path="audit-logs" element={<ProtectedRoute allowedRoles={['org_admin', 'accountant']}><AuditLogsPage /></ProtectedRoute>} />
+        <Route path="staff" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager']}><StaffPage /></ProtectedRoute>} />
+        <Route path="staff/new" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager']}><StaffFormPage /></ProtectedRoute>} />
+        <Route path="audit-logs" element={<ProtectedRoute allowedRoles={['org_admin']}><AuditLogsPage /></ProtectedRoute>} />
         <Route path="settings" element={<ProtectedRoute allowedRoles={['org_admin']}><SettingsPage /></ProtectedRoute>} />
-        <Route path="branches" element={<ProtectedRoute allowedRoles={['org_admin']}><BranchesPage /></ProtectedRoute>} />
+        <Route path="branches" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent', 'accountant']}><BranchesPage /></ProtectedRoute>} />
         <Route path="cash-deposits" element={<ProtectedRoute allowedRoles={['org_admin', 'branch_manager', 'agent', 'accountant']}><CashDepositsPage /></ProtectedRoute>} />
       </Route>
       

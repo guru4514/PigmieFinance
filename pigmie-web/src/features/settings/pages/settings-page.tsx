@@ -116,7 +116,7 @@ export function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ['organization', 'me'] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to update organization');
+      toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to update organization');
     },
   });
 
@@ -207,7 +207,7 @@ export function SettingsPage() {
                     </div>
                     
                     <div className="pt-4 flex justify-end">
-                      <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+                      <RoleGate allowedRoles={['org_admin']}>
                         <Button type="submit" disabled={updateMutation.isPending} className="gap-2">
                           {updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                           Save Changes
@@ -320,7 +320,7 @@ export function SettingsPage() {
                             }}
                           />
                         </div>
-                        <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+                        <RoleGate allowedRoles={['org_admin']}>
                           <Button onClick={() => toast.success('SMS Configuration saved successfully')} className="mt-2">
                             Save SMS Configuration
                           </Button>

@@ -93,7 +93,8 @@ export class StaffService {
       const authUserId = data.user.id;
 
       // 2. Invite user
-      const inviteRes = await this.supabaseAdmin.auth.admin.inviteUserByEmail(dto.email);
+      const frontendUrl = process.env.CORS_ORIGIN || 'http://localhost:5173';
+      const inviteRes = await this.supabaseAdmin.auth.admin.inviteUserByEmail(dto.email, { redirectTo: `${frontendUrl}/update-password` });
       if (inviteRes.error) {
         console.error('Error inviting user:', inviteRes.error);
         // We continue despite invite error, or we could throw

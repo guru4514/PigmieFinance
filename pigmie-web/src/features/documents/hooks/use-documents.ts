@@ -70,7 +70,7 @@ export const useUploadDocument = (entityType: EntityType, entityId: string) => {
       toast.success('Document uploaded successfully');
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || error.message || 'Failed to upload document');
+      toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || error.message || 'Failed to upload document');
     }
   });
 };
@@ -86,7 +86,7 @@ export const useDownloadDocument = () => {
       window.open(url, '_blank');
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to download document');
+      toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to download document');
     }
   });
 };

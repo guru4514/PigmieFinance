@@ -14,7 +14,7 @@ export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
   @Get('dashboard-summary')
-  @Roles('org_admin', 'branch_manager')
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
   async getDashboardSummary(@CurrentUser() user: AuthenticatedUser) {
     if (user.type !== 'staff') throw new ForbiddenException();
     return this.reportsService.getDashboardSummary(user.organizationId, user);

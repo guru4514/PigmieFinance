@@ -20,36 +20,39 @@ export class ReportsService {
 
   async getDashboardSummary(organizationId: string, user: any) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      // Get today's date in IST as a plain date (no time component)
       const now = new Date();
-      const istOffset = 5.5 * 60 * 60 * 1000; // IST = UTC + 5:30
+      const istOffset = 5.5 * 60 * 60 * 1000;
       const istNow = new Date(now.getTime() + istOffset);
-      const istDateStr = istNow.toISOString().split('T')[0]; // "2026-10-05"
-      
-      // For @db.Date columns, use midnight UTC of the IST date
-      // This matches how Prisma stores date-only values
+      const istDateStr = istNow.toISOString().split('T')[0];
       const todayDate = new Date(istDateStr + 'T00:00:00.000Z');
-      
-      // Month start for "This Month" metric
       const monthStartStr = istDateStr.slice(0, 7) + '-01';
       const monthStartDate = new Date(monthStartStr + 'T00:00:00.000Z');
+
+      // 1. Get staff scoping rules
+      const staff = await tx.staff.findUnique({ where: { authUserId: user.id } });
+      const isAgent = staff?.role === 'agent';
+      const isBranchManager = staff?.role === 'branch_manager';
 
       const loanWhere: any = { organizationId, status: 'active' };
       const collectionTodayWhere: any = { 
         organizationId, 
-        collectionDate: todayDate,  // Exact date match for @db.Date
+        collectionDate: todayDate,
         status: { in: ['recorded', 'verified'] } 
       };
       const collectionMonthWhere: any = { 
         organizationId, 
-        collectionDate: { gte: monthStartDate, lte: todayDate },  // Date range for @db.Date
+        collectionDate: { gte: monthStartDate, lte: todayDate },
         status: { in: ['recorded', 'verified'] } 
       };
 
-      if (user.role === 'branch_manager' && user.branchId) {
-        loanWhere.customer = { branchId: user.branchId };
-        collectionTodayWhere.customer = { branchId: user.branchId };
-        collectionMonthWhere.customer = { branchId: user.branchId };
+      if (isAgent && staff?.id) {
+        loanWhere.assignedAgentId = staff.id;
+        collectionTodayWhere.collectedById = staff.id;
+        collectionMonthWhere.collectedById = staff.id;
+      } else if (isBranchManager && staff?.branchId) {
+        loanWhere.customer = { branchId: staff.branchId };
+        collectionTodayWhere.loan = { customer: { branchId: staff.branchId } };
+        collectionMonthWhere.loan = { customer: { branchId: staff.branchId } };
       }
 
       const [

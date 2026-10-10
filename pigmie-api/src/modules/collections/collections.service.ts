@@ -148,7 +148,8 @@ export class CollectionsService {
           collectionDate: new Date(dto.collectionDate),
         },
       });
-      const receiptNumber = `RCP-${dto.collectionDate.replace(/-/g, '')}-${String(countToday + 1).padStart(4, '0')}`;
+      const crypto = require('crypto');
+      const receiptNumber = `RCP-${dto.collectionDate.replace(/-/g, '')}-${String(countToday + 1).padStart(4, '0')}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
 
       // Create the collection record
       let collection;
@@ -174,7 +175,8 @@ export class CollectionsService {
         });
       } catch (error: any) {
         if (error.code === 'P2002') {
-          return { status: 'duplicate', collection: await tx.collection.findFirst({ where: { clientGeneratedId: dto.clientGeneratedId } }) };
+          const existingCol = await tx.collection.findFirst({ where: { clientGeneratedId: dto.clientGeneratedId } });
+          if (existingCol) return { status: 'duplicate', collection: existingCol };
         }
         throw error;
       }

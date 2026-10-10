@@ -10,12 +10,15 @@ import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { ArrowLeft, UserPlus } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useBranches } from '@/features/branches/hooks/use-branches';
+import { useAuth } from '@/shared/hooks/use-auth';
 import { useTranslation } from 'react-i18next';
 
 const staffSchema = z.object({
   fullName: z.string().min(2, 'Name is required'),
   email: z.string().email('Valid email is required'),
   role: z.enum(['org_admin', 'branch_manager', 'agent', 'accountant']),
+  branchId: z.string().optional(),
 });
 
 type StaffFormValues = z.infer<typeof staffSchema>;
@@ -24,6 +27,9 @@ export function StaffFormPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const createStaff = useCreateStaff();
+  const { user } = useAuth();
+  const { data: branchesRes } = useBranches({ limit: 100 });
+  const branches = branchesRes?.data || [];
 
   const { register, handleSubmit, formState: { errors }, setValue } = useForm<StaffFormValues>({
     resolver: zodResolver(staffSchema),
@@ -104,6 +110,23 @@ export function StaffFormPage() {
               <Link to="/app/staff">
                 <Button type="button" variant="ghost">{t('nav.cancel')}</Button>
               </Link>
+  
+            {(user as any)?.role === 'org_admin' && (
+              <div className="space-y-2">
+                <Label>Assign to Branch</Label>
+                <Select onValueChange={(val) => setValue('branchId', val === 'none' ? undefined : val)}>
+                  <SelectTrigger className="bg-muted border-border">
+                    <SelectValue placeholder="Select branch (Optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Branch</SelectItem>
+                    {branches.map((b: any) => (
+                      <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
               <Button type="submit" disabled={createStaff.isPending} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
                 <UserPlus className="w-4 h-4" />
                 {createStaff.isPending ? 'Adding...' : 'Add Staff Member'}

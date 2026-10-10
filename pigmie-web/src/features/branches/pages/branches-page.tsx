@@ -105,7 +105,7 @@ export function BranchesPage() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground"> {t('branches.title')} </h1>
           <p className="text-muted-foreground">Manage your organization's branches</p>
         </div>
-        <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+        <RoleGate allowedRoles={['org_admin']}>
           <Button onClick={() => handleOpenDialog()} className="gap-2">
             <Plus className="w-4 h-4" />
             Add Branch
@@ -151,7 +151,7 @@ export function BranchesPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <RoleGate allowedRoles={['org_admin', 'branch_manager', 'agent']}>
+                        <RoleGate allowedRoles={['org_admin']}>
                           <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(branch)}>
                             <Edit2 className="w-4 h-4 text-muted-foreground" />
                           </Button>

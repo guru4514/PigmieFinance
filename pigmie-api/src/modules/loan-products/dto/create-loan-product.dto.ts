@@ -4,9 +4,9 @@ import { InterestType, CollectionFrequency, LateFeeType } from '@prisma/client';
 export class CreateLoanProductDto {
   @IsString() name: string;
   @IsEnum(InterestType) interestType: InterestType;
-  @IsNumber() @IsPositive() interestRateAnnual: number;
+  @IsNumber() @Min(0) interestRateAnnual: number;
   @IsEnum(CollectionFrequency) collectionFrequency: CollectionFrequency;
-  @IsNumber() @IsPositive() minAmount: number;
+  @IsNumber() @Min(0) minAmount: number;
   @IsNumber() @IsPositive() maxAmount: number;
   @IsInt() @Min(1) minTenure: number;
   @IsInt() @Min(1) maxTenure: number;

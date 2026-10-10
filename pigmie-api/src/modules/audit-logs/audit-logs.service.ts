@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
 import { QueryAuditLogsDto } from './dto/audit-log.dto';
 
 @Injectable()
 export class AuditLogsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly tenantPrisma: TenantPrismaService) {}
 
   async findAll(organizationId: string, query: QueryAuditLogsDto) {
     const { page = 1, limit = 20, action, entityType, dateFrom, dateTo } = query;
@@ -26,31 +26,33 @@ export class AuditLogsService {
       if (dateTo) where.createdAt.lte = new Date(dateTo);
     }
 
-    const [data, total] = await Promise.all([
-      this.prisma.auditLog.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          actorStaff: {
-            select: {
-              fullName: true,
+    return this.tenantPrisma.run(organizationId, async (tx) => {
+      const [data, total] = await Promise.all([
+        tx.auditLog.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            actorStaff: {
+              select: {
+                fullName: true,
+              },
             },
           },
-        },
-      }),
-      this.prisma.auditLog.count({ where }),
-    ]);
+        }),
+        tx.auditLog.count({ where }),
+      ]);
 
-    return {
-      data,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+      return {
+        data,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    });
   }
 }

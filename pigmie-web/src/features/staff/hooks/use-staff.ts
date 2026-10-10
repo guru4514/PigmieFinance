@@ -14,10 +14,10 @@ export interface StaffMember {
   joinedAt: string;
 }
 
-export const useStaff = () => {
+export const useStaff = (params?: Record<string, any>) => {
   return useQuery({
-    queryKey: ['staff'],
-    queryFn: () => apiClient.get('/staff').then(r => r.data),
+    queryKey: ['staff', params],
+    queryFn: () => apiClient.get('/staff', { params }).then(r => r.data),
   });
 };
 
@@ -32,7 +32,7 @@ export const useCreateStaff = () => {
       queryClient.invalidateQueries({ queryKey: ['staff'] });
       toast.success('Staff member created successfully');
     },
-    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to create staff member')
+    onError: (error: any) => toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to create staff member')
   });
 };
 
@@ -45,7 +45,7 @@ export const useUpdateStaff = () => {
       queryClient.invalidateQueries({ queryKey: ['staff'] });
       toast.success('Staff member updated successfully');
     },
-    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to update staff member')
+    onError: (error: any) => toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to update staff member')
   });
 };
 
@@ -57,6 +57,6 @@ export const useDeleteStaff = () => {
       queryClient.invalidateQueries({ queryKey: ['staff'] });
       toast.success('Staff member deleted successfully');
     },
-    onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to delete staff member')
+    onError: (error: any) => toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to delete staff member')
   });
 };

@@ -140,11 +140,11 @@ export class LoansService {
 
   async approve(organizationId: string, id: string, staffId: string) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
+      await tx.$executeRaw`SELECT 1 FROM loans WHERE id = ${id}::uuid FOR UPDATE`;
       const loan = await tx.loan.findFirstOrThrow({ 
         where: { id, organizationId },
         include: { customer: true }
       });
-      await tx.$executeRaw`SELECT 1 FROM loans WHERE id = ${id}::uuid FOR UPDATE`;
       if (loan.status !== 'pending_approval') {
         throw new BadRequestException('Loan is not pending approval');
       }
@@ -188,8 +188,8 @@ export class LoansService {
 
   async reject(organizationId: string, id: string, staffId: string, reason: string) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      const loan = await tx.loan.findFirstOrThrow({ where: { id, organizationId } });
       await tx.$executeRaw`SELECT 1 FROM loans WHERE id = ${id}::uuid FOR UPDATE`;
+      const loan = await tx.loan.findFirstOrThrow({ where: { id, organizationId } });
       if (loan.status !== 'pending_approval') {
         throw new BadRequestException('Loan is not pending approval');
       }
@@ -205,11 +205,11 @@ export class LoansService {
 
   async disburse(organizationId: string, loanId: string, startDate: string, staffId: string) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
+      await tx.$executeRaw`SELECT 1 FROM loans WHERE id = ${loanId}::uuid FOR UPDATE`;
       const loan = await tx.loan.findFirstOrThrow({
         where: { id: loanId, organizationId, status: 'approved' },
         include: { loanProduct: true, customer: true },
       });
-      await tx.$executeRaw`SELECT 1 FROM loans WHERE id = ${loanId}::uuid FOR UPDATE`;
 
       const rows = generateSchedule({
         principal: loan.principalAmount.toNumber(),
@@ -279,17 +279,21 @@ export class LoansService {
 
   async close(organizationId: string, id: string, staffId: string, body?: { preClosureAmount?: number }) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      const loan = await tx.loan.findFirstOrThrow({ where: { id, organizationId } });
       await tx.$executeRaw`SELECT 1 FROM loans WHERE id = ${id}::uuid FOR UPDATE`;
+      const loan = await tx.loan.findFirstOrThrow({ where: { id, organizationId } });
       if (loan.status !== 'active') {
         throw new BadRequestException('Loan is not active');
       }
 
       if (body?.preClosureAmount !== undefined) {
-         const outstanding = loan.outstandingBalance.toNumber();
-         if (body.preClosureAmount < outstanding) {
+         const pendingSchedule = await tx.loanSchedule.findMany({
+           where: { loanId: id, status: { in: ['pending', 'overdue'] } }
+         });
+         const outstandingPrincipal = pendingSchedule.reduce((sum, s) => sum + s.principalComponent.toNumber(), 0);
+         
+         if (body.preClosureAmount < outstandingPrincipal) {
            throw new BadRequestException(
-             `Pre-closure amount (₹${body.preClosureAmount}) must be at least the outstanding balance (₹${outstanding})`
+             `Pre-closure amount (₹${body.preClosureAmount}) must cover at least the outstanding principal (₹${outstandingPrincipal})`
            );
          }
          const preClosureAmount = new Prisma.Decimal(body.preClosureAmount.toString());
@@ -302,7 +306,7 @@ export class LoansService {
              collectionDate: new Date(dateString),
            },
          });
-         const receiptNumber = `RCP-${dateString.replace(/-/g, '')}-${String(countToday + 1).padStart(4, '0')}`;
+         const receiptNumber = `RCP-${dateString.replace(/-/g, '')}-${String(countToday + 1).padStart(4, '0')}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
          const clientGeneratedId = crypto.randomUUID();
 
          await tx.collection.create({

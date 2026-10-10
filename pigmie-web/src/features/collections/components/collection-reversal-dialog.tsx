@@ -42,12 +42,14 @@ export function CollectionReversalDialog({
       toast.success('Collection reversed successfully');
       queryClient.invalidateQueries({ queryKey: ['collections'] });
       queryClient.invalidateQueries({ queryKey: ['loans'] });
+      queryClient.invalidateQueries({ queryKey: ['collections', 'due-today'] });
+      queryClient.invalidateQueries({ queryKey: ['reports', 'dashboard-summary'] });
       onOpenChange(false);
       setReason('');
     },
     onError: (error: any) => {
       console.error('Failed to reverse collection', error);
-      toast.error(error?.response?.data?.message || 'Failed to reverse collection');
+      toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to reverse collection');
     },
   });
 
