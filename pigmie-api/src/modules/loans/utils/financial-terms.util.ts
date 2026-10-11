@@ -25,3 +25,28 @@ export function assertSupportedFinancialTerms(
     );
   }
 }
+
+/** A known zero-fee contract cannot acquire charges through schedule drift. */
+export function assertScheduleMatchesFinancialTerms(
+  value: Prisma.JsonValue | undefined,
+  rows: {
+    dueAmount: Prisma.Decimal;
+    principalComponent: Prisma.Decimal;
+    interestComponent: Prisma.Decimal;
+  }[],
+): void {
+  assertSupportedFinancialTerms(value);
+  if (value === null || value === undefined) return;
+  if (
+    rows.some(
+      (row) =>
+        !row.dueAmount.equals(
+          row.principalComponent.plus(row.interestComponent),
+        ),
+    )
+  ) {
+    throw new BadRequestException(
+      'Schedule charges differ from the saved zero-fee contract; reconciliation is required',
+    );
+  }
+}

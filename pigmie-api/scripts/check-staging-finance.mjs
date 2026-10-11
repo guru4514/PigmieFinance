@@ -453,6 +453,155 @@ try {
   });
   assert.equal(contractLoan.financialTerms.version, 1);
   assert.equal(contractLoan.financialTerms.processingFee, '0.00');
+  checkpoint = 'restructure preserves original and replacement schedules';
+  const amendmentLoan = await loans.create(orgId, fixture.admin.id, {
+    customerId: fixture.customer.id,
+    loanProductId: fixture.product.id,
+    principalAmount: 100,
+    tenure: 2,
+  });
+  await loans.approve(orgId, amendmentLoan.id, fixture.admin.id);
+  await loans.disburse(orgId, amendmentLoan.id, '2026-10-01', fixture.admin.id);
+  const originalRows = await prisma.loanSchedule.findMany({
+    where: { loanId: amendmentLoan.id },
+    orderBy: { installmentNumber: 'asc' },
+  });
+  const originalLoan = await prisma.loan.findUniqueOrThrow({
+    where: { id: amendmentLoan.id },
+  });
+  const faultedLoans = new LoansService(
+    {
+      run: (organizationId, operation) =>
+        tenant.run(organizationId, (tx) =>
+          operation(
+            new Proxy(tx, {
+              get(target, key) {
+                if (key === 'auditLog')
+                  return new Proxy(target.auditLog, {
+                    get(delegate, method) {
+                      if (method === 'create')
+                        return async () => {
+                          throw new Error('Synthetic audit rejection');
+                        };
+                      return Reflect.get(delegate, method);
+                    },
+                  });
+                return Reflect.get(target, key);
+              },
+            }),
+          ),
+        ),
+    },
+    { notify: async () => {} },
+    email,
+  );
+  await assert.rejects(
+    faultedLoans.restructure(orgId, amendmentLoan.id, fixture.admin.id, {
+      fromInstallmentNumber: 1,
+      newTenure: 3,
+      reason: 'Synthetic rejected amendment',
+    }),
+    /Synthetic audit rejection/,
+  );
+  assert.deepEqual(
+    await prisma.loanSchedule.findMany({
+      where: { loanId: amendmentLoan.id },
+      orderBy: { installmentNumber: 'asc' },
+    }),
+    originalRows,
+  );
+  assert.deepEqual(
+    await prisma.loan.findUniqueOrThrow({ where: { id: amendmentLoan.id } }),
+    originalLoan,
+  );
+  assert.equal(
+    await prisma.auditLog.count({
+      where: {
+        organizationId: orgId,
+        entityId: amendmentLoan.id,
+        action: 'loan.restructured',
+      },
+    }),
+    0,
+  );
+  await loans.restructure(orgId, amendmentLoan.id, fixture.admin.id, {
+    fromInstallmentNumber: 1,
+    newTenure: 3,
+    reason: 'Synthetic schedule amendment',
+  });
+  const amendment = await prisma.auditLog.findFirstOrThrow({
+    where: {
+      organizationId: orgId,
+      entityId: amendmentLoan.id,
+      action: 'loan.restructured',
+    },
+  });
+  assert.deepEqual(
+    amendment.oldValue.replacedSchedule.map((r) => r.id),
+    originalRows.map((r) => r.id),
+  );
+  assert.equal(amendment.newValue.replacementSchedule.length, 3);
+  const revised = await prisma.loan.findUniqueOrThrow({
+    where: { id: amendmentLoan.id },
+    include: { schedule: true },
+  });
+  assert.ok(
+    revised.outstandingBalance.equals(
+      revised.schedule.reduce(
+        (sum, row) => sum.plus(row.dueAmount.minus(row.paidAmount)),
+        new (require('@prisma/client').Prisma.Decimal)(0),
+      ),
+    ),
+  );
+  assert.deepEqual(revised.financialTerms, amendmentLoan.financialTerms);
+  checkpoint = 'saved zero-fee policy rejects drifted schedule charges';
+  await prisma.$transaction(async (tx) => {
+    await tx.loanSchedule.update({
+      where: { id: revised.schedule[0].id },
+      data: { dueAmount: { increment: 1 } },
+    });
+    await tx.loan.update({
+      where: { id: amendmentLoan.id },
+      data: {
+        totalPayable: { increment: 1 },
+        outstandingBalance: { increment: 1 },
+      },
+    });
+  });
+  const drifted = await prisma.loan.findUniqueOrThrow({
+    where: { id: amendmentLoan.id },
+    include: { schedule: { orderBy: { installmentNumber: 'asc' } } },
+  });
+  await assert.rejects(
+    collections.recordCollection(orgId, fixture.agent.id, {
+      ...payment(amendmentLoan.id),
+      amount: 1,
+    }),
+    /saved zero-fee contract/,
+  );
+  await assert.rejects(
+    loans.getPreClosureDetails(orgId, amendmentLoan.id),
+    /saved zero-fee contract/,
+  );
+  await assert.rejects(
+    loans.restructure(orgId, amendmentLoan.id, fixture.admin.id, {
+      fromInstallmentNumber: 1,
+      newTenure: 4,
+    }),
+    /saved zero-fee contract/,
+  );
+  assert.equal(
+    await prisma.collection.count({ where: { loanId: amendmentLoan.id } }),
+    0,
+  );
+  assert.deepEqual(
+    await prisma.loan.findUniqueOrThrow({
+      where: { id: amendmentLoan.id },
+      include: { schedule: { orderBy: { installmentNumber: 'asc' } } },
+    }),
+    drifted,
+  );
+  checkpoint = 'immutable contract and exact earlier-payment reversal';
   await prisma.loanProduct.update({
     where: { id: fixture.product.id },
     data: { interestRateAnnual: 18, processingFee: 9, lateFeeValue: 9 },
@@ -466,10 +615,38 @@ try {
   );
   assert.equal(disbursed.loan.interestRateAnnual.toString(), '12');
   assert.equal(disbursed.loan.financialTerms.processingFee, '0.00');
-  const firstPayment = await collections.recordCollection(
+  let acknowledgementLost = true;
+  const ambiguousPrisma = new Proxy(prisma, {
+    get(target, key) {
+      if (key === '$transaction')
+        return async (...args) => {
+          const result = await target.$transaction(...args);
+          if (acknowledgementLost) {
+            acknowledgementLost = false;
+            throw new (require('@prisma/client').Prisma.PrismaClientKnownRequestError)(
+              'Synthetic lost commit acknowledgement',
+              { code: 'P2028', clientVersion: 'synthetic-test' },
+            );
+          }
+          return result;
+        };
+      return Reflect.get(target, key);
+    },
+  });
+  const retryCollections = new CollectionsService(
+    new TenantPrismaService(ambiguousPrisma),
+    prisma,
+    email,
+  );
+  const firstPayment = await retryCollections.recordCollection(
     orgId,
     fixture.agent.id,
     { ...payment(contractLoan.id), amount: disbursed.schedule[0].dueAmount },
+  );
+  assert.equal(firstPayment.status, 'duplicate');
+  assert.equal(
+    await prisma.collection.count({ where: { loanId: contractLoan.id } }),
+    1,
   );
   await collections.recordCollection(orgId, fixture.agent.id, {
     ...payment(contractLoan.id),
@@ -862,6 +1039,12 @@ try {
       data: 'synthetic only',
       immutableFinancialEvidence:
         'product changes do not change saved policy; contract/allocation overwrites denied; reversing earlier payment leaves later installment paid',
+      restructureEvidence:
+        'original/replacement schedules preserved; audit rejection rolls back loan and schedule',
+      zeroFeeScheduleDrift:
+        'payments, payoff quotes and restructuring denied without mutations',
+      lostCommitAcknowledgement:
+        'one posting; bounded retry acknowledges original payment identifier',
       privateKyc: 'owned PDF upload/download passed; another agent denied',
     }),
   );

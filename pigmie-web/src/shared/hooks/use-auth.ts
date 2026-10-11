@@ -35,8 +35,11 @@ export function useAuth() {
 
   const profileQuery = useQuery({
     queryKey: ['auth', 'me', session?.user.id],
-    queryFn: () => apiClient.get('/auth/me', { expectedAuthUserId: session?.user.id }).then((r) => r.data),
+    queryFn: () => apiClient.get('/auth/me', { expectedAuthUserId: session?.user.id, timeout: 10_000 }).then((r) => r.data),
     enabled: !!session,
+    // Attempt the profile request even on an offline cold start. The route can
+    // then offer recovery instead of waiting forever for a paused query.
+    networkMode: 'always',
     staleTime: 5 * 60_000,
     retry: false
   });
@@ -47,5 +50,6 @@ export function useAuth() {
     user: session ? profileQuery.data as ResolvedUser | undefined : undefined,
     isLoading: sessionLoading || (!!session && profileQuery.isLoading),
     error: profileQuery.error,
+    retryProfile: profileQuery.refetch,
   };
 }

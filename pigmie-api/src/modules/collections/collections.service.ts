@@ -14,7 +14,10 @@ import { Prisma } from '@prisma/client';
 import PDFDocument from 'pdfkit';
 import type { AuthenticatedUser } from '../../common/types/request-user.type';
 import { businessDate } from '../loans/utils/date.util';
-import { assertSupportedFinancialTerms } from '../loans/utils/financial-terms.util';
+import {
+  assertSupportedFinancialTerms,
+  assertScheduleMatchesFinancialTerms,
+} from '../loans/utils/financial-terms.util';
 
 @Injectable()
 export class CollectionsService {
@@ -181,120 +184,125 @@ export class CollectionsService {
         'Payment must be positive with at most two decimal places',
       );
     }
-    const result = await this.tenantPrisma.run(organizationId, async (tx) => {
-      await tx.$executeRaw`SELECT 1 FROM staff WHERE id = ${staffId}::uuid AND organization_id = ${organizationId}::uuid FOR SHARE`;
-      const actor = await tx.staff.findFirst({
-        where: { id: staffId, organizationId, isActive: true },
-      });
-      if (
-        !actor ||
-        !['org_admin', 'branch_manager', 'agent'].includes(actor.role) ||
-        (actor.role === 'branch_manager' && !actor.branchId)
-      )
-        throw new ForbiddenException('Payment recording is not permitted');
-      await tx.$executeRaw`SELECT c.id FROM customers c JOIN loans l ON l.customer_id = c.id WHERE l.id = ${dto.loanId}::uuid AND l.organization_id = ${organizationId}::uuid AND c.organization_id = ${organizationId}::uuid FOR SHARE OF c`;
-      await tx.$executeRaw`SELECT 1 FROM loans WHERE id = ${dto.loanId}::uuid AND organization_id = ${organizationId}::uuid FOR UPDATE`;
-      const existing = await tx.collection.findFirst({
-        where: {
-          clientGeneratedId: dto.clientGeneratedId,
-          organizationId,
-          collectedById: staffId,
-        },
-      });
-      if (existing) {
+    const result = await this.tenantPrisma.run(
+      organizationId,
+      async (tx) => {
+        await tx.$executeRaw`SELECT 1 FROM staff WHERE id = ${staffId}::uuid AND organization_id = ${organizationId}::uuid FOR SHARE`;
+        const actor = await tx.staff.findFirst({
+          where: { id: staffId, organizationId, isActive: true },
+        });
         if (
-          existing.loanId !== dto.loanId ||
-          !existing.amount.equals(dto.amount) ||
-          existing.collectionDate.toISOString().slice(0, 10) !==
-            dto.collectionDate ||
-          existing.collectionMethod !== dto.collectionMethod
-        ) {
-          throw new ConflictException(
-            'Payment identifier was already used with different details',
-          );
-        }
-        return { status: 'duplicate', collection: existing, customer: null };
-      }
-      if (dto.photoUrl)
-        throw new BadRequestException(
-          'Attach collection evidence through private documents after payment confirmation',
-        );
-      const loan = await tx.loan.findFirst({
-        where: {
-          id: dto.loanId,
-          organizationId,
-          status: { in: ['active', 'defaulted'] },
-          ...(actor.role === 'agent' ? { assignedAgentId: actor.id } : {}),
-          ...(actor.role === 'branch_manager'
-            ? { customer: { branchId: actor.branchId } }
-            : {}),
-        },
-        include: {
-          customer: { select: { id: true, email: true, fullName: true } },
-        },
-      });
-      if (!loan)
-        throw new NotFoundException('Loan not found or not active/defaulted');
-      const clientId = dto.clientGeneratedId.toUpperCase();
-      assertSupportedFinancialTerms(loan.financialTerms);
-      if (
-        loan.outstandingBalance.lt(0) ||
-        !loan.totalPayable
-          .minus(loan.totalCollected)
-          .equals(loan.outstandingBalance)
-      )
-        throw new BadRequestException(
-          'Loan balances require reconciliation before recording a payment',
-        );
-      const receiptNumber = `RCP-${dto.collectionDate.replace(/-/g, '')}-${clientId}`;
-      // A foreign/mismatched unique identifier fails closed; never query inside an aborted PostgreSQL transaction.
-      const collection = await tx.collection.create({
-        data: {
-          clientGeneratedId: dto.clientGeneratedId,
-          organizationId,
-          loanId: dto.loanId,
-          customerId: loan.customer.id,
-          collectedById: staffId,
-          amount: dto.amount,
-          collectionDate: new Date(dto.collectionDate),
-          collectedAt: new Date(dto.collectedAt),
-          collectionMethod: dto.collectionMethod,
-          receiptNumber,
-          latitude: dto.latitude,
-          longitude: dto.longitude,
-          photoUrl: dto.photoUrl,
-          notes: dto.notes,
-          status: 'recorded',
-        },
-      });
-      const allocations = await this.applyToSchedule(
-        tx,
-        dto.loanId,
-        dto.amount,
-        loan.outstandingBalance,
-      );
-      await tx.collection.update({
-        where: { id: collection.id, organizationId },
-        data: { allocationDetails: { version: 1, rows: allocations } },
-      });
-      await tx.auditLog.create({
-        data: {
-          organizationId,
-          actorStaffId: staffId,
-          action: 'collection.recorded',
-          entityType: 'Collection',
-          entityId: collection.id,
-          newValue: {
-            loanId: dto.loanId,
+          !actor ||
+          !['org_admin', 'branch_manager', 'agent'].includes(actor.role) ||
+          (actor.role === 'branch_manager' && !actor.branchId)
+        )
+          throw new ForbiddenException('Payment recording is not permitted');
+        await tx.$executeRaw`SELECT c.id FROM customers c JOIN loans l ON l.customer_id = c.id WHERE l.id = ${dto.loanId}::uuid AND l.organization_id = ${organizationId}::uuid AND c.organization_id = ${organizationId}::uuid FOR SHARE OF c`;
+        await tx.$executeRaw`SELECT 1 FROM loans WHERE id = ${dto.loanId}::uuid AND organization_id = ${organizationId}::uuid FOR UPDATE`;
+        const existing = await tx.collection.findFirst({
+          where: {
             clientGeneratedId: dto.clientGeneratedId,
-            amount: new Prisma.Decimal(dto.amount).toFixed(2),
-            collectionDate: dto.collectionDate,
-            collectionMethod: dto.collectionMethod,
+            organizationId,
+            collectedById: staffId,
           },
-        },
-      });
-      return { status: 'created', collection, customer: loan.customer };
-    });
+        });
+        if (existing) {
+          if (
+            existing.loanId !== dto.loanId ||
+            !existing.amount.equals(dto.amount) ||
+            existing.collectionDate.toISOString().slice(0, 10) !==
+              dto.collectionDate ||
+            existing.collectionMethod !== dto.collectionMethod
+          ) {
+            throw new ConflictException(
+              'Payment identifier was already used with different details',
+            );
+          }
+          return { status: 'duplicate', collection: existing, customer: null };
+        }
+        if (dto.photoUrl)
+          throw new BadRequestException(
+            'Attach collection evidence through private documents after payment confirmation',
+          );
+        const loan = await tx.loan.findFirst({
+          where: {
+            id: dto.loanId,
+            organizationId,
+            status: { in: ['active', 'defaulted'] },
+            ...(actor.role === 'agent' ? { assignedAgentId: actor.id } : {}),
+            ...(actor.role === 'branch_manager'
+              ? { customer: { branchId: actor.branchId } }
+              : {}),
+          },
+          include: {
+            customer: { select: { id: true, email: true, fullName: true } },
+          },
+        });
+        if (!loan)
+          throw new NotFoundException('Loan not found or not active/defaulted');
+        const clientId = dto.clientGeneratedId.toUpperCase();
+        assertSupportedFinancialTerms(loan.financialTerms);
+        if (
+          loan.outstandingBalance.lt(0) ||
+          !loan.totalPayable
+            .minus(loan.totalCollected)
+            .equals(loan.outstandingBalance)
+        )
+          throw new BadRequestException(
+            'Loan balances require reconciliation before recording a payment',
+          );
+        const receiptNumber = `RCP-${dto.collectionDate.replace(/-/g, '')}-${clientId}`;
+        // A foreign/mismatched unique identifier fails closed; never query inside an aborted PostgreSQL transaction.
+        const collection = await tx.collection.create({
+          data: {
+            clientGeneratedId: dto.clientGeneratedId,
+            organizationId,
+            loanId: dto.loanId,
+            customerId: loan.customer.id,
+            collectedById: staffId,
+            amount: dto.amount,
+            collectionDate: new Date(dto.collectionDate),
+            collectedAt: new Date(dto.collectedAt),
+            collectionMethod: dto.collectionMethod,
+            receiptNumber,
+            latitude: dto.latitude,
+            longitude: dto.longitude,
+            photoUrl: dto.photoUrl,
+            notes: dto.notes,
+            status: 'recorded',
+          },
+        });
+        const allocations = await this.applyToSchedule(
+          tx,
+          dto.loanId,
+          dto.amount,
+          loan.outstandingBalance,
+          loan.financialTerms,
+        );
+        await tx.collection.update({
+          where: { id: collection.id, organizationId },
+          data: { allocationDetails: { version: 1, rows: allocations } },
+        });
+        await tx.auditLog.create({
+          data: {
+            organizationId,
+            actorStaffId: staffId,
+            action: 'collection.recorded',
+            entityType: 'Collection',
+            entityId: collection.id,
+            newValue: {
+              loanId: dto.loanId,
+              clientGeneratedId: dto.clientGeneratedId,
+              amount: new Prisma.Decimal(dto.amount).toFixed(2),
+              collectionDate: dto.collectionDate,
+              collectionMethod: dto.collectionMethod,
+            },
+          },
+        });
+        return { status: 'created', collection, customer: loan.customer };
+      },
+      { retryIdempotent: true },
+    );
     // Deliver only after commit; a mail outage cannot roll back a saved payment.
     if (result.customer?.email && result.collection.receiptNumber) {
       try {
@@ -548,6 +556,7 @@ export class CollectionsService {
     loanId: string,
     amount: number,
     expectedOutstanding: Prisma.Decimal,
+    financialTerms: Prisma.JsonValue | undefined,
   ) {
     await tx.$executeRaw`SELECT 1 FROM loan_schedule WHERE loan_id = ${loanId}::uuid FOR UPDATE`;
     let remaining = new Prisma.Decimal(amount.toString());
@@ -565,6 +574,7 @@ export class CollectionsService {
       (sum, row) => sum.plus(row.dueAmount.minus(row.paidAmount)),
       new Prisma.Decimal(0),
     );
+    assertScheduleMatchesFinancialTerms(financialTerms, rows);
     if (
       !scheduledOutstanding.equals(expectedOutstanding) ||
       rows.some(

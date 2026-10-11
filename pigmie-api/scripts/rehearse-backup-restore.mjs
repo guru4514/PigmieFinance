@@ -39,6 +39,8 @@ const options = process.argv.slice(2);
 const developmentMode = options.includes('--development');
 const retainBackup = options.includes('--retain-backup');
 const baselineRehearsal = options.includes('--baseline-rehearsal');
+const platformMetadata = options.includes('--platform-metadata');
+const schemas = platformMetadata ? ['public', 'auth', 'storage'] : ['public'];
 let baselineVerification;
 let retainedRoot;
 const osEnvironment = Object.fromEntries(
@@ -105,13 +107,17 @@ const quote = (name) => '"' + name.replaceAll('"', '""') + '"';
 try {
   assert.ok(
     options.every((option) =>
-      ['--development', '--retain-backup', '--baseline-rehearsal'].includes(
-        option,
-      ),
+      [
+        '--development',
+        '--retain-backup',
+        '--baseline-rehearsal',
+        '--platform-metadata',
+      ].includes(option),
     ),
   );
   assert.equal(new Set(options).size, options.length);
   assert.ok(!baselineRehearsal || (developmentMode && retainBackup));
+  assert.ok(!platformMetadata || !baselineRehearsal);
   const development = parse(readFileSync(new URL('../.env', import.meta.url)));
   const staging = parse(
     readFileSync(new URL('../.env.staging', import.meta.url)),
@@ -173,7 +179,7 @@ try {
     [
       '--no-password',
       '--format=custom',
-      '--schema=public',
+      ...schemas.map((schema) => `--schema=${schema}`),
       ...(archivedHistory ? ['--schema=pigmie_migration_evidence'] : []),
       `--snapshot=${snapshot}`,
     ],
@@ -238,6 +244,26 @@ try {
 
   checkpoint = 'isolated PostgreSQL initialization';
   mkdirSync(runRoot, { recursive: true });
+  if (process.platform === 'win32') {
+    await new Promise((done, reject) => {
+      const permissions = spawn(
+        'icacls',
+        [
+          runRoot,
+          '/inheritance:r',
+          '/grant:r',
+          `${process.env.USERDOMAIN}\\${process.env.USERNAME}:(OI)(CI)F`,
+        ],
+        { env: osEnvironment, stdio: 'ignore', windowsHide: true },
+      );
+      permissions.on('error', () =>
+        reject(new Error('Recovery permissions failed')),
+      );
+      permissions.on('close', (code) =>
+        code === 0 ? done() : reject(new Error('Recovery permissions failed')),
+      );
+    });
+  }
   const password = randomBytes(32).toString('hex');
   // initdb expects a one-line password file. Its only persisted credential is
   // this ignored .env.local, removed with the disposable cluster after the run.
@@ -314,6 +340,43 @@ try {
   await target.query(
     'CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role; CREATE ROLE pigmie_app; CREATE ROLE supabase_admin; CREATE SCHEMA auth; CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT NULL::uuid $$',
   );
+  if (platformMetadata) {
+    checkpoint = 'platform extension prerequisites';
+    await target.query('CREATE SCHEMA extensions');
+    const needsUuidExtension = (
+      await source.query(
+        `SELECT EXISTS(
+      SELECT 1 FROM pg_attrdef d JOIN pg_class c ON c.oid=d.adrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname=ANY($1) AND pg_get_expr(d.adbin,d.adrelid) LIKE '%uuid_generate_%'
+    ) AS required`,
+        [schemas],
+      )
+    ).rows[0].required;
+    if (needsUuidExtension)
+      await target.query('CREATE EXTENSION "uuid-ossp" WITH SCHEMA extensions');
+    const policyRoles = (
+      await source.query(
+        'SELECT DISTINCT unnest(roles)::text AS role FROM pg_policies WHERE schemaname=ANY($1) ORDER BY role',
+        [schemas],
+      )
+    ).rows;
+    for (const { role } of policyRoles) {
+      if (
+        [
+          'public',
+          'anon',
+          'authenticated',
+          'service_role',
+          'pigmie_app',
+          'supabase_admin',
+        ].includes(role)
+      )
+        continue;
+      assert.match(role, /^[a-z][a-z0-9_]{0,62}$/);
+      assert.ok(!role.startsWith('pg_') && role !== 'recovery_test');
+      await target.query(`CREATE ROLE ${quote(role)} NOLOGIN`);
+    }
+  }
   checkpoint = 'authenticated archive restore';
   await command(
     'pg_restore',
@@ -341,12 +404,13 @@ try {
   checkpoint = 'restored data and schema comparison';
   const tables = (
     await source.query(
-      "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename",
+      'SELECT schemaname,tablename FROM pg_tables WHERE schemaname=ANY($1) ORDER BY schemaname,tablename',
+      [schemas],
     )
   ).rows;
-  for (const { tablename } of tables) {
+  for (const { schemaname, tablename } of tables) {
     checkpoint = `${tablename} restored data comparison`;
-    const sql = `SELECT count(*)::text AS count, md5(COALESCE(string_agg(row_hash, '' ORDER BY row_hash), '')) AS digest FROM (SELECT md5(to_jsonb(t)::text) AS row_hash FROM public.${quote(tablename)} t) rows`;
+    const sql = `SELECT count(*)::text AS count, md5(COALESCE(string_agg(row_hash, '' ORDER BY row_hash), '')) AS digest FROM (SELECT md5(to_jsonb(t)::text) AS row_hash FROM ${quote(schemaname)}.${quote(tablename)} t) rows`;
     assert.deepEqual(
       (await target.query(sql)).rows,
       (await source.query(sql)).rows,
@@ -366,37 +430,37 @@ try {
         )
       ).rows,
     );
-  const metadata = `SELECT c.relname,c.relrowsecurity,p.conname,pg_get_constraintdef(p.oid) AS definition FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace LEFT JOIN pg_constraint p ON p.conrelid=c.oid WHERE n.nspname='public' AND c.relkind='r' ORDER BY c.relname,p.conname`;
+  const metadata = `SELECT n.nspname,c.relname,c.relrowsecurity,c.relforcerowsecurity,p.conname,pg_get_constraintdef(p.oid) AS definition FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace LEFT JOIN pg_constraint p ON p.conrelid=c.oid WHERE n.nspname=ANY($1) AND c.relkind='r' ORDER BY n.nspname,c.relname,p.conname`;
   assert.deepEqual(
-    (await target.query(metadata)).rows,
-    (await source.query(metadata)).rows,
+    (await target.query(metadata, [schemas])).rows,
+    (await source.query(metadata, [schemas])).rows,
   );
   checkpoint = 'restored index comparison';
   const indexes =
-    "SELECT tablename,indexname,indexdef FROM pg_indexes WHERE schemaname='public' ORDER BY tablename,indexname";
+    'SELECT schemaname,tablename,indexname,indexdef FROM pg_indexes WHERE schemaname=ANY($1) ORDER BY schemaname,tablename,indexname';
   assert.deepEqual(
-    (await target.query(indexes)).rows,
-    (await source.query(indexes)).rows,
+    (await target.query(indexes, [schemas])).rows,
+    (await source.query(indexes, [schemas])).rows,
   );
   checkpoint = 'restored policy comparison';
   const policies =
-    "SELECT tablename,policyname,permissive,roles,cmd,qual,with_check FROM pg_policies WHERE schemaname='public' ORDER BY tablename,policyname";
+    'SELECT schemaname,tablename,policyname,permissive,roles,cmd,qual,with_check FROM pg_policies WHERE schemaname=ANY($1) ORDER BY schemaname,tablename,policyname';
   assert.deepEqual(
-    (await target.query(policies)).rows,
-    (await source.query(policies)).rows,
+    (await target.query(policies, [schemas])).rows,
+    (await source.query(policies, [schemas])).rows,
   );
   checkpoint = 'restored functions and triggers comparison';
   const functions =
-    "SELECT p.proname,pg_get_function_identity_arguments(p.oid) AS arguments,pg_get_functiondef(p.oid) AS definition FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.prokind='f' ORDER BY p.proname,arguments";
+    "SELECT n.nspname,p.proname,pg_get_function_identity_arguments(p.oid) AS arguments,pg_get_functiondef(p.oid) AS definition FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=ANY($1) AND p.prokind='f' ORDER BY n.nspname,p.proname,arguments";
   assert.deepEqual(
-    (await target.query(functions)).rows,
-    (await source.query(functions)).rows,
+    (await target.query(functions, [schemas])).rows,
+    (await source.query(functions, [schemas])).rows,
   );
   const triggers =
-    "SELECT c.relname,t.tgname,t.tgenabled,pg_get_triggerdef(t.oid) AS definition FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND NOT t.tgisinternal ORDER BY c.relname,t.tgname";
+    'SELECT n.nspname,c.relname,t.tgname,t.tgenabled,pg_get_triggerdef(t.oid) AS definition FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=ANY($1) AND NOT t.tgisinternal ORDER BY n.nspname,c.relname,t.tgname';
   assert.deepEqual(
-    (await target.query(triggers)).rows,
-    (await source.query(triggers)).rows,
+    (await target.query(triggers, [schemas])).rows,
+    (await source.query(triggers, [schemas])).rows,
   );
   if (baselineRehearsal) {
     checkpoint = 'canonical staging baseline connection';
@@ -467,13 +531,14 @@ try {
         {
           verifiedAt: new Date().toISOString(),
           source: developmentMode ? 'development' : 'staging',
-          scope: 'public',
+          scope: schemas.join(','),
+          platformMetadataRestored: platformMetadata,
           tablesCompared: tables.length,
           restoreVerified: true,
           archivedHistoryRestored: archivedHistory,
           baselineVerification,
           limitations:
-            'No Auth/Storage blobs, ownership/ACL restoration or off-site durability verified',
+            'No provider runtime, Storage blobs, ownership/ACL restoration, settings or off-site durability verified',
         },
         null,
         2,
@@ -497,9 +562,10 @@ try {
       target: 'disposable loopback PostgreSQL',
       plaintextDumpWritten: false,
       archivedHistoryRestored: archivedHistory,
+      platformMetadataRestored: platformMetadata,
       externalUploadTested: false,
       limit:
-        'public application schema and archived migration history when present; ACLs/ownership, Supabase Auth, Storage blobs, service configuration and full-platform recovery excluded',
+        'Selected database schemas and archived migration history only; provider runtime, ACLs/ownership, Storage blobs, settings, off-site durability and full-platform recovery excluded',
     }),
   );
 } catch (error) {

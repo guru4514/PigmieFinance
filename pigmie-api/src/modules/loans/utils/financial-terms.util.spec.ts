@@ -1,4 +1,8 @@
-import { assertSupportedFinancialTerms } from './financial-terms.util';
+import { Prisma } from '@prisma/client';
+import {
+  assertSupportedFinancialTerms,
+  assertScheduleMatchesFinancialTerms,
+} from './financial-terms.util';
 const contract = {
   version: 1,
   currency: 'INR',
@@ -11,6 +15,24 @@ const contract = {
   preClosurePenalty: '0.00',
 };
 describe('Versioned financial policy admission', () => {
+  it('rejects schedule fees added to an otherwise supported zero-fee contract', () => {
+    const row = {
+      principalComponent: new Prisma.Decimal(100),
+      interestComponent: new Prisma.Decimal(1),
+      dueAmount: new Prisma.Decimal(102),
+    };
+    expect(() => assertScheduleMatchesFinancialTerms(contract, [row])).toThrow(
+      'saved zero-fee contract',
+    );
+    expect(() =>
+      assertScheduleMatchesFinancialTerms(contract, [
+        { ...row, dueAmount: new Prisma.Decimal(101) },
+      ]),
+    ).not.toThrow();
+    expect(() =>
+      assertScheduleMatchesFinancialTerms(null, [row]),
+    ).not.toThrow();
+  });
   it('accepts supported zero-fee contracts', () =>
     expect(() => assertSupportedFinancialTerms(contract)).not.toThrow());
   it('preserves explicitly unknown historical terms', () =>

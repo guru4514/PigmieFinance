@@ -2,7 +2,7 @@
 
 The application is not yet approved for release. Continue web stabilization before starting the agent mobile app; desktop wrapping remains optional.
 
-Latest [four-package execution](FOUR_PACKAGE_EXECUTION.md): the development baseline discrepancy is closed, migration 0005 adds immutable loan/payment evidence, provider/API recovery passed, and a post-migration application/history restore passed. Nonzero fee contracts, historical test-data reconciliation, real-device checks and complete off-site/platform recovery remain open.
+Latest [four-package execution](FOUR_PACKAGE_EXECUTION.md): the development baseline discrepancy is closed; loan/payment evidence, restructuring snapshots, zero-fee schedule admission and connection recovery have been strengthened. Fifty application/Auth/Storage metadata tables restored identically in staging and development, including development's archived migration history. Nonzero fee accounting, immutable amendment versions, historical reconciliation, transaction-timeout investigation, real-device checks and complete off-site/provider/blob recovery remain open. This is a local verification checkpoint, not release approval.
 
 ## Latest verified batch
 
@@ -18,7 +18,7 @@ All staging fixtures, uploaded objects, temporary fixture buckets and provider i
 
 ## Release work still open
 
-1. Development schema/history reconciliation, privileged backend least privilege and remaining service/assignment races.
+1. Privileged backend least privilege, transaction-timeout reliability and remaining service/assignment races. The identified development schema/history baseline discrepancy is closed as recorded above.
 2. Private collection evidence: new outbox uploads use scoped private grants and retain evidence for retry. Staging direct browser-role access is restricted and signed operations were verified. Historical public objects/URL-only queues, development storage controls, content inspection and real device recovery remain open. See the four-priority progress document for current evidence.
 3. Real offline cold start, account switching, storage eviction/recovery and service-worker upgrade against staging.
 4. MFA browser recovery/revocation experience and operator identity policy; invitation delivery safety; independent durable provisioning journal/audit and monitoring.

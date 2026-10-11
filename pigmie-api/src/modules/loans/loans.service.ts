@@ -13,7 +13,10 @@ import { QueryLoanDto } from './dto/query-loan.dto';
 import { RestructureLoanDto } from './dto/restructure-loan.dto';
 import { generateSchedule } from './utils/schedule-generator.util';
 import { calculatePreClosure } from './utils/pre-closure.util';
-import { assertSupportedFinancialTerms } from './utils/financial-terms.util';
+import {
+  assertSupportedFinancialTerms,
+  assertScheduleMatchesFinancialTerms,
+} from './utils/financial-terms.util';
 import { businessDate } from './utils/date.util';
 import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
@@ -490,15 +493,19 @@ export class LoansService {
   }
 
   private assertClosureBalances(loan: {
+    financialTerms?: Prisma.JsonValue;
     totalPayable: Prisma.Decimal;
     totalCollected: Prisma.Decimal;
     outstandingBalance: Prisma.Decimal;
     schedule: {
       dueAmount: Prisma.Decimal;
       paidAmount: Prisma.Decimal;
+      principalComponent: Prisma.Decimal;
+      interestComponent: Prisma.Decimal;
       status: string;
     }[];
   }) {
+    assertScheduleMatchesFinancialTerms(loan.financialTerms, loan.schedule);
     const scheduledOutstanding = loan.schedule.reduce(
       (sum, row) =>
         row.status === 'waived'
@@ -507,6 +514,17 @@ export class LoansService {
       new Prisma.Decimal(0),
     );
     if (
+      loan.schedule.some(
+        (row) =>
+          row.paidAmount.lt(0) ||
+          row.paidAmount.gt(row.dueAmount) ||
+          row.principalComponent.lt(0) ||
+          row.interestComponent.lt(0) ||
+          row.dueAmount.lt(
+            row.principalComponent.plus(row.interestComponent),
+          ) ||
+          (row.status === 'paid' && !row.paidAmount.equals(row.dueAmount)),
+      ) ||
       loan.outstandingBalance.lt(0) ||
       !loan.totalPayable
         .minus(loan.totalCollected)
@@ -583,14 +601,17 @@ export class LoansService {
   ) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
       const where = await this.lockLoanScope(tx, organizationId, id, staffId);
+      await tx.$executeRaw`SELECT 1 FROM loan_schedule WHERE loan_id = ${id}::uuid FOR UPDATE`;
       const loan = await tx.loan.findFirstOrThrow({
         where,
+        include: { schedule: true },
       });
 
       if (loan.status !== 'active') {
         throw new BadRequestException('Can only restructure active loans');
       }
       assertSupportedFinancialTerms(loan.financialTerms);
+      this.assertClosureBalances(loan);
 
       const targetRow = await tx.loanSchedule.findFirst({
         where: { loanId: id, installmentNumber: dto.fromInstallmentNumber },
@@ -614,6 +635,7 @@ export class LoansService {
           loanId: id,
           installmentNumber: { gte: dto.fromInstallmentNumber },
         },
+        orderBy: { installmentNumber: 'asc' },
       });
 
       if (rowsToDelete.length === 0) {
@@ -730,6 +752,25 @@ export class LoansService {
         },
       });
 
+      const replacementRows = await tx.loanSchedule.findMany({
+        where: {
+          loanId: id,
+          installmentNumber: { gte: dto.fromInstallmentNumber },
+        },
+        orderBy: { installmentNumber: 'asc' },
+      });
+      const scheduleEvidence = (rows: typeof rowsToDelete) =>
+        rows.map((row) => ({
+          id: row.id,
+          installmentNumber: row.installmentNumber,
+          dueDate: row.dueDate.toISOString().slice(0, 10),
+          principalComponent: row.principalComponent.toFixed(2),
+          interestComponent: row.interestComponent.toFixed(2),
+          dueAmount: row.dueAmount.toFixed(2),
+          paidAmount: row.paidAmount.toFixed(2),
+          status: row.status,
+        }));
+
       await tx.auditLog.create({
         data: {
           organizationId,
@@ -737,12 +778,29 @@ export class LoansService {
           action: 'loan.restructured',
           entityType: 'loan',
           entityId: id,
+          oldValue: {
+            evidenceVersion: 1,
+            financialTerms: loan.financialTerms ?? null,
+            tenure: loan.tenure,
+            totalPayable: loan.totalPayable.toFixed(2),
+            outstandingBalance: loan.outstandingBalance.toFixed(2),
+            replacedSchedule: scheduleEvidence(rowsToDelete),
+          },
           newValue: {
+            evidenceVersion: 1,
             fromInstallmentNumber: dto.fromInstallmentNumber,
             newTenure: dto.newTenure,
             reason: dto.reason,
-            remainingPrincipal,
-            newTotalPayable,
+            remainingPrincipal: new Prisma.Decimal(remainingPrincipal).toFixed(
+              2,
+            ),
+            newTotalPayable: newTotalPayable.toFixed(2),
+            newOutstandingBalance: newOutstandingBalance.toFixed(2),
+            totalTenure: newTenureTotal,
+            interestType: loan.interestType,
+            interestRateAnnual: loan.interestRateAnnual.toString(),
+            collectionFrequency: loan.collectionFrequency,
+            replacementSchedule: scheduleEvidence(replacementRows),
           },
         },
       });

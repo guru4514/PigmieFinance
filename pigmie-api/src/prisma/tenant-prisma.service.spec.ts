@@ -103,3 +103,75 @@ describe('Opt-in atomic workflow transactions', () => {
     expect(transaction).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('Bounded idempotent posting retries', () => {
+  const timeout = () =>
+    new Prisma.PrismaClientKnownRequestError('Synthetic transaction failure', {
+      code: 'P2028',
+      clientVersion: 'test',
+    });
+  function harness() {
+    const transaction = jest.fn<
+      Promise<string>,
+      [(tx: Prisma.TransactionClient) => Promise<string>, unknown?]
+    >();
+    const service = new TenantPrismaService({
+      $transaction: transaction,
+    } as unknown as PrismaService);
+    return { transaction, service };
+  }
+  it('starts one fresh transaction after rollback and keeps original limits', async () => {
+    const { transaction, service } = harness();
+    transaction
+      .mockRejectedValueOnce(timeout())
+      .mockResolvedValueOnce('duplicate');
+    await expect(
+      service.run('org', () => Promise.resolve('saved'), {
+        retryIdempotent: true,
+        timeout: 5000,
+      }),
+    ).resolves.toBe('duplicate');
+    expect(transaction).toHaveBeenCalledTimes(2);
+    expect(transaction.mock.calls[1][1]).toEqual({ timeout: 5000 });
+  });
+  it('stops after the second failure', async () => {
+    const { transaction, service } = harness();
+    transaction.mockRejectedValue(timeout());
+    await expect(
+      service.run('org', () => Promise.resolve('saved'), {
+        retryIdempotent: true,
+      }),
+    ).rejects.toThrow('Synthetic');
+    expect(transaction).toHaveBeenCalledTimes(2);
+  });
+  it('does not retry ordinary mutations or validation failures', async () => {
+    const { transaction, service } = harness();
+    transaction
+      .mockRejectedValueOnce(timeout())
+      .mockRejectedValueOnce(new Error('Invalid input'));
+    await expect(
+      service.run('org', () => Promise.resolve('saved')),
+    ).rejects.toThrow('Synthetic');
+    await expect(
+      service.run('org', () => Promise.resolve('saved'), {
+        retryIdempotent: true,
+      }),
+    ).rejects.toThrow('Invalid input');
+    expect(transaction).toHaveBeenCalledTimes(2);
+  });
+  it('never replays a failed callback inside a shared atomic parent', async () => {
+    const { transaction, service } = harness();
+    const tx = {
+      $executeRaw: jest.fn().mockResolvedValue(1),
+    } as unknown as Prisma.TransactionClient;
+    transaction.mockImplementation(async (fn) => fn(tx));
+    const posting = jest.fn(() => Promise.reject(timeout()));
+    await expect(
+      service.runAtomic('org', () =>
+        service.run('org', posting, { retryIdempotent: true }),
+      ),
+    ).rejects.toThrow('Synthetic');
+    expect(posting).toHaveBeenCalledTimes(1);
+    expect(transaction).toHaveBeenCalledTimes(1);
+  });
+});
