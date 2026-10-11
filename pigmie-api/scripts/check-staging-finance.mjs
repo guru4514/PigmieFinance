@@ -157,6 +157,7 @@ try {
         closureLoan: await makeLoan('SYNTHETIC-CLOSURE'),
         raceLoan: await makeLoan('SYNTHETIC-RACE'),
         recoveryLoan: await makeLoan('SYNTHETIC-DEFAULT-RECOVERY'),
+        cashLoan: await makeLoan('SYNTHETIC-CASH-CARRY'),
       };
     },
     { timeout: 30000, maxWait: 10000 },
@@ -629,6 +630,55 @@ try {
     (await collections.recordCollection(orgId, fixture.agent.id, dto)).status,
     'duplicate',
   );
+  checkpoint = 'cash carry-forward and independent verification';
+  const handovers = new CashDepositsService(tenant, prisma);
+  assert.equal(
+    (
+      await prisma.loan.findUniqueOrThrow({
+        where: { id: fixture.cashLoan.id },
+      })
+    ).assignedAgentId,
+    fixture.replacementAgent.id,
+  );
+  await collections.recordCollection(
+    orgId,
+    fixture.replacementAgent.id,
+    payment(fixture.cashLoan.id),
+  );
+  const handover = await handovers.create(orgId, fixture.replacementAgent.id, {
+    amount: 10,
+    depositDate: '2026-10-11',
+  });
+  await handovers.verify(orgId, handover.id, fixture.admin.id, {
+    status: 'verified',
+  });
+  const ownHandover = await handovers.create(orgId, fixture.admin.id, {
+    amount: 1,
+    depositDate: '2026-10-11',
+  });
+  await assert.rejects(
+    handovers.verify(orgId, ownHandover.id, fixture.admin.id, {
+      status: 'verified',
+    }),
+    (error) => error?.getStatus?.() === 403,
+  );
+  await prisma.staff.update({
+    where: { id: fixture.replacementAgent.id },
+    data: { isActive: false },
+  });
+  const cashRows = await handovers.getReconciliation(
+    orgId,
+    '2026-10-12',
+    '2026-10-12',
+    actor,
+  );
+  const cashRow = cashRows.find(
+    (row) => row.agentId === fixture.replacementAgent.id,
+  );
+  assert.equal(cashRow.openingBalance, 45);
+  assert.equal(cashRow.closingBalance, 45);
+  assert.equal(cashRow.difference, 0);
+  assert.equal(cashRow.status, 'discrepancy');
   checkpoint = 'disabled customer updater';
   await prisma.staff.update({
     where: { id: fixture.admin.id },
@@ -672,6 +722,8 @@ try {
         'committed without deadlock; old agent payment denied; totals unchanged',
       reassignedOwnedRetry: 'acknowledged without another payment',
       disabledCustomerUpdater: 'denied with unchanged customer',
+      cashReconciliation:
+        'carry-forward preserved for inactive staff; own handover verification denied',
       data: 'synthetic only',
     }),
   );

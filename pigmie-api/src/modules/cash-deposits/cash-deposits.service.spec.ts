@@ -57,6 +57,47 @@ function harness() {
   };
 }
 describe('Cash deposit scope and verification', () => {
+  it('requires independent verification rather than self-approval', async () => {
+    const { service, tx } = harness();
+    tx.staff.findFirst.mockResolvedValue({
+      id: agent.id,
+      role: 'org_admin',
+      branchId: 'branch-a',
+    });
+    await expect(
+      service.verify('org', 'deposit', agent.id, { status: 'verified' }),
+    ).rejects.toThrow(ForbiddenException);
+    expect(tx.cashDeposit.update).not.toHaveBeenCalled();
+  });
+  it('carries prior cash forward even when current period movement is zero', async () => {
+    const { service, tx } = harness();
+    tx.staff.findFirst.mockResolvedValue({
+      id: 'admin',
+      role: 'org_admin',
+      branchId: 'branch-a',
+    });
+    tx.collection.aggregate
+      .mockResolvedValueOnce({ _sum: { amount: new Prisma.Decimal(10) } })
+      .mockResolvedValueOnce({ _sum: { amount: new Prisma.Decimal(50) } });
+    tx.cashDeposit.aggregate
+      .mockResolvedValueOnce({ _sum: { amount: new Prisma.Decimal(10) } })
+      .mockResolvedValueOnce({ _sum: { amount: new Prisma.Decimal(20) } });
+    const [row] = await service.getReconciliation(
+      'org',
+      '2026-01-01',
+      '2026-01-31',
+      { ...agent, role: 'org_admin' },
+    );
+    expect(row).toEqual(
+      expect.objectContaining({
+        difference: 0,
+        openingBalance: 30,
+        closingBalance: 30,
+        status: 'discrepancy',
+        basis: 'current_record_status_by_business_date',
+      }),
+    );
+  });
   it('fails verification when required transactional audit persistence fails', async () => {
     const { service, tx } = harness();
     tx.staff.findFirst.mockResolvedValue({
@@ -169,8 +210,15 @@ describe('Cash deposit scope and verification', () => {
     expect(tx.staff.findMany).toHaveBeenCalledWith({
       where: {
         organizationId: 'org',
-        role: 'agent',
-        isActive: true,
+        OR: [
+          { role: 'agent' },
+          {
+            collections: {
+              some: { organizationId: 'org', collectionMethod: 'cash' },
+            },
+          },
+          { cashDeposits: { some: { organizationId: 'org' } } },
+        ],
         branchId: 'branch-a',
       },
       select: { id: true, fullName: true },

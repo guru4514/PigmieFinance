@@ -18,7 +18,11 @@ export class TenantPrismaService {
   async run<T>(
     organizationId: string,
     fn: (tx: Prisma.TransactionClient) => Promise<T>,
-    options?: { maxWait?: number; timeout?: number },
+    options?: {
+      maxWait?: number;
+      timeout?: number;
+      isolationLevel?: Prisma.TransactionIsolationLevel;
+    },
   ): Promise<T> {
     const context = this.atomicContext.getStore();
     if (context) {

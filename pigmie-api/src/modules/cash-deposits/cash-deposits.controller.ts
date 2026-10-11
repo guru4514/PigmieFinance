@@ -39,7 +39,7 @@ export class CashDepositsController {
   }
 
   @Get()
-  @Roles('agent', 'branch_manager', 'org_admin')
+  @Roles('agent', 'branch_manager', 'org_admin', 'accountant')
   async findAll(
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: QueryCashDepositsDto,
