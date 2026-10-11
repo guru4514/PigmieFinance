@@ -276,14 +276,16 @@ export class CustomersService {
     });
   }
 
-  async remove(organizationId: string, id: string) {
+  async remove(organizationId: string, id: string, requestingUserId: string) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      const customer = await tx.customer.findFirst({
-        where: { id, organizationId },
-      });
-      if (!customer) throw new NotFoundException('Customer not found');
+      await this.administrativeCustomer(
+        tx,
+        organizationId,
+        id,
+        requestingUserId,
+      );
       return tx.customer.update({
-        where: { id },
+        where: { id, organizationId },
         data: { isActive: false, portalAccessEnabled: false },
       });
     });
@@ -310,7 +312,7 @@ export class CustomersService {
       return await this.tenantPrisma.run(
         organizationId,
         async (tx) => {
-          const customer = await this.portalCustomer(
+          const customer = await this.administrativeCustomer(
             tx,
             organizationId,
             id,
@@ -422,7 +424,7 @@ export class CustomersService {
     }
   }
 
-  private async portalCustomer(
+  private async administrativeCustomer(
     tx: Prisma.TransactionClient,
     organizationId: string,
     id: string,
@@ -439,7 +441,7 @@ export class CustomersService {
       select: { role: true, branchId: true },
     });
     if (!actor || (actor.role === 'branch_manager' && !actor.branchId))
-      throw new ForbiddenException('Portal access management is not permitted');
+      throw new ForbiddenException('Customer administration is not permitted');
     await tx.$executeRaw`SELECT id FROM customers WHERE id = ${id}::uuid AND organization_id = ${organizationId}::uuid FOR UPDATE`;
     const customer = await tx.customer.findUnique({
       where: {
@@ -460,7 +462,7 @@ export class CustomersService {
     requestingUserId: string,
   ) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      const customer = await this.portalCustomer(
+      const customer = await this.administrativeCustomer(
         tx,
         organizationId,
         id,

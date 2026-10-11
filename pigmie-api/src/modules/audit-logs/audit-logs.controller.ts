@@ -1,4 +1,10 @@
-import { Controller, Get, Query, UseGuards, ForbiddenException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  UseGuards,
+  ForbiddenException,
+} from '@nestjs/common';
 import { AuditLogsService } from './audit-logs.service';
 import { QueryAuditLogsDto } from './dto/audit-log.dto';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
@@ -14,8 +20,12 @@ export class AuditLogsController {
 
   @Get()
   @Roles('org_admin')
-  async findAll(@Query() query: QueryAuditLogsDto, @CurrentUser() user: AuthenticatedUser) {
-    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
-    return this.auditLogsService.findAll(user.organizationId, query);
+  async findAll(
+    @Query() query: QueryAuditLogsDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (user.type !== 'staff')
+      throw new ForbiddenException('Only staff can access this endpoint');
+    return this.auditLogsService.findAll(user.organizationId, query, user.id);
   }
 }

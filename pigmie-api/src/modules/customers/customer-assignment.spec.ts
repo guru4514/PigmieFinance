@@ -32,6 +32,33 @@ describe('Customer write assignment boundaries', () => {
     loan: { updateMany: updateLoans },
   } as unknown as Prisma.TransactionClient;
   let service: CustomersService;
+
+  it('denies customer deactivation after administrator access is revoked', async () => {
+    findStaff.mockResolvedValue(null);
+    await expect(service.remove('org', 'customer', 'admin')).rejects.toThrow(
+      ForbiddenException,
+    );
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('uses the current manager branch when deactivating a customer', async () => {
+    findStaff.mockResolvedValue({
+      role: 'branch_manager',
+      branchId: 'current-branch',
+    });
+    await service.remove('org', 'customer', 'manager');
+    expect(findCustomer).toHaveBeenCalledWith({
+      where: {
+        id: 'customer',
+        organizationId: 'org',
+        branchId: 'current-branch',
+      },
+    });
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'customer', organizationId: 'org' },
+      data: { isActive: false, portalAccessEnabled: false },
+    });
+  });
   const originalUrl = process.env.SUPABASE_URL;
   const originalKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   beforeAll(() => {

@@ -316,7 +316,11 @@ export class ApprovalsService {
   ) {
     switch (request.actionType) {
       case 'delete_customer':
-        return this.customersService.remove(organizationId, request.entityId);
+        return this.customersService.remove(
+          organizationId,
+          request.entityId,
+          reviewerId,
+        );
       case 'reverse_collection':
         return this.collectionsService.reverseCollection(
           organizationId,

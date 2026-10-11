@@ -135,7 +135,7 @@ export class CustomersController {
   ) {
     if (user.type !== 'staff')
       throw new ForbiddenException('Only staff can access this endpoint');
-    return this.customersService.remove(user.organizationId, id);
+    return this.customersService.remove(user.organizationId, id, user.id);
   }
 
   @Patch(':id/kyc-status')
