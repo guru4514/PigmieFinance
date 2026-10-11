@@ -10,6 +10,13 @@ import pg from 'pg';
 import { parse } from 'dotenv';
 import assert from 'node:assert/strict';
 import { validateStaging } from './staging.mjs';
+import {
+  baselineCatalog,
+  dataEvidence,
+  digest,
+  migrationEvidence,
+  reconcileBaseline,
+} from './baseline-reconciliation.mjs';
 
 const require = createRequire(import.meta.url);
 const {
@@ -25,12 +32,14 @@ const runRoot = join(recoveryRoot, `run-${randomUUID()}`);
 const bin = process.env.RECOVERY_PG_BIN || join(recoveryRoot, 'pgsql', 'bin');
 const executable = (name) =>
   join(bin, name + (process.platform === 'win32' ? '.exe' : ''));
-let source, target, server;
+let source, target, server, canonical;
 let checkpoint = 'configuration';
 let success = false;
 const options = process.argv.slice(2);
 const developmentMode = options.includes('--development');
 const retainBackup = options.includes('--retain-backup');
+const baselineRehearsal = options.includes('--baseline-rehearsal');
+let baselineVerification;
 let retainedRoot;
 const osEnvironment = Object.fromEntries(
   ['PATH', 'Path', 'SystemRoot', 'WINDIR', 'TEMP', 'TMP', 'HOME', 'LANG']
@@ -96,10 +105,13 @@ const quote = (name) => '"' + name.replaceAll('"', '""') + '"';
 try {
   assert.ok(
     options.every((option) =>
-      ['--development', '--retain-backup'].includes(option),
+      ['--development', '--retain-backup', '--baseline-rehearsal'].includes(
+        option,
+      ),
     ),
   );
   assert.equal(new Set(options).size, options.length);
+  assert.ok(!baselineRehearsal || (developmentMode && retainBackup));
   const development = parse(readFileSync(new URL('../.env', import.meta.url)));
   const staging = parse(
     readFileSync(new URL('../.env.staging', import.meta.url)),
@@ -367,6 +379,66 @@ try {
     (await target.query(triggers)).rows,
     (await source.query(triggers)).rows,
   );
+  if (baselineRehearsal) {
+    checkpoint = 'canonical staging baseline connection';
+    const canonicalUrl = new URL(staging.DIRECT_URL);
+    for (const key of [
+      'sslmode',
+      'sslaccept',
+      'sslcert',
+      'sslrootcert',
+      'sslkey',
+    ])
+      canonicalUrl.searchParams.delete(key);
+    canonical = new pg.Client({
+      connectionString: canonicalUrl.toString(),
+      connectionTimeoutMillis: 10000,
+      statement_timeout: 30000,
+      ssl: {
+        rejectUnauthorized: true,
+        ca: readFileSync(
+          new URL('../prisma/supabase-ca.crt', import.meta.url),
+          'utf8',
+        ),
+      },
+    });
+    await canonical.connect();
+    await canonical.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+    const expected = await baselineCatalog(canonical);
+    const sourceCatalog = await baselineCatalog(source);
+    const sourceHistory = (
+      await source.query('SELECT * FROM public._prisma_migrations ORDER BY id')
+    ).rows;
+    const sourceData = await dataEvidence(source);
+    checkpoint = 'exact restored development baseline adoption';
+    await target.query('BEGIN');
+    // pg_restore intentionally skipped ACLs; reproduce the documented browser
+    // denial explicitly before testing the baseline's direct-role assertions.
+    await target.query(
+      'REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC,anon,authenticated',
+    );
+    const result = await reconcileBaseline(target, expected);
+    await target.query('COMMIT');
+    assert.deepEqual(await dataEvidence(target), sourceData);
+    baselineVerification = {
+      ...result,
+      sourceCatalogDigest: digest(sourceCatalog),
+      sourceHistoryDigest: digest(sourceHistory),
+      sourceDataDigest: digest(sourceData),
+      canonicalCatalogDigest: digest(expected),
+      migrationDigest: digest(migrationEvidence()),
+      rehearsal: 'exact restored development copy',
+      verified: true,
+    };
+    await canonical.query('ROLLBACK');
+    console.log(
+      JSON.stringify({
+        baselineRehearsal: 'passed',
+        ...result,
+        target: 'disposable restored development copy',
+      }),
+    );
+  }
   await source.query('ROLLBACK');
   success = true;
   if (retainedRoot)
@@ -379,6 +451,7 @@ try {
           scope: 'public',
           tablesCompared: tables.length,
           restoreVerified: true,
+          baselineVerification,
           limitations:
             'No Auth/Storage blobs, ownership/ACL restoration or off-site durability verified',
         },
@@ -420,6 +493,8 @@ try {
 } finally {
   await source?.query('ROLLBACK').catch(() => {});
   await source?.end().catch(() => {});
+  await canonical?.query('ROLLBACK').catch(() => {});
+  await canonical?.end().catch(() => {});
   await target?.end().catch(() => {});
   let stopped = !server;
   if (server) {

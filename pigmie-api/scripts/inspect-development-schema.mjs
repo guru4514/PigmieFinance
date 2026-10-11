@@ -88,6 +88,22 @@ try {
       timeout: 60000,
     },
   );
+  const status = spawnSync(
+    process.execPath,
+    [
+      fileURLToPath(
+        new URL('../node_modules/prisma/build/index.js', import.meta.url),
+      ),
+      'migrate',
+      'status',
+    ],
+    {
+      cwd: fileURLToPath(new URL('../', import.meta.url)),
+      env: { ...process.env, DIRECT_URL: config.DIRECT_URL },
+      encoding: 'utf8',
+      timeout: 60000,
+    },
+  );
   console.log(
     JSON.stringify({
       scope: 'development metadata only; read only',
@@ -95,6 +111,10 @@ try {
       missingColumns,
       policies,
       migrationHistory: history.map((row) => row.migration_name),
+      migrationStatus:
+        status.status === 0
+          ? 'up to date'
+          : 'verification failed; diagnostics suppressed',
       schemaComparison:
         comparison.status === 0
           ? 'matches Prisma schema'
