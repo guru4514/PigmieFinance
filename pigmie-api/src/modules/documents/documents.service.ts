@@ -35,6 +35,19 @@ export class DocumentsService {
   private bucket(type: DocumentRelatedType) {
     return type === 'customer' ? 'kyc-documents' : 'collection-photos';
   }
+  private async requirePrivateCollectionBucket(type: DocumentRelatedType) {
+    if (type !== 'collection') return;
+    try {
+      const { data, error } =
+        await this.supabaseAdmin.storage.getBucket('collection-photos');
+      if (error || !data || data.public !== false)
+        throw new Error('Private storage required');
+    } catch {
+      throw new ServiceUnavailableException(
+        'Private collection storage is unavailable',
+      );
+    }
+  }
   private entityType(type: string): DocumentRelatedType {
     if (type !== 'customer' && type !== 'loan' && type !== 'collection')
       throw new BadRequestException('Invalid document entity type');
@@ -152,6 +165,7 @@ export class DocumentsService {
           true,
         );
         const bucket = this.bucket(type);
+        await this.requirePrivateCollectionBucket(type);
         const filePath = `${organizationId}/${type}/${dto.relatedEntityId}/${randomUUID()}-${dto.fileName}`;
         try {
           const { data, error } = await this.supabaseAdmin.storage
@@ -191,7 +205,27 @@ export class DocumentsService {
           dto.relatedEntityId,
           true,
         );
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${organizationId + ':' + dto.filePath}, 0))`;
+        const existing = await tx.document.findFirst({
+          where: {
+            organizationId,
+            relatedEntityType: type,
+            relatedEntityId: dto.relatedEntityId,
+            filePath: dto.filePath,
+          },
+        });
+        if (existing) {
+          if (
+            existing.uploadedById !== staffId ||
+            existing.documentType !== dto.documentType
+          )
+            throw new BadRequestException(
+              'Document path is already registered',
+            );
+          return existing;
+        }
         let object: { size: number; mimeType: string };
+        await this.requirePrivateCollectionBucket(type);
         try {
           const result = await this.supabaseAdmin.storage
             .from(this.bucket(type))
@@ -211,6 +245,16 @@ export class DocumentsService {
         }
         if (!Number.isSafeInteger(object.size) || object.size <= 0)
           throw new BadRequestException('Invalid uploaded document size');
+        if (
+          type === 'collection' &&
+          (!['image/png', 'image/jpeg', 'image/webp'].includes(
+            object.mimeType,
+          ) ||
+            object.size > 10 * 1024 * 1024)
+        )
+          throw new BadRequestException(
+            'Collection evidence must be a supported image up to 10 MB',
+          );
         return tx.document.create({
           data: {
             organizationId,
@@ -253,6 +297,7 @@ export class DocumentsService {
           document.relatedEntityId,
           document.filePath,
         );
+        await this.requirePrivateCollectionBucket(type);
         try {
           const { data, error } = await this.supabaseAdmin.storage
             .from(this.bucket(type))

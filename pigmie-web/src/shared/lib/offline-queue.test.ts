@@ -17,7 +17,10 @@ vi.mock("./supabase", () => ({
   supabase: {
     auth: { getSession: mocks.getSession },
     storage: {
-      from: () => ({ upload: mocks.upload, getPublicUrl: mocks.getPublicUrl }),
+      from: () => ({
+        uploadToSignedUrl: mocks.upload,
+        getPublicUrl: mocks.getPublicUrl,
+      }),
     },
   },
 }));
@@ -78,7 +81,26 @@ beforeEach(async () => {
       role: "agent",
     },
   });
-  mocks.post.mockResolvedValue(acknowledge());
+  mocks.post.mockImplementation(async (url: string) => {
+    if (url === "/documents/upload-url")
+      return {
+        data: {
+          bucket: "collection-photos",
+          token: "synthetic",
+          path: `${owner.organizationId}/collection/00000000-0000-4000-8000-000000000008/photo.png`,
+        },
+      };
+    if (url === "/documents")
+      return {
+        data: {
+          id: "00000000-0000-4000-8000-000000000011",
+          relatedEntityType: "collection",
+          relatedEntityId: "00000000-0000-4000-8000-000000000008",
+          filePath: `${owner.organizationId}/collection/00000000-0000-4000-8000-000000000008/photo.png`,
+        },
+      };
+    return acknowledge();
+  });
   mocks.upload.mockResolvedValue({
     data: { path: "collections/photo" },
     error: null,
@@ -89,6 +111,56 @@ beforeEach(async () => {
 });
 
 describe("durable collection outbox", () => {
+  it("keeps a legacy URL-only photo pending for explicit recovery", async () => {
+    const queue = await load();
+    await queue.queueCollection(
+      { ...input, photoUrl: "https://example.test/legacy" },
+      owner,
+    );
+    expect((await queue.processSyncQueue(owner)).synced).toBe(0);
+    expect(mocks.post).not.toHaveBeenCalled();
+    expect((await queue.getPendingCollections(owner))[0].photoUrl).toBe(
+      "https://example.test/legacy",
+    );
+  });
+  it("does not upload when a private grant belongs to a different collection", async () => {
+    const queue = await load();
+    const original = mocks.post.getMockImplementation()!;
+    mocks.post.mockImplementation(async (url: string) =>
+      url === "/documents/upload-url"
+        ? {
+            data: {
+              bucket: "collection-photos",
+              token: "synthetic",
+              path: "foreign/collection/foreign/photo.png",
+            },
+          }
+        : original(url),
+    );
+    await queue.queueCollection(
+      { ...input, offlinePhotoBase64: "data:image/png;base64,AA==" },
+      owner,
+    );
+    expect((await queue.processSyncQueue(owner)).synced).toBe(0);
+    expect(mocks.upload).not.toHaveBeenCalled();
+    expect(await queue.getPendingCount(owner)).toBe(1);
+  });
+  it("retains the exact original photo when registration acknowledges a foreign entity", async () => {
+    const queue = await load();
+    const original = mocks.post.getMockImplementation()!;
+    mocks.post.mockImplementation(async (url: string) => {
+      const response = await original(url);
+      return url === "/documents"
+        ? { data: { ...response.data, relatedEntityId: other.staffId } }
+        : response;
+    });
+    const offlinePhotoBase64 = "data:image/png;base64,AA==";
+    await queue.queueCollection({ ...input, offlinePhotoBase64 }, owner);
+    expect((await queue.processSyncQueue(owner)).synced).toBe(0);
+    expect(
+      (await queue.getPendingCollections(owner))[0].offlinePhotoBase64,
+    ).toBe(offlinePhotoBase64);
+  });
   it("rejects sub-cent amounts before persisting and accepts exact cent amounts", async () => {
     const queue = await load();
     await expect(
@@ -330,7 +402,7 @@ describe("durable collection outbox", () => {
     expect(mocks.post).not.toHaveBeenCalled();
   });
 
-  it("preserves photo evidence and does not post when upload fails", async () => {
+  it("preserves evidence and the stable payment identifier when private upload fails", async () => {
     const queue = await load();
     const withPhoto = {
       ...input,
@@ -342,29 +414,60 @@ describe("durable collection outbox", () => {
     });
     await queue.queueCollection(withPhoto, owner);
     expect((await queue.processSyncQueue(owner)).synced).toBe(0);
-    expect(mocks.post).not.toHaveBeenCalled();
+    expect(mocks.post).toHaveBeenCalledWith("/collections", input, {
+      expectedAuthUserId: owner.authUserId,
+    });
+    expect(mocks.getPublicUrl).not.toHaveBeenCalled();
     expect(
       (await queue.getPendingCollections(owner))[0].offlinePhotoBase64,
     ).toBe(withPhoto.offlinePhotoBase64);
+    expect(
+      (await queue.getPendingCollections(owner))[0].paymentAcknowledgement
+        ?.collection.id,
+    ).toBe("00000000-0000-4000-8000-000000000008");
+  });
+  it("returns a confirmed receipt even when photo delivery must remain queued", async () => {
+    const queue = await load();
+    mocks.upload.mockResolvedValue({
+      error: new Error("Synthetic upload failure"),
+    });
+    expect(
+      (
+        await queue.submitCollection(
+          { ...input, offlinePhotoBase64: "data:image/png;base64,AA==" },
+          owner,
+        )
+      ).status,
+    ).toBe("recorded");
+    expect(await queue.getPendingCount(owner)).toBe(1);
   });
 
-  it("reuses a persisted uploaded photo URL after a failed payment request", async () => {
+  it("reuses a persisted private path after an uncertain registration response", async () => {
     const queue = await load();
     await queue.queueCollection(
       { ...input, offlinePhotoBase64: "data:image/png;base64,AA==" },
       owner,
     );
-    mocks.post
-      .mockRejectedValueOnce(new Error("Network failure"))
-      .mockResolvedValueOnce(acknowledge());
+    const original = mocks.post.getMockImplementation()!;
+    let failRegistration = true;
+    mocks.post.mockImplementation(async (url: string) => {
+      if (url === "/documents" && failRegistration) {
+        failRegistration = false;
+        throw new Error("Network failure");
+      }
+      return original(url);
+    });
     await queue.processSyncQueue(owner);
+    expect(
+      (await queue.getPendingCollections(owner))[0].evidencePath,
+    ).toContain("/collection/");
     await queue.processSyncQueue(owner);
     expect(mocks.upload).toHaveBeenCalledTimes(1);
-    expect(mocks.post).toHaveBeenLastCalledWith(
-      "/collections",
-      { ...input, photoUrl: "https://storage.example/photo" },
-      { expectedAuthUserId: owner.authUserId },
-    );
+    expect(mocks.post).toHaveBeenCalledWith("/collections", input, {
+      expectedAuthUserId: owner.authUserId,
+    });
+    expect(await queue.getPendingCount(owner)).toBe(0);
+    expect(mocks.getPublicUrl).not.toHaveBeenCalled();
   });
 
   it("serializes concurrent sync calls within one account", async () => {

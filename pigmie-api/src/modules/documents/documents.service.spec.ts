@@ -13,9 +13,13 @@ import { DocumentRelatedTypeEnum } from './dto/document.dto';
 const createSignedUploadUrl = jest.fn();
 const createSignedUrl = jest.fn();
 const info = jest.fn();
+const getBucket = jest.fn();
 jest.mock('@supabase/supabase-js', () => ({
   createClient: () => ({
-    storage: { from: () => ({ createSignedUploadUrl, createSignedUrl, info }) },
+    storage: {
+      getBucket,
+      from: () => ({ createSignedUploadUrl, createSignedUrl, info }),
+    },
   }),
 }));
 const entityId = '00000000-0000-4000-8000-000000000001';
@@ -27,6 +31,9 @@ const dto = {
 };
 const path = `org/customer/${entityId}/synthetic-file.pdf`;
 function harness() {
+  getBucket
+    .mockReset()
+    .mockResolvedValue({ data: { public: false }, error: null });
   createSignedUploadUrl.mockReset().mockResolvedValue({
     data: {
       signedUrl: 'https://example.test/synthetic',
@@ -53,13 +60,19 @@ function harness() {
     loan: { findFirst: jest.fn().mockResolvedValue({ id: entityId }) },
     collection: { findFirst: jest.fn().mockResolvedValue({ id: entityId }) },
     document: {
-      findFirst: jest.fn().mockResolvedValue({
-        id: 'doc',
-        organizationId: 'org',
-        relatedEntityType: 'customer',
-        relatedEntityId: entityId,
-        filePath: path,
-      }),
+      findFirst: jest
+        .fn()
+        .mockImplementation((args: Prisma.DocumentFindFirstArgs) =>
+          args.where?.filePath
+            ? null
+            : {
+                id: 'doc',
+                organizationId: 'org',
+                relatedEntityType: 'customer',
+                relatedEntityId: entityId,
+                filePath: path,
+              },
+        ),
       findMany: jest.fn().mockResolvedValue([]),
       create: jest.fn().mockResolvedValue({ id: 'doc' }),
       delete: jest.fn().mockResolvedValue({ id: 'doc' }),
@@ -200,6 +213,50 @@ describe('Document record authorization and paths', () => {
     await expect(
       service.registerDocument('org', 'agent', { ...dto, filePath: path }),
     ).rejects.toThrow(ServiceUnavailableException);
+    expect(tx.document.create).not.toHaveBeenCalled();
+  });
+  it('rejects public collection buckets before issuing an upload grant', async () => {
+    const { service } = harness();
+    getBucket.mockResolvedValue({ data: { public: true }, error: null });
+    await expect(
+      service.getUploadUrl('org', 'agent', {
+        ...dto,
+        relatedEntityType: DocumentRelatedTypeEnum.collection,
+        fileName: 'photo.png',
+      }),
+    ).rejects.toThrow(ServiceUnavailableException);
+    expect(createSignedUploadUrl).not.toHaveBeenCalled();
+  });
+  it('makes an owned registration retry idempotent without creating another document', async () => {
+    const { service, tx } = harness();
+    const existing = {
+      id: 'doc',
+      organizationId: 'org',
+      relatedEntityType: 'customer',
+      relatedEntityId: entityId,
+      filePath: path,
+      uploadedById: 'agent',
+      documentType: dto.documentType,
+    };
+    tx.document.findFirst.mockResolvedValue(existing);
+    expect(
+      await service.registerDocument('org', 'agent', {
+        ...dto,
+        filePath: path,
+      }),
+    ).toBe(existing);
+    expect(tx.document.create).not.toHaveBeenCalled();
+    expect(info).not.toHaveBeenCalled();
+  });
+  it('rejects unsupported collection evidence using provider metadata', async () => {
+    const { service, tx } = harness();
+    await expect(
+      service.registerDocument('org', 'agent', {
+        ...dto,
+        relatedEntityType: DocumentRelatedTypeEnum.collection,
+        filePath: `org/collection/${entityId}/photo.png`,
+      }),
+    ).rejects.toThrow(BadRequestException);
     expect(tx.document.create).not.toHaveBeenCalled();
   });
   it('hides provider diagnostics on signing failures', async () => {

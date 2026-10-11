@@ -36,6 +36,8 @@ interface StoredCollection extends CollectionInput {
   owner?: CollectionOwner;
   queuedAt: string;
   lastError?: string;
+  evidencePath?: string;
+  paymentAcknowledgement?: CollectionAcknowledgement;
 }
 export interface PendingCollection extends StoredCollection {
   owner: CollectionOwner;
@@ -116,7 +118,7 @@ export async function queueCollection(
     ) {
       tx.abort();
       throw new Error(
-        "A collection for this loan is already saved on this device. Sync it before recording another payment.",
+        "A collection for this loan is already saved on this device. Sync its payment and evidence before recording another payment.",
       );
     }
     // Never overwrite the original financial payload when an ID is reused.
@@ -233,27 +235,16 @@ async function drainQueue(owner: CollectionOwner): Promise<SyncResult> {
   for (const item of await getPendingCollections(owner)) {
     try {
       await checkSession(owner);
-      if (item.offlinePhotoBase64 && !item.photoUrl) {
-        if (!item.offlinePhotoBase64.startsWith("data:image/"))
-          throw new Error("The saved collection photo is invalid.");
-        const blob = await (await fetch(item.offlinePhotoBase64)).blob();
-        const path = `collections/${item.clientGeneratedId}`;
-        const { data, error } = await supabase.storage
-          .from("collection-photos")
-          .upload(path, blob, { contentType: blob.type, upsert: true });
-        if (error || !data)
-          throw new Error(
-            "Photo upload failed. The collection and photo remain saved for retry.",
-          );
-        await checkSession(owner);
-        item.photoUrl = supabase.storage
-          .from("collection-photos")
-          .getPublicUrl(data.path).data.publicUrl;
-        await updateStored(item);
-      }
+      if (item.photoUrl && !item.offlinePhotoBase64)
+        throw new Error(
+          "This legacy photo needs recovery review. The original collection remains saved.",
+        );
+      // Public URLs are never sent for new payments. Retain legacy data locally.
+      const payload = payloadSchema.parse(item);
+      delete payload.photoUrl;
       const response = await apiClient.post<unknown>(
         "/collections",
-        payloadSchema.parse(item),
+        payload,
         config,
       );
       const acknowledgement = acknowledgementSchema.parse(response.data);
@@ -270,6 +261,102 @@ async function drainQueue(owner: CollectionOwner): Promise<SyncResult> {
         throw new Error(
           "The server response does not match this collection. It remains saved for review.",
         );
+      }
+      if (item.offlinePhotoBase64) {
+        item.paymentAcknowledgement = acknowledgement;
+        await updateStored(item);
+        // Payment confirmation remains truthful when attachment delivery needs retry.
+        result.acknowledged[item.clientGeneratedId] = acknowledgement;
+        if (
+          !/^data:image\/(png|jpeg|webp);base64,/.test(item.offlinePhotoBase64)
+        )
+          throw new Error(
+            "The saved collection photo is invalid. Payment may already be confirmed; retry uses its original identifier.",
+          );
+        const blob = await (await fetch(item.offlinePhotoBase64)).blob();
+        if (blob.size > 10 * 1024 * 1024)
+          throw new Error(
+            "The saved photo exceeds 10 MB. Payment and evidence remain saved for review.",
+          );
+        if (!item.evidencePath) {
+          await checkSession(owner);
+          const extension =
+            blob.type === "image/jpeg"
+              ? "jpg"
+              : blob.type === "image/webp"
+                ? "webp"
+                : "png";
+          const grant = z
+            .object({
+              path: z.string(),
+              token: z.string(),
+              bucket: z.literal("collection-photos"),
+            })
+            .parse(
+              (
+                await apiClient.post(
+                  "/documents/upload-url",
+                  {
+                    relatedEntityType: "collection",
+                    relatedEntityId: recorded.id,
+                    documentType: "collection_photo",
+                    fileName: `${item.clientGeneratedId}.${extension}`,
+                  },
+                  config,
+                )
+              ).data,
+            );
+          const prefix = `${owner.organizationId}/collection/${recorded.id}/`;
+          if (
+            !grant.path.startsWith(prefix) ||
+            /[\\%?#]/.test(grant.path.slice(prefix.length)) ||
+            grant.path.slice(prefix.length).includes("/")
+          )
+            throw new Error(
+              "The photo upload grant does not match this collection.",
+            );
+          const { error } = await supabase.storage
+            .from(grant.bucket)
+            .uploadToSignedUrl(grant.path, grant.token, blob, {
+              contentType: blob.type,
+            });
+          if (error)
+            throw new Error(
+              "Photo upload failed. Payment may be confirmed; the original photo remains saved for retry.",
+            );
+          await checkSession(owner);
+          item.evidencePath = grant.path;
+          await updateStored(item);
+        }
+        await checkSession(owner);
+        const document = z
+          .object({
+            id: z.string().uuid(),
+            filePath: z.string(),
+            relatedEntityId: z.string().uuid(),
+            relatedEntityType: z.literal("collection"),
+          })
+          .parse(
+            (
+              await apiClient.post(
+                "/documents",
+                {
+                  relatedEntityType: "collection",
+                  relatedEntityId: recorded.id,
+                  documentType: "collection_photo",
+                  filePath: item.evidencePath,
+                },
+                config,
+              )
+            ).data,
+          );
+        if (
+          document.filePath !== item.evidencePath ||
+          document.relatedEntityId !== recorded.id
+        )
+          throw new Error(
+            "The evidence acknowledgement does not match this collection. It remains saved for review.",
+          );
       }
       await removeAcknowledged(item);
       result.synced++;

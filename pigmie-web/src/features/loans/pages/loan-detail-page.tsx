@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { openWhatsApp, generateReceiptMessage } from '@/shared/lib/whatsapp';
 import { ReceiptModal, ReceiptCollection } from '@/features/collections/components/receipt-modal';
 import { useTranslation } from 'react-i18next';
+import { CollectionEvidenceButton } from '@/features/collections/components/collection-evidence-button';
 
 type Tab = 'overview' | 'schedule' | 'collections' | 'documents';
 
@@ -363,11 +364,7 @@ export const LoanDetailPage: React.FC = () => {
                         <tr key={col.id} className="hover:bg-muted transition-colors">
                           <td className="py-3 font-mono text-xs text-foreground/80">
                             <div className="flex items-center gap-2">
-                              {col.photoUrl && (
-                                <a href={col.photoUrl} target="_blank" rel="noopener noreferrer" title="View Collection Photo">
-                                  <img src={col.photoUrl} alt="Photo" className="w-8 h-8 rounded object-cover border border-border" />
-                                </a>
-                              )}
+                              <CollectionEvidenceButton collectionId={col.id} />
                               <span>{col.receiptNumber || `COL-${col.id.replace(/-/g, '').slice(0, 5).toUpperCase()}`}</span>
                             </div>
                           </td>

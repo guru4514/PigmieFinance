@@ -26,7 +26,7 @@ const PresetAmountChip = ({ amount, selected, onClick }: { amount: number, selec
   </Badge>
 );
 
-const CollectionCard = ({ item, isAccountant, pendingAmount, queueUnavailable }: { item: any, isAccountant: boolean, pendingAmount: number, queueUnavailable: boolean }) => {
+const CollectionCard = ({ item, isAccountant, pendingAmount, pendingEvidenceAmount, queueUnavailable }: { item: any, isAccountant: boolean, pendingAmount: number, pendingEvidenceAmount: number, queueUnavailable: boolean }) => {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [customAmount, setCustomAmount] = useState<number | ''>(item.amountDue);
@@ -41,7 +41,7 @@ const CollectionCard = ({ item, isAccountant, pendingAmount, queueUnavailable }:
   const [receiptData, setReceiptData] = useState<ReceiptCollection | null>(null);
 
   const handleCollect = async () => {
-    if (submitting.current || pendingAmount > 0 || queueUnavailable) return;
+    if (submitting.current || pendingAmount > 0 || pendingEvidenceAmount > 0 || queueUnavailable) return;
     if (!customAmount || customAmount <= 0) {
       toast.error('Please enter a valid amount');
       return;
@@ -100,6 +100,7 @@ const CollectionCard = ({ item, isAccountant, pendingAmount, queueUnavailable }:
       <div className={`h-1 w-full ${isCollected ? 'bg-emerald-500' : 'bg-amber-500'}`} />
       <CardContent className="p-4 sm:p-5">
         {pendingAmount > 0 && <p role="status" className="mb-3 text-sm text-amber-600 dark:text-amber-400">₹{pendingAmount} saved on this device, pending sync. Do not collect this payment again.</p>}
+        {pendingEvidenceAmount > 0 && <p role="status" className="mb-3 text-sm text-amber-600 dark:text-amber-400">₹{pendingEvidenceAmount} payment confirmed. Its photo is still saved on this device for retry. Sync the photo before recording another payment.</p>}
         {/* Header Section */}
         <div 
           className={`flex justify-between items-start ${!isCollected && !isAccountant ? 'cursor-pointer' : ''}`} 
@@ -190,7 +191,7 @@ const CollectionCard = ({ item, isAccountant, pendingAmount, queueUnavailable }:
               <Button 
                 className="h-11 px-6 bg-emerald-600 hover:bg-emerald-700 text-foreground font-semibold shadow-sm"
                 onClick={(e) => { e.stopPropagation(); handleCollect(); }}
-                disabled={isPending || isUploading || !customAmount || pendingAmount > 0 || queueUnavailable}
+                disabled={isPending || isUploading || !customAmount || pendingAmount > 0 || pendingEvidenceAmount > 0 || queueUnavailable}
               >
                 {isPending || isUploading ? t('collection.saving') : t('collection.collect')}
               </Button>
@@ -351,11 +352,11 @@ export function CollectionsTodayPage() {
               setIsSyncing(true);
               try {
                 const result = await processSyncQueue(owner);
-                if (result.synced > 0) {
+                if (result.synced > 0 || Object.keys(result.acknowledged).length > 0) {
                   await queryClient.invalidateQueries({ queryKey: ['collections'] });
                   await queryClient.invalidateQueries({ queryKey: ['loans'] });
                   await queryClient.invalidateQueries({ queryKey: ['reports'] });
-                  toast.success(`Synced ${result.synced} collection(s)`);
+                  toast.success(result.synced > 0 ? `Synced ${result.synced} collection(s)` : 'Payment confirmed. Photo delivery still needs retry.');
                 } else toast.info('No collections synced. Saved entries remain on this device; check the messages below.');
               } catch (error: unknown) {
                 toast.error(error instanceof Error ? error.message : 'Sync failed. Your saved collections remain on this device.');
@@ -366,7 +367,7 @@ export function CollectionsTodayPage() {
         {queueError && <p role="alert" className="text-sm text-destructive">{queueError}</p>}
         {legacyCount > 0 && <p role="alert" className="text-sm text-amber-600 dark:text-amber-400">Older saved collections need account verification before they can sync. Contact your administrator and do not clear this device’s browser data.</p>}
         {pendingCollections.filter(entry => entry.lastError).map(entry => (
-          <p key={entry.clientGeneratedId} role="alert" className="text-sm text-amber-600 dark:text-amber-400">Saved collection {entry.clientGeneratedId.slice(0, 8)}: {entry.lastError}</p>
+          <p key={entry.clientGeneratedId} role="alert" className="text-sm text-amber-600 dark:text-amber-400">{entry.paymentAcknowledgement ? 'Confirmed payment; photo pending' : 'Saved collection'} {entry.clientGeneratedId.slice(0, 8)}: {entry.lastError}</p>
         ))}
 
         {/* Stats Grid — Option C */}
@@ -442,7 +443,7 @@ export function CollectionsTodayPage() {
       ) : (
         <div className="space-y-4">
           {sortedCollections.map((item: any) => (
-            <CollectionCard key={item.id} item={item} isAccountant={isAccountant} pendingAmount={pendingCollections.filter(entry => entry.loanId === item.loanId).reduce((sum, entry) => sum + entry.amount, 0)} queueUnavailable={!!queueError || queueLoading} />
+            <CollectionCard key={item.id} item={item} isAccountant={isAccountant} pendingAmount={pendingCollections.filter(entry => entry.loanId === item.loanId && !entry.paymentAcknowledgement).reduce((sum, entry) => sum + entry.amount, 0)} pendingEvidenceAmount={pendingCollections.filter(entry => entry.loanId === item.loanId && entry.paymentAcknowledgement).reduce((sum, entry) => sum + entry.amount, 0)} queueUnavailable={!!queueError || queueLoading} />
           ))}
         </div>
       )}
