@@ -1,0 +1,3 @@
+#!/bin/sh
+# Inspect complete staged files with the same detector used by CI.
+exec node scripts/check-secrets.mjs --staged
