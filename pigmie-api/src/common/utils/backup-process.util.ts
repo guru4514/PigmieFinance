@@ -19,9 +19,9 @@ export function backupProcessEnvironment(
     ]);
     if ([...url.searchParams.keys()].some((name) => !allowed.has(name)))
       throw new Error();
-    // Client certificates need an explicitly designed configuration, not silent omission.
-    if (url.searchParams.has('sslcert') || url.searchParams.has('sslkey'))
-      throw new Error();
+    // A client private key needs explicit support. The caller supplies the trusted
+    // CA separately; historical Prisma sslcert parameters do not override it.
+    if (url.searchParams.has('sslkey')) throw new Error();
     const environment: NodeJS.ProcessEnv = {};
     for (const name of [
       'PATH',

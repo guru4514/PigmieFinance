@@ -1,15 +1,14 @@
 import { spawn } from 'child_process';
-import * as crypto from 'crypto';
 import { Upload } from '@aws-sdk/lib-storage';
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { PassThrough } from 'stream';
 import { pipeline } from 'stream/promises';
 import { resolve } from 'path';
 import { backupProcessEnvironment } from '../src/common/utils/backup-process.util';
+import { encryptedBackupStream } from '../src/common/utils/backup-format.util';
 
 // Ensure required environment variables are set
 const requiredEnvVars = [
-  'DATABASE_URL',
   'BACKUP_ENCRYPTION_KEY',
   'R2_ACCOUNT_ID',
   'R2_ACCESS_KEY_ID',
@@ -17,7 +16,27 @@ const requiredEnvVars = [
   'R2_BUCKET_NAME',
 ];
 
+function configuredConnection() {
+  if (process.env.DIRECT_URL || process.env.DATABASE_URL)
+    return process.env.DIRECT_URL || process.env.DATABASE_URL;
+  if (
+    ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'].every(
+      (name) => process.env[name],
+    )
+  ) {
+    const connection = new URL('postgresql://placeholder');
+    connection.hostname = process.env.DB_HOST!;
+    connection.port = process.env.DB_PORT || '5432';
+    connection.username = process.env.DB_USER!;
+    connection.password = process.env.DB_PASSWORD!;
+    connection.pathname = '/' + process.env.DB_NAME!;
+    return connection.toString();
+  }
+  return undefined;
+}
+const dbUrl = configuredConnection();
 const missingVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);
+if (!dbUrl) missingVars.push('DIRECT_URL or database connection variables');
 if (missingVars.length > 0) {
   console.error(
     `Missing required environment variables: ${missingVars.join(', ')}`,
@@ -25,20 +44,14 @@ if (missingVars.length > 0) {
   process.exit(1);
 }
 
-const dbUrl = process.env.DATABASE_URL!;
 const encryptionKeyRaw = process.env.BACKUP_ENCRYPTION_KEY!;
 const accountId = process.env.R2_ACCOUNT_ID!;
 const accessKeyId = process.env.R2_ACCESS_KEY_ID!;
 const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY!;
 const bucketName = process.env.R2_BUCKET_NAME!;
 
-// Create a 32-byte key using SHA-256 to ensure proper length for aes-256-cbc
-const key = crypto.createHash('sha256').update(encryptionKeyRaw).digest();
-const iv = crypto.randomBytes(16);
-const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-const filename = `backup-${timestamp}.sql.enc`;
+const filename = `backups/backup-${timestamp}.pgbk`;
 
 const s3Client = new S3Client({
   region: 'auto',
@@ -52,14 +65,20 @@ const s3Client = new S3Client({
 async function runBackup() {
   console.log(`Starting backup: ${filename}`);
 
-  const pgDumpProcess = spawn('pg_dump', ['--no-password'], {
-    env: backupProcessEnvironment(
-      dbUrl,
-      process.env.BACKUP_CA_PATH ||
-        resolve(__dirname, '../prisma/supabase-ca.crt'),
-    ),
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  const cipher = encryptedBackupStream(encryptionKeyRaw);
+  const pgDumpProcess = spawn(
+    process.env.PG_DUMP_PATH || 'pg_dump',
+    ['--no-password', '--format=custom'],
+    {
+      env: backupProcessEnvironment(
+        dbUrl!,
+        process.env.BACKUP_CA_PATH ||
+          resolve(__dirname, '../prisma/supabase-ca.crt'),
+      ),
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    },
+  );
 
   if (!pgDumpProcess.stdout) {
     throw new Error('Failed to get stdout from pg_dump process');
@@ -71,9 +90,6 @@ async function runBackup() {
   }
 
   const uploadStream = new PassThrough();
-
-  // Prepend IV to the output so it can be used for decryption
-  uploadStream.write(iv);
 
   const upload = new Upload({
     client: s3Client,

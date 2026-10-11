@@ -23,6 +23,7 @@ describe('backup child environment', () => {
     'invalid dummy input',
     'https://example.invalid/test',
     'postgresql://user:dummy@db.example.invalid/test?options=unsupported',
+    'postgresql://user:dummy@db.example.invalid/test?sslkey=unsupported',
   ])('rejects unsupported configuration with a fixed diagnostic', (input) => {
     expect(() => backupProcessEnvironment(input, '/test/ca.crt')).toThrow(
       'Unsupported backup database configuration',

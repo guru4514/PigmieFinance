@@ -40,3 +40,10 @@ secrets*.txt
 docs/*-check.jpg
 docs/staging-project-*.jpg
 docs/staging-migrations-verified.jpg
+
+# Isolated recovery tooling and encrypted rehearsal artifacts
+.recovery/
+*.dump
+*.dump.enc
+*.sql.enc
+*.pgbk
