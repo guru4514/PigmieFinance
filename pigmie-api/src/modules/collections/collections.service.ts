@@ -49,7 +49,7 @@ export class CollectionsService {
       // Build loan filter
       const loanWhere: Prisma.LoanWhereInput = {
         organizationId,
-        status: 'active',
+        status: { in: ['active', 'defaulted'] },
       };
       if (user.role === 'agent') {
         loanWhere.assignedAgentId = user.id;
@@ -213,11 +213,15 @@ export class CollectionsService {
         }
         return { status: 'duplicate', collection: existing, customer: null };
       }
+      if (dto.photoUrl)
+        throw new BadRequestException(
+          'Attach collection evidence through private documents after payment confirmation',
+        );
       const loan = await tx.loan.findFirst({
         where: {
           id: dto.loanId,
           organizationId,
-          status: 'active',
+          status: { in: ['active', 'defaulted'] },
           ...(actor.role === 'agent' ? { assignedAgentId: actor.id } : {}),
           ...(actor.role === 'branch_manager'
             ? { customer: { branchId: actor.branchId } }
@@ -227,7 +231,8 @@ export class CollectionsService {
           customer: { select: { id: true, email: true, fullName: true } },
         },
       });
-      if (!loan) throw new NotFoundException('Loan not found or not active');
+      if (!loan)
+        throw new NotFoundException('Loan not found or not active/defaulted');
       const clientId = dto.clientGeneratedId.toUpperCase();
       const receiptNumber = `RCP-${dto.collectionDate.replace(/-/g, '')}-${clientId}`;
       // A foreign/mismatched unique identifier fails closed; never query inside an aborted PostgreSQL transaction.
@@ -251,6 +256,22 @@ export class CollectionsService {
         },
       });
       await this.applyToSchedule(tx, dto.loanId, dto.amount);
+      await tx.auditLog.create({
+        data: {
+          organizationId,
+          actorStaffId: staffId,
+          action: 'collection.recorded',
+          entityType: 'Collection',
+          entityId: collection.id,
+          newValue: {
+            loanId: dto.loanId,
+            clientGeneratedId: dto.clientGeneratedId,
+            amount: new Prisma.Decimal(dto.amount).toFixed(2),
+            collectionDate: dto.collectionDate,
+            collectionMethod: dto.collectionMethod,
+          },
+        },
+      });
       return { status: 'created', collection, customer: loan.customer };
     });
     // Deliver only after commit; a mail outage cannot roll back a saved payment.
@@ -362,7 +383,7 @@ export class CollectionsService {
       }
 
       const updated = await tx.collection.update({
-        where: { id: collectionId },
+        where: { id: collectionId, organizationId, status: 'recorded' },
         data: {
           status: 'reversed',
           reversedReason: reason,
@@ -378,6 +399,26 @@ export class CollectionsService {
         collection.loanId,
         Number(collection.amount),
       );
+      await tx.auditLog.create({
+        data: {
+          organizationId,
+          actorStaffId: staffId,
+          action: 'collection.reversed',
+          entityType: 'Collection',
+          entityId: collectionId,
+          oldValue: { status: 'recorded' },
+          newValue: {
+            status: 'reversed',
+            loanId: collection.loanId,
+            amount: collection.amount.toFixed(2),
+            collectionDate: collection.collectionDate
+              .toISOString()
+              .slice(0, 10),
+            collectionMethod: collection.collectionMethod,
+            reasonProvided: !!reason.trim(),
+          },
+        },
+      });
 
       return updated;
     });

@@ -15,6 +15,7 @@ const agent: StaffUser = {
 function harness() {
   const actor = { id: agent.id, role: agent.role, branchId: agent.branchId };
   const tx = {
+    auditLog: { create: jest.fn().mockResolvedValue({ id: 'audit' }) },
     $queryRaw: jest.fn().mockResolvedValue([]),
     staff: {
       findFirst: jest.fn().mockResolvedValue(actor),
@@ -56,6 +57,18 @@ function harness() {
   };
 }
 describe('Cash deposit scope and verification', () => {
+  it('fails verification when required transactional audit persistence fails', async () => {
+    const { service, tx } = harness();
+    tx.staff.findFirst.mockResolvedValue({
+      id: 'admin',
+      role: 'org_admin',
+      branchId: 'branch-a',
+    });
+    tx.auditLog.create.mockRejectedValue(new Error('Synthetic audit failure'));
+    await expect(
+      service.verify('org', 'deposit', 'admin', { status: 'verified' }),
+    ).rejects.toThrow('Synthetic audit failure');
+  });
   it('overrides a forged agent list filter with the authenticated owner', async () => {
     const { service, tx } = harness();
     await service.findAll('org', { agentId: 'foreign' }, agent);

@@ -4,6 +4,8 @@ Prepared: 11 October 2026. Status: researched recommendation and implementation 
 
 Implementation update, 11 October 2026: backlog 01 has a published stabilization checkpoint in draft PR #2. Backlog 04 now has a verified loan-product write increment: current administrator authorization and serialized product bounds. See [loan-product verification](LOAN_PRODUCT_AUTHORIZATION_VERIFICATION.md). The remaining backlog and real-data gates are still open; this update does not mark the plan complete.
 
+Subsequent increment: audit reads and customer deactivation use current actor checks; new collection photos use private documents with retained retry evidence; payment/reversal and cash handover have required transactional audits; defaulted repayment is supported. Development's exact metadata comparison identified a migration-checksum mismatch, update-action drift and missing indexes; no development history/DDL was changed. See [four-priority progress](FOUR_PRIORITY_PROGRESS_2026-10-11.md) for measured evidence and open schema, legacy-storage, policy and cash-reconciliation work.
+
 ## 1. Decision
 
 Keep Pigmie focused on loan collections and cash reconciliation for a small, legally operating lending organization. Most existing backend modules support that workflow. The problem is excessive user-visible complexity, several premature capabilities and incomplete operational guarantees, rather than a collection of entirely useless modules.

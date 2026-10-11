@@ -66,6 +66,20 @@ export class CashDepositsService {
           status: 'pending',
         },
       });
+      await tx.auditLog.create({
+        data: {
+          organizationId,
+          actorStaffId: agentId,
+          action: 'cash_handover.recorded',
+          entityType: 'CashDeposit',
+          entityId: cashDeposit.id,
+          newValue: {
+            amount: new Prisma.Decimal(dto.amount).toFixed(2),
+            depositDate: dto.depositDate,
+            status: 'pending',
+          },
+        },
+      });
       return cashDeposit;
     });
   }
@@ -149,6 +163,17 @@ export class CashDepositsService {
           verifiedById: verifierId,
           verifiedAt: new Date(),
           notes: newNotes,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          organizationId,
+          actorStaffId: verifierId,
+          action: 'cash_handover.reviewed',
+          entityType: 'CashDeposit',
+          entityId: id,
+          oldValue: { status: 'pending' },
+          newValue: { status: dto.status, agentId: deposit.agentId },
         },
       });
       return updated;

@@ -35,6 +35,7 @@ function harness() {
     notes: null as string | null,
   };
   const tx = {
+    auditLog: { create: jest.fn().mockResolvedValue({ id: 'audit' }) },
     $executeRaw: jest.fn().mockResolvedValue(1),
     staff: { findFirst: jest.fn().mockResolvedValue(actor) },
     loan: {
@@ -98,6 +99,26 @@ function harness() {
   return { service, tx, actor, collection, row, send };
 }
 describe('Payment posting and retry safety', () => {
+  it('requires the financial audit before commit and confirmation', async () => {
+    const h = harness();
+    h.tx.auditLog.create.mockRejectedValue(
+      new Error('Synthetic audit failure'),
+    );
+    await expect(
+      h.service.recordCollection('org', 'staff', dto),
+    ).rejects.toThrow('Synthetic audit failure');
+    expect(h.send).not.toHaveBeenCalled();
+  });
+  it('rejects new public evidence URLs before payment creation', async () => {
+    const h = harness();
+    await expect(
+      h.service.recordCollection('org', 'staff', {
+        ...dto,
+        photoUrl: 'https://example.test/photo',
+      }),
+    ).rejects.toThrow('private documents');
+    expect(h.tx.collection.create).not.toHaveBeenCalled();
+  });
   it('locks and rechecks the current actor/loan assignment before posting', async () => {
     const h = harness();
     expect((await h.service.recordCollection('org', 'staff', dto)).status).toBe(
@@ -108,7 +129,7 @@ describe('Payment posting and retry safety', () => {
         where: {
           id: dto.loanId,
           organizationId: 'org',
-          status: 'active',
+          status: { in: ['active', 'defaulted'] },
           assignedAgentId: 'staff',
         },
       }),
