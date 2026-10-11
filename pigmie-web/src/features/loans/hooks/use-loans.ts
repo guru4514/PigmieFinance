@@ -10,7 +10,8 @@ export interface Loan {
   principalAmount: number;
   tenure: number;
   status: LoanStatus;
-  remainingBalance: number;
+  outstandingBalance: number | string;
+  interestRateAnnual: number | string;
   startDate?: string;
   endDate?: string;
   nextPaymentDate?: string;

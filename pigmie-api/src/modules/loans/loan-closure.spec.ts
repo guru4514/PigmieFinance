@@ -25,7 +25,7 @@ function harness() {
         interestComponent: new Prisma.Decimal(10),
         dueAmount: new Prisma.Decimal(110),
         paidAmount: new Prisma.Decimal(55),
-        status: 'partially_paid' as const,
+        status: 'partially_paid' as 'partially_paid' | 'paid',
       },
     ],
   };
@@ -127,9 +127,25 @@ describe('Loan closure settlement', () => {
   it('allows the existing fully paid closure without an invented payment', async () => {
     const h = harness();
     h.loan.outstandingBalance = new Prisma.Decimal(0);
+    h.loan.totalCollected = new Prisma.Decimal(110);
+    h.loan.schedule[0].paidAmount = new Prisma.Decimal(110);
+    h.loan.schedule[0].status = 'paid';
     await h.service.close('org', 'loan', 'staff');
     expect(h.tx.collection.create).not.toHaveBeenCalled();
     expect(h.tx.loan.update).toHaveBeenCalled();
+  });
+  it('refuses a settlement when the schedule or loan aggregates conceal a balance difference', async () => {
+    const h = harness();
+    h.loan.outstandingBalance = new Prisma.Decimal(54);
+    await expect(h.service.getPreClosureDetails('org', 'loan')).rejects.toThrow(
+      'reconciliation',
+    );
+    await expect(
+      h.service.close('org', 'loan', 'staff', { preClosureAmount: 55 }),
+    ).rejects.toThrow('reconciliation');
+    expect(h.tx.collection.create).not.toHaveBeenCalled();
+    expect(h.tx.loan.update).not.toHaveBeenCalled();
+    expect(h.tx.loanSchedule.updateMany).not.toHaveBeenCalled();
   });
   it('blocks a second closure on a closed loan', async () => {
     const h = harness();

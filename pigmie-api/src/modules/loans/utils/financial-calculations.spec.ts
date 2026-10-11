@@ -182,8 +182,12 @@ describe('Early closure', () => {
     expect(
       calculatePreClosure(
         [
-          row({ status: 'paid' }),
-          row({ installmentNumber: 2, status: 'waived' }),
+          row({ status: 'paid', paidAmount: decimal(110) }),
+          row({
+            installmentNumber: 2,
+            dueDate: new Date('2026-02-28'),
+            status: 'waived',
+          }),
         ],
         start,
         now,
@@ -203,5 +207,16 @@ describe('Early closure', () => {
     ).toThrow('reconciliation');
     expect(() => calculatePreClosure([row()], null, now)).toThrow();
     expect(() => calculatePreClosure([], start, now)).toThrow();
+  });
+  it('does not hide unpaid debt behind a paid status or an invalid calendar schedule', () => {
+    expect(() =>
+      calculatePreClosure([row({ status: 'paid' })], start, now),
+    ).toThrow('reconciliation');
+    expect(() =>
+      calculatePreClosure([row(), row({ installmentNumber: 2 })], start, now),
+    ).toThrow('reconciliation');
+    expect(() =>
+      calculatePreClosure([row({ installmentNumber: 2 })], start, now),
+    ).toThrow('reconciliation');
   });
 });

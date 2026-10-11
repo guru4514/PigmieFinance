@@ -66,11 +66,20 @@ try {
         "SELECT tablename AS table_name,indexname AS name,indexdef AS definition FROM pg_indexes WHERE schemaname='public' AND tablename <> '_prisma_migrations' ORDER BY tablename,indexname",
       );
       const triggers =
-        await client.query(`SELECT c.relname AS table_name,t.tgname AS name,t.tgenabled AS enabled FROM pg_trigger t
+        await client.query(`SELECT c.relname AS table_name,t.tgname AS name,t.tgenabled AS enabled,pg_get_triggerdef(t.oid) AS definition FROM pg_trigger t
         JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
         WHERE n.nspname='public' AND NOT t.tgisinternal ORDER BY c.relname,t.tgname`);
       const history = await client.query(
         'SELECT migration_name,checksum,finished_at IS NOT NULL AS finished,rolled_back_at IS NOT NULL AS rolled_back FROM public._prisma_migrations ORDER BY migration_name',
+      );
+      const policies = await client.query(
+        "SELECT tablename AS table_name,policyname AS name,permissive,roles,cmd,qual,with_check FROM pg_policies WHERE schemaname='public' ORDER BY tablename,policyname",
+      );
+      const functions = await client.query(
+        "SELECT 'function' AS table_name,p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' AS name,pg_get_functiondef(p.oid) AS definition FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.prokind='f' ORDER BY name",
+      );
+      const enums = await client.query(
+        "SELECT 'enum' AS table_name,t.typname AS name,jsonb_agg(e.enumlabel ORDER BY e.enumsortorder) AS labels FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace JOIN pg_enum e ON e.enumtypid=t.oid WHERE n.nspname='public' GROUP BY t.typname ORDER BY t.typname",
       );
       return {
         columns: columns.rows,
@@ -78,6 +87,9 @@ try {
         indexes: indexes.rows,
         triggers: triggers.rows,
         history: history.rows,
+        policies: policies.rows,
+        functions: functions.rows,
+        enums: enums.rows,
       };
     } finally {
       try {
@@ -188,8 +200,19 @@ try {
         'indexes',
         (row) => `${row.name}:${row.definition}`,
       ),
-      developmentTriggers: actual.triggers,
-      stagingTriggers: expected.triggers,
+      developmentTriggers: actual.triggers.map(
+        ({ table_name, name, enabled }) => ({ table_name, name, enabled }),
+      ),
+      stagingTriggers: expected.triggers.map(
+        ({ table_name, name, enabled }) => ({ table_name, name, enabled }),
+      ),
+      triggerDefinitionDifferences: differences(
+        'triggers',
+        (row) => `${row.enabled}:${row.definition}`,
+      ),
+      policyDifferences: differences('policies', (row) => JSON.stringify(row)),
+      functionDifferences: differences('functions', (row) => row.definition),
+      enumDifferences: differences('enums', (row) => JSON.stringify(row)),
       developmentHistory: actual.history.map((row) => ({
         name: row.migration_name,
         checksumMatches: migrations.get(row.migration_name) === row.checksum,

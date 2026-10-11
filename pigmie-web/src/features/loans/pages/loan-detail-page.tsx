@@ -80,7 +80,7 @@ export const LoanDetailPage: React.FC = () => {
       amount: loan.nextPaymentAmount || 0,
       date: new Date().toLocaleDateString(),
       loanId: loan.id,
-      outstandingBalance: loan.remainingBalance || 0,
+      outstandingBalance: Number(loan.outstandingBalance ?? 0),
     });
     openWhatsApp(phone, msg);
   };
@@ -125,7 +125,7 @@ export const LoanDetailPage: React.FC = () => {
                   customerName: loan.customer?.fullName || loan.customerId,
                   customerPhone: loan.customer?.phone || loan.customer?.phoneNumber,
                   loanId: loan.id,
-                  outstandingBalance: Number(loan.remainingBalance || 0),
+                  outstandingBalance: Number(loan.outstandingBalance ?? 0),
                   receiptNumber: latestCol?.receiptNumber || undefined,
                 });
                 setReceiptModalOpen(true);
@@ -266,11 +266,11 @@ export const LoanDetailPage: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground"> {t('loans.remainingBalance')} </p>
-                  <p className="text-xl font-semibold text-foreground">₹{(loan.remainingBalance ?? 0).toLocaleString()}</p>
+                  <p className="text-xl font-semibold text-foreground">₹{Number(loan.outstandingBalance ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground"> {t('loans.interestRate')} </p>
-                  <p className="text-lg font-medium text-foreground">{loan.loanProduct?.interestRateAnnual}% p.a.</p>
+                  <p className="text-lg font-medium text-foreground">{loan.interestRateAnnual == null ? 'Unavailable' : `${Number(loan.interestRateAnnual)}% p.a.`}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground"> {t('loans.tenure')} </p>
@@ -405,7 +405,7 @@ export const LoanDetailPage: React.FC = () => {
                                     customerName: loan.customer?.fullName || loan.customerId,
                                     customerPhone: loan.customer?.phone || loan.customer?.phoneNumber,
                                     loanId: loan.id,
-                                    outstandingBalance: Number(loan.remainingBalance || 0),
+                                    outstandingBalance: Number(loan.outstandingBalance ?? 0),
                                     receiptNumber: col.receiptNumber || undefined,
                                   });
                                   setReceiptModalOpen(true);

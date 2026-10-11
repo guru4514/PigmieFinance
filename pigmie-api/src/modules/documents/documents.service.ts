@@ -35,16 +35,16 @@ export class DocumentsService {
   private bucket(type: DocumentRelatedType) {
     return type === 'customer' ? 'kyc-documents' : 'collection-photos';
   }
-  private async requirePrivateCollectionBucket(type: DocumentRelatedType) {
-    if (type !== 'collection') return;
+  private async requirePrivateBucket(type: DocumentRelatedType) {
     try {
-      const { data, error } =
-        await this.supabaseAdmin.storage.getBucket('collection-photos');
+      const { data, error } = await this.supabaseAdmin.storage.getBucket(
+        this.bucket(type),
+      );
       if (error || !data || data.public !== false)
         throw new Error('Private storage required');
     } catch {
       throw new ServiceUnavailableException(
-        'Private collection storage is unavailable',
+        'Private document storage is unavailable',
       );
     }
   }
@@ -165,7 +165,7 @@ export class DocumentsService {
           true,
         );
         const bucket = this.bucket(type);
-        await this.requirePrivateCollectionBucket(type);
+        await this.requirePrivateBucket(type);
         const filePath = `${organizationId}/${type}/${dto.relatedEntityId}/${randomUUID()}-${dto.fileName}`;
         try {
           const { data, error } = await this.supabaseAdmin.storage
@@ -225,7 +225,7 @@ export class DocumentsService {
           return existing;
         }
         let object: { size: number; mimeType: string };
-        await this.requirePrivateCollectionBucket(type);
+        await this.requirePrivateBucket(type);
         try {
           const result = await this.supabaseAdmin.storage
             .from(this.bucket(type))
@@ -245,6 +245,18 @@ export class DocumentsService {
         }
         if (!Number.isSafeInteger(object.size) || object.size <= 0)
           throw new BadRequestException('Invalid uploaded document size');
+        if (
+          ![
+            'image/png',
+            'image/jpeg',
+            'image/webp',
+            'application/pdf',
+          ].includes(object.mimeType) ||
+          object.size > 10 * 1024 * 1024
+        )
+          throw new BadRequestException(
+            'Documents must be a supported image or PDF up to 10 MB',
+          );
         if (
           type === 'collection' &&
           (!['image/png', 'image/jpeg', 'image/webp'].includes(
@@ -297,7 +309,7 @@ export class DocumentsService {
           document.relatedEntityId,
           document.filePath,
         );
-        await this.requirePrivateCollectionBucket(type);
+        await this.requirePrivateBucket(type);
         try {
           const { data, error } = await this.supabaseAdmin.storage
             .from(this.bucket(type))

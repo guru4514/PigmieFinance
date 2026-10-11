@@ -1,5 +1,9 @@
 # Development schema reconciliation — 2026-10-11
 
+## Latest increment
+
+After a retained encrypted development backup was restored and compared successfully, the two missing composite indexes were rehearsed with rollback and applied transactionally. Financial totals and migration history were preserved. The subsequent comparison found no expected index-definition, column, enum, policy-semantic or trigger-definition differences. Staging has the additional provider helper `rls_auto_enable()`; it was not copied blindly. Foreign-key update actions, index names and migration history remain unresolved. See [third-pass evidence](FOUR_PRIORITY_THIRD_PASS_2026-10-11.md). Findings below describe earlier snapshots and rehearsals.
+
 ## Verified read-only findings
 
 The fixed development project is `yvxtkzxqaqkhyntdszcu`. The inspector checks both connection identities before querying metadata and suppresses raw Prisma diagnostics. It does not read customer records or alter schema/history.

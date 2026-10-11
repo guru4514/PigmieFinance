@@ -57,6 +57,7 @@ const storage = createClient(
   },
 ).storage;
 let evidencePath;
+let kycPath;
 const orgId = randomUUID();
 let seeded = false;
 let checkpoint = 'connect';
@@ -333,6 +334,55 @@ try {
       })
     ).paidAmount.toString(),
     '55',
+  );
+  checkpoint = 'private customer document';
+  const kycDto = {
+    relatedEntityType: 'customer',
+    relatedEntityId: fixture.customer.id,
+    documentType: 'synthetic_kyc',
+    fileName: 'synthetic.pdf',
+  };
+  const kycGrant = await documents.getUploadUrl(
+    orgId,
+    fixture.agent.id,
+    kycDto,
+  );
+  kycPath = kycGrant.path;
+  assert.equal(kycGrant.bucket, 'kyc-documents');
+  assert.equal(
+    (
+      await storage
+        .from(kycGrant.bucket)
+        .uploadToSignedUrl(
+          kycGrant.path,
+          kycGrant.token,
+          Buffer.from('%PDF-1.4\n% Synthetic verification only\n%%EOF\n'),
+          { contentType: 'application/pdf' },
+        )
+    ).error,
+    null,
+  );
+  const kycDocument = await documents.registerDocument(
+    orgId,
+    fixture.agent.id,
+    { ...kycDto, filePath: kycPath },
+  );
+  const kycDownload = await documents.getSignedDownloadUrl(
+    orgId,
+    kycDocument.id,
+    fixture.agent.id,
+  );
+  assert.equal(
+    (await fetch(kycDownload.signedUrl, { signal: AbortSignal.timeout(10000) }))
+      .status,
+    200,
+  );
+  await assert.rejects(
+    documents.getSignedDownloadUrl(
+      orgId,
+      kycDocument.id,
+      fixture.replacementAgent.id,
+    ),
   );
   checkpoint = 'mismatched retry';
   await assert.rejects(
@@ -725,6 +775,7 @@ try {
       cashReconciliation:
         'carry-forward preserved for inactive staff; own handover verification denied',
       data: 'synthetic only',
+      privateKyc: 'owned PDF upload/download passed; another agent denied',
     }),
   );
 } catch (error) {
@@ -745,6 +796,11 @@ try {
           .remove([evidencePath]);
         assert.equal(removed.error, null);
       }
+      if (kycPath)
+        assert.equal(
+          (await storage.from('kyc-documents').remove([kycPath])).error,
+          null,
+        );
       await prisma.$transaction(
         async (tx) => {
           await tx.document.deleteMany({ where: { organizationId: orgId } });

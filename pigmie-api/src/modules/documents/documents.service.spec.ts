@@ -94,6 +94,29 @@ function harness() {
 }
 describe('Document record authorization and paths', () => {
   it.each([
+    { size: 2048, contentType: 'text/html' },
+    { size: 10 * 1024 * 1024 + 1, contentType: 'application/pdf' },
+  ])(
+    'does not register unsupported or oversized KYC metadata %j',
+    async (metadata) => {
+      const { service, tx } = harness();
+      info.mockResolvedValue({ data: metadata, error: null });
+      await expect(
+        service.registerDocument('org', 'agent', { ...dto, filePath: path }),
+      ).rejects.toThrow(BadRequestException);
+      expect(tx.document.create).not.toHaveBeenCalled();
+    },
+  );
+  it('refuses customer KYC grants when its bucket is public', async () => {
+    const { service } = harness();
+    getBucket.mockResolvedValue({ data: { public: true }, error: null });
+    await expect(service.getUploadUrl('org', 'agent', dto)).rejects.toThrow(
+      ServiceUnavailableException,
+    );
+    expect(getBucket).toHaveBeenCalledWith('kyc-documents');
+    expect(createSignedUploadUrl).not.toHaveBeenCalled();
+  });
+  it.each([
     DocumentRelatedTypeEnum.customer,
     DocumentRelatedTypeEnum.loan,
     DocumentRelatedTypeEnum.collection,

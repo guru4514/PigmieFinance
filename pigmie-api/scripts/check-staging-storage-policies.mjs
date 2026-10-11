@@ -7,18 +7,41 @@ import { validateStaging } from './staging.mjs';
 
 let client;
 let checkpoint = 'configuration';
-const apply = process.argv.slice(2).includes('--apply-staging');
+const argument = process.argv[2];
+const apply = ['--apply-staging', '--apply-development'].includes(argument);
+const developmentMode = ['--development', '--apply-development'].includes(
+  argument,
+);
 const policy = 'pigmie_private_evidence_api_only';
 try {
-  assert.ok(process.argv.slice(2).every((arg) => arg === '--apply-staging'));
-  const config = parse(
+  assert.ok(
+    process.argv.length <= 3 &&
+      (!argument ||
+        ['--apply-staging', '--development', '--apply-development'].includes(
+          argument,
+        )),
+  );
+  const development = parse(readFileSync(new URL('../.env', import.meta.url)));
+  const staging = parse(
     readFileSync(new URL('../.env.staging', import.meta.url)),
   );
-  validateStaging(
-    config,
-    parse(readFileSync(new URL('../.env', import.meta.url))),
-  );
-  assert.equal(config.STAGING_PROJECT_REF, 'sjelnxrlkrvwjcgqbvre');
+  validateStaging(staging, development);
+  assert.equal(staging.STAGING_PROJECT_REF, 'sjelnxrlkrvwjcgqbvre');
+  const config = developmentMode ? development : staging;
+  if (developmentMode) {
+    assert.equal(
+      config.SUPABASE_URL,
+      'https://yvxtkzxqaqkhyntdszcu.supabase.co',
+    );
+    const connection = new URL(config.DIRECT_URL);
+    assert.ok(
+      connection.hostname === 'db.yvxtkzxqaqkhyntdszcu.supabase.co' ||
+        (connection.hostname.endsWith('.pooler.supabase.com') &&
+          decodeURIComponent(connection.username) ===
+            'postgres.yvxtkzxqaqkhyntdszcu' &&
+          connection.port === '5432'),
+    );
+  }
   const url = new URL(config.DIRECT_URL);
   for (const key of [
     'sslmode',
@@ -100,7 +123,9 @@ try {
       storageRls: true,
       browserReadsDenied: true,
       browserInsertDenied: true,
-      mode: apply ? 'applied only to staging' : 'dry-run rolled back',
+      mode: apply
+        ? `applied only to ${developmentMode ? 'development' : 'staging'}`
+        : 'dry-run rolled back',
       policy,
       buckets: ['collection-photos', 'kyc-documents'],
       limit:

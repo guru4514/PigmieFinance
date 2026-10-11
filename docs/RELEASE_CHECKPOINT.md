@@ -4,6 +4,8 @@ The application is not yet approved for release. Continue web stabilization befo
 
 ## Latest verified batch
 
+The [third stabilization pass](FOUR_PRIORITY_THIRD_PASS_2026-10-11.md) records newer evidence: retained development application restore, two applied development indexes, private evidence in both environments, closure consistency checks and temporary fee gates. Earlier test counts and storage/schema descriptions below are historical; the linked record describes remaining limits.
+
 - Organization onboarding rejects forged email, ineligible provider identities and duplicate account linkage; concurrent staging submissions create one organization. Current administrator checks deny overlapping demotion.
 - Document API checks current staff/entity scope before signing, listing, registering or deleting. Registration uses actual storage metadata. Private staging upload/download and unauthorized/inactive actor rejection passed.
 - Provisioning recovery shares attempt locks with supported creators, rechecks links and deletes only eligible old marked identities. Two competing staging workers delete one synthetic orphan. Deployment cleanup remains opt-in and disabled by default.

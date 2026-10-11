@@ -72,7 +72,6 @@ export class ScheduledTasksService {
                 const marked = new Set(
                   markers.map((marker) => marker.entityId),
                 );
-                let totalFees = new Prisma.Decimal(0);
                 for (const row of rows) {
                   if (row.paidAmount.gte(row.dueAmount)) {
                     await tx.loanSchedule.update({
@@ -86,20 +85,14 @@ export class ScheduledTasksService {
                   const existingFee = row.dueAmount.gt(
                     row.principalComponent.plus(row.interestComponent),
                   );
-                  let fee = new Prisma.Decimal(0);
-                  if (!marker && !existingFee) {
-                    const value = loan.loanProduct.lateFeeValue;
-                    fee =
-                      loan.loanProduct.lateFeeType === 'flat'
-                        ? value
-                        : row.dueAmount.mul(value).div(100);
-                    fee = Prisma.Decimal.max(0, fee).toDecimalPlaces(2);
-                  }
+                  // Product settings are mutable and are not a loan contract.
+                  // Keep classification operational, but never invent new debt
+                  // until versioned terms and their accounting are implemented.
+                  const fee = new Prisma.Decimal(0);
                   await tx.loanSchedule.update({
                     where: { id: row.id },
                     data: { status: 'overdue', dueAmount: { increment: fee } },
                   });
-                  totalFees = totalFees.plus(fee);
                   if (!marker) {
                     await tx.auditLog.create({
                       data: {
@@ -112,20 +105,13 @@ export class ScheduledTasksService {
                           previousStatus: row.status,
                           fee: fee.toString(),
                           legacyFeeDetected: existingFee,
+                          feePolicy: 'disabled_pending_versioned_terms',
                         },
                         ipAddress: 'system',
                       },
                     });
                   }
                 }
-                if (totalFees.gt(0))
-                  await tx.loan.update({
-                    where: { id: loan.id },
-                    data: {
-                      totalPayable: { increment: totalFees },
-                      outstandingBalance: { increment: totalFees },
-                    },
-                  });
                 const severelyOverdue = await tx.loanSchedule.count({
                   where: {
                     loanId: loan.id,

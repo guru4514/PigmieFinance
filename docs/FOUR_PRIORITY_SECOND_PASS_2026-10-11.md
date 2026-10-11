@@ -2,6 +2,8 @@
 
 These are verified increments, not completion of all four packages or production approval. All staging business fixtures were synthetic and removed with cleanup verified. No development schema/history change, production deployment or public push was performed.
 
+The [third pass](FOUR_PRIORITY_THIRD_PASS_2026-10-11.md) subsequently applied two development indexes after a retained restore verification, established private development evidence storage, and added financial safeguards. This document retains the second-pass historical findings.
+
 Subsequent [backup/restore verification](BACKUP_RESTORE_VERIFICATION_2026-10-11.md) supersedes this pass's CBC-format and unverified application-restore entries. Full-platform recovery and off-site backup verification remain open.
 
 ## 1. Schema reconciliation

@@ -14,6 +14,19 @@ import { Prisma } from '@prisma/client';
 export class LoanProductsService {
   constructor(private tenantPrisma: TenantPrismaService) {}
 
+  private rejectUnsupportedFees(dto: {
+    lateFeeValue?: number;
+    processingFee?: number;
+  }) {
+    if (
+      (dto.lateFeeValue !== undefined && dto.lateFeeValue !== 0) ||
+      (dto.processingFee !== undefined && dto.processingFee !== 0)
+    )
+      throw new BadRequestException(
+        'Nonzero fees are unavailable until versioned loan terms and fee accounting are implemented',
+      );
+  }
+
   private async lockAdministrator(
     tx: Prisma.TransactionClient,
     organizationId: string,
@@ -48,6 +61,7 @@ export class LoanProductsService {
     dto: CreateLoanProductDto,
     staffId: string,
   ) {
+    this.rejectUnsupportedFees(dto);
     if (dto.minAmount > dto.maxAmount) {
       throw new BadRequestException(
         'minAmount cannot be greater than maxAmount',
@@ -126,6 +140,7 @@ export class LoanProductsService {
     dto: UpdateLoanProductDto,
     staffId: string,
   ) {
+    this.rejectUnsupportedFees(dto);
     return this.tenantPrisma.run(organizationId, async (tx) => {
       await this.lockAdministrator(tx, organizationId, staffId);
       const product = await this.lockProduct(tx, organizationId, id);

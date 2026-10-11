@@ -30,20 +30,25 @@ export function calculatePreClosure(
   let interest = new Prisma.Decimal(0);
   let fees = new Prisma.Decimal(0);
   let scheduled = new Prisma.Decimal(0);
-  for (const row of ordered) {
-    if (row.status === 'paid' || row.status === 'waived') continue;
+  for (const [index, row] of ordered.entries()) {
     const base = row.principalComponent.plus(row.interestComponent);
     if (
+      row.installmentNumber !== index + 1 ||
+      !Number.isFinite(row.dueDate.getTime()) ||
+      row.dueDate < startDate ||
+      (index > 0 && row.dueDate <= ordered[index - 1].dueDate) ||
       row.principalComponent.lt(0) ||
       row.interestComponent.lt(0) ||
       row.paidAmount.lt(0) ||
       row.dueAmount.lt(base) ||
-      row.paidAmount.gt(row.dueAmount)
+      row.paidAmount.gt(row.dueAmount) ||
+      (row.status === 'paid' && !row.paidAmount.equals(row.dueAmount))
     ) {
       throw new BadRequestException(
         'Schedule requires reconciliation before early closure',
       );
     }
+    if (row.status === 'paid' || row.status === 'waived') continue;
     const remaining = row.dueAmount.minus(row.paidAmount);
     if (remaining.isZero()) continue;
     const ratio = remaining.div(row.dueAmount);

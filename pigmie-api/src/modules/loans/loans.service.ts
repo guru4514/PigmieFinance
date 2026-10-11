@@ -37,9 +37,15 @@ export class LoansService {
         'agent',
       ]);
       await tx.$executeRaw`SELECT 1 FROM customers WHERE id = ${dto.customerId}::uuid AND organization_id = ${organizationId}::uuid FOR SHARE`;
+      await tx.$executeRaw`SELECT 1 FROM loan_products WHERE id = ${dto.loanProductId}::uuid AND organization_id = ${organizationId}::uuid FOR SHARE`;
       const product = await tx.loanProduct.findFirstOrThrow({
         where: { id: dto.loanProductId, organizationId, isActive: true },
       });
+      if (!product.processingFee.isZero() || !product.lateFeeValue.isZero()) {
+        throw new BadRequestException(
+          'This product has unsupported fees. Use a product with zero fees until versioned loan terms and fee accounting are implemented.',
+        );
+      }
 
       if (
         dto.principalAmount < product.minAmount.toNumber() ||
@@ -357,6 +363,7 @@ export class LoansService {
       });
       if (loan.status !== 'active')
         throw new BadRequestException('Loan is not active');
+      this.assertClosureBalances(loan);
       if (body?.preClosureAmount !== undefined) {
         const amount = body.preClosureAmount;
         if (
@@ -455,8 +462,38 @@ export class LoansService {
         throw new BadRequestException(
           'Loan must be active to calculate pre-closure',
         );
+      this.assertClosureBalances(loan);
       return calculatePreClosure(loan.schedule, loan.startDate);
     });
+  }
+
+  private assertClosureBalances(loan: {
+    totalPayable: Prisma.Decimal;
+    totalCollected: Prisma.Decimal;
+    outstandingBalance: Prisma.Decimal;
+    schedule: {
+      dueAmount: Prisma.Decimal;
+      paidAmount: Prisma.Decimal;
+      status: string;
+    }[];
+  }) {
+    const scheduledOutstanding = loan.schedule.reduce(
+      (sum, row) =>
+        row.status === 'waived'
+          ? sum
+          : sum.plus(row.dueAmount.minus(row.paidAmount)),
+      new Prisma.Decimal(0),
+    );
+    if (
+      loan.outstandingBalance.lt(0) ||
+      !loan.totalPayable
+        .minus(loan.totalCollected)
+        .equals(loan.outstandingBalance) ||
+      !scheduledOutstanding.equals(loan.outstandingBalance)
+    )
+      throw new BadRequestException(
+        'Loan balances require reconciliation before closure',
+      );
   }
 
   async writeOff(

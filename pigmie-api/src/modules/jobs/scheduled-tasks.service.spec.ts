@@ -156,13 +156,13 @@ describe('Active overdue job', () => {
     jest.useRealTimers();
     jest.restoreAllMocks();
   });
-  it('atomically updates the schedule, loan aggregates and durable evidence', async () => {
+  it('marks overdue and persists durable evidence without adding uncontracted debt', async () => {
     const h = harness();
     await h.service.markOverdueInstallments();
     expect(h.row().status).toBe('overdue');
-    expect(h.row().dueAmount.toNumber()).toBe(120);
-    expect(h.loan().totalPayable.toNumber()).toBe(120);
-    expect(h.loan().outstandingBalance.toNumber()).toBe(120);
+    expect(h.row().dueAmount.toNumber()).toBe(110);
+    expect(h.loan().totalPayable.toNumber()).toBe(110);
+    expect(h.loan().outstandingBalance.toNumber()).toBe(110);
     expect(h.markers()).toEqual(['loan_schedule.overdue']);
     expect(h.run).toHaveBeenCalledWith('org', expect.any(Function), {
       timeout: 60000,
@@ -171,13 +171,13 @@ describe('Active overdue job', () => {
       h.tx.loan.findFirst.mock.invocationCallOrder[0],
     );
   });
-  it('rounds percentage fees to cents', async () => {
+  it('does not charge from mutable percentage settings', async () => {
     const h = harness();
     h.loan().loanProduct.lateFeeType = 'percentage';
     h.loan().loanProduct.lateFeeValue = d(1.25);
     await h.service.markOverdueInstallments();
-    expect(h.row().dueAmount.toNumber()).toBe(111.38);
-    expect(h.loan().totalPayable.toNumber()).toBe(111.38);
+    expect(h.row().dueAmount.toNumber()).toBe(110);
+    expect(h.loan().totalPayable.toNumber()).toBe(110);
   });
   it('does not charge a fee twice on repeated or concurrent runs', async () => {
     const h = harness();
@@ -186,7 +186,7 @@ describe('Active overdue job', () => {
       h.service.markOverdueInstallments(),
     ]);
     await h.service.markOverdueInstallments();
-    expect(h.row().dueAmount.toNumber()).toBe(120);
+    expect(h.row().dueAmount.toNumber()).toBe(110);
     expect(h.tx.auditLog.create).toHaveBeenCalledTimes(1);
   });
   it('does not charge again when payment or reversal changed the status', async () => {
@@ -195,8 +195,8 @@ describe('Active overdue job', () => {
     h.row().status = 'partially_paid';
     h.row().paidAmount = d(20);
     await h.service.markOverdueInstallments();
-    expect(h.row().dueAmount.toNumber()).toBe(120);
-    expect(h.loan().totalPayable.toNumber()).toBe(120);
+    expect(h.row().dueAmount.toNumber()).toBe(110);
+    expect(h.loan().totalPayable.toNumber()).toBe(110);
   });
   it('preserves the zero-fee marker if product configuration changes later', async () => {
     const h = harness();
@@ -233,7 +233,7 @@ describe('Active overdue job', () => {
     expect(h.loan().totalPayable.toNumber()).toBe(110);
     expect(h.markers()).toEqual([]);
     await h.service.markOverdueInstallments();
-    expect(h.loan().totalPayable.toNumber()).toBe(120);
+    expect(h.loan().totalPayable.toNumber()).toBe(110);
   });
   it('does not penalize fully paid rows with stale status', async () => {
     const h = harness();

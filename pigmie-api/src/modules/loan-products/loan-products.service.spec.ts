@@ -53,6 +53,20 @@ function harness() {
 }
 
 describe('Loan product mutation authorization and bounds', () => {
+  it.each([{ processingFee: 1 }, { lateFeeValue: 10 }])(
+    'rejects new unsupported fee configuration %j',
+    async (fees) => {
+      const { service, tx } = harness();
+      await expect(
+        service.create('org', { ...dto, ...fees }, 'admin'),
+      ).rejects.toThrow('Nonzero fees');
+      await expect(
+        service.update('org', 'product', fees, 'admin'),
+      ).rejects.toThrow('Nonzero fees');
+      expect(tx.loanProduct.create).not.toHaveBeenCalled();
+      expect(tx.loanProduct.update).not.toHaveBeenCalled();
+    },
+  );
   it.each(['create', 'update', 'remove'] as const)(
     'denies %s when the current active administrator cannot be found',
     async (operation) => {
