@@ -1,8 +1,11 @@
 import { spawn } from 'child_process';
 import * as crypto from 'crypto';
 import { Upload } from '@aws-sdk/lib-storage';
-import { S3Client } from '@aws-sdk/client-s3';
+import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { PassThrough } from 'stream';
+import { pipeline } from 'stream/promises';
+import { resolve } from 'path';
+import { backupProcessEnvironment } from '../src/common/utils/backup-process.util';
 
 // Ensure required environment variables are set
 const requiredEnvVars = [
@@ -14,9 +17,11 @@ const requiredEnvVars = [
   'R2_BUCKET_NAME',
 ];
 
-const missingVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+const missingVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);
 if (missingVars.length > 0) {
-  console.error(`Missing required environment variables: ${missingVars.join(', ')}`);
+  console.error(
+    `Missing required environment variables: ${missingVars.join(', ')}`,
+  );
   process.exit(1);
 }
 
@@ -47,24 +52,28 @@ const s3Client = new S3Client({
 async function runBackup() {
   console.log(`Starting backup: ${filename}`);
 
-  const pgDumpProcess = spawn('pg_dump', [dbUrl]);
+  const pgDumpProcess = spawn('pg_dump', ['--no-password'], {
+    env: backupProcessEnvironment(
+      dbUrl,
+      process.env.BACKUP_CA_PATH ||
+        resolve(__dirname, '../prisma/supabase-ca.crt'),
+    ),
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
 
   if (!pgDumpProcess.stdout) {
     throw new Error('Failed to get stdout from pg_dump process');
   }
-  
+
   if (pgDumpProcess.stderr) {
-    pgDumpProcess.stderr.on('data', (data) => {
-      console.warn(`pg_dump stderr: ${data}`);
-    });
+    // Drain diagnostics without echoing connection details or database content.
+    pgDumpProcess.stderr.resume();
   }
 
   const uploadStream = new PassThrough();
 
   // Prepend IV to the output so it can be used for decryption
   uploadStream.write(iv);
-  
-  pgDumpProcess.stdout.pipe(cipher).pipe(uploadStream);
 
   const upload = new Upload({
     client: s3Client,
@@ -79,23 +88,49 @@ async function runBackup() {
     console.log(`Upload progress: ${progress.loaded} bytes`);
   });
 
+  const timeout = setTimeout(
+    () => {
+      pgDumpProcess.kill();
+      uploadStream.destroy(new Error('Backup exceeded time limit'));
+      void upload.abort().catch(() => undefined);
+    },
+    60 * 60 * 1000,
+  );
   try {
-    const [uploadResult] = await Promise.all([
+    await Promise.all([
       upload.done(),
+      pipeline(pgDumpProcess.stdout, cipher, uploadStream),
       new Promise<void>((resolve, reject) => {
         pgDumpProcess.on('close', (code) => {
           if (code === 0) resolve();
           else reject(new Error(`pg_dump exited with code ${code}`));
         });
-        pgDumpProcess.on('error', reject);
-      })
+        pgDumpProcess.on('error', () =>
+          reject(new Error('Database dump unavailable')),
+        );
+      }),
     ]);
-    console.log('Backup uploaded successfully:', uploadResult);
-    process.exit(0);
-  } catch (error) {
-    console.error('Backup failed:', error);
-    process.exit(1);
+    console.log(
+      'Encrypted backup upload completed. Restore verification is still required.',
+    );
+  } catch {
+    pgDumpProcess.kill();
+    uploadStream.destroy();
+    await upload.abort().catch(() => undefined);
+    await s3Client
+      .send(new DeleteObjectCommand({ Bucket: bucketName, Key: filename }))
+      .catch(() => {
+        console.error('Failed backup object cleanup could not be confirmed.');
+      });
+    throw new Error('Backup failed; provider diagnostics suppressed');
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
-runBackup();
+runBackup().catch(() => {
+  console.error(
+    'Backup failed; credentials and provider diagnostics suppressed.',
+  );
+  process.exitCode = 1;
+});

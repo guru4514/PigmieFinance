@@ -15,7 +15,7 @@ All staging fixtures, uploaded objects, temporary fixture buckets and provider i
 ## Release work still open
 
 1. Development schema/history reconciliation, privileged backend least privilege and remaining service/assignment races.
-2. Private collection evidence upload/download: the offline outbox still uploads directly and stores public URLs. Full application bucket policies and file/content controls need verification.
+2. Private collection evidence: new outbox uploads use scoped private grants and retain evidence for retry. Staging direct browser-role access is restricted and signed operations were verified. Historical public objects/URL-only queues, development storage controls, content inspection and real device recovery remain open. See the four-priority progress document for current evidence.
 3. Real offline cold start, account switching, storage eviction/recovery and service-worker upgrade against staging.
 4. MFA browser recovery/revocation experience and operator identity policy; invitation delivery safety; independent durable provisioning journal/audit and monitoring.
 5. Scheduled fee/job concurrency, historical reconciliation, report business definitions, audit coverage/retention and closure policy validation.

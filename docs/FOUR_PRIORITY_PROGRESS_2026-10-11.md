@@ -2,6 +2,8 @@
 
 This is an incremental engineering checkpoint, not completion of all four work packages or approval for production. Application data used in live verification was synthetic.
 
+This document records the first pass. The [second pass](FOUR_PRIORITY_SECOND_PASS_2026-10-11.md) supersedes its carry-forward cash, self-verification and staging direct-storage-policy backlog entries with verified increments; its other release limitations remain relevant.
+
 ## 1. Access and remaining mutations
 
 Audit reads now hold a staff lock and recheck current active organization-administrator authority before reading tenant-scoped logs. Customer deactivation now shares the existing locked administrative customer check, including current manager branch scope. Approval execution passes its reviewer identity into that check. Deactivation still preserves financial history and disables portal access.
