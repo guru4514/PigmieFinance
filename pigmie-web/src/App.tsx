@@ -1,6 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Routes, Route, Navigate, Link } from 'react-router-dom';
-import { processSyncQueue, getPendingCount } from '@/shared/lib/offline-queue';
+import { processSyncQueue, getPendingCount, getCollectionOwner } from '@/shared/lib/offline-queue';
+import { useAuth } from '@/shared/hooks/use-auth';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ErrorBoundary } from '@/shared/components/error-boundary';
 import { Toaster } from '@/shared/components/ui/sonner';
@@ -38,20 +40,51 @@ import { PortalLoanDetailPage } from '@/features/portal/pages/portal-loan-detail
 import { BranchesPage } from '@/features/branches/pages/branches-page';
 import { CashDepositsPage } from '@/features/cash-deposits/pages/cash-deposits-page';
 import { BranchComparisonPage } from '@/features/reports/pages/branch-comparison-page';
+import { clearPreviousAccountQueries } from '@/shared/lib/session-cache';
+import { LoadingScreen } from '@/shared/components/ui/loading-spinner';
 
 export function App() {
+  const { session, user, isMfaVerified } = useAuth();
+  const queryClient = useQueryClient();
+  const authUserId = session?.user.id ?? null;
+  const [cacheOwner, setCacheOwner] = useState<string | null>(null);
+  useLayoutEffect(() => {
+    let current = true;
+    void clearPreviousAccountQueries(queryClient, authUserId, () => current).then((cleared) => {
+      if (cleared && current) setCacheOwner(authUserId);
+    });
+    return () => { current = false; };
+  }, [authUserId, queryClient]);
+  const owner = useMemo(() => getCollectionOwner(session?.user.id, user), [session?.user.id, user]);
   useEffect(() => {
+    if (!owner || !isMfaVerified) return;
+    let active = true;
     const handleOnline = async () => {
-      const count = await getPendingCount();
-      if (count > 0) {
-        const synced = await processSyncQueue();
-        if (synced > 0) toast.success(`Synced ${synced} offline collection(s)`);
+      if (!navigator.onLine) return;
+      try {
+        const count = await getPendingCount(owner);
+        if (count > 0) {
+          const result = await processSyncQueue(owner);
+          if (active && result.synced > 0) {
+            await queryClient.invalidateQueries({ queryKey: ['collections'] });
+            await queryClient.invalidateQueries({ queryKey: ['loans'] });
+            await queryClient.invalidateQueries({ queryKey: ['reports'] });
+            toast.success(`Synced ${result.synced} saved collection(s)`);
+          }
+        }
+      } catch (error: unknown) {
+        if (active) toast.error(error instanceof Error ? error.message : 'Could not sync saved collections. They remain on this device.');
       }
     };
+    void handleOnline();
     window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
-  }, []);
+    return () => {
+      active = false;
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [owner, queryClient, isMfaVerified]);
 
+  if (cacheOwner !== authUserId) return <LoadingScreen />;
   return (
     <>
     <Routes>
@@ -66,7 +99,7 @@ export function App() {
       
       {/* Staff Routes */}
       <Route path="/app" element={
-        <ProtectedRoute>
+        <ProtectedRoute requiredUserType="staff">
           <ErrorBoundary>
             <AppLayout />
           </ErrorBoundary>
@@ -101,7 +134,7 @@ export function App() {
       
       {/* Portal Routes */}
       <Route path="/portal" element={
-        <ProtectedRoute>
+        <ProtectedRoute requiredUserType="customer">
           <ErrorBoundary>
             <PortalLayout />
           </ErrorBoundary>

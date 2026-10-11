@@ -37,7 +37,7 @@ export const EMICalculatorPage: React.FC = () => {
         </div>
         <div>
           <h1 className="text-3xl font-bold text-foreground tracking-tight"> {t('emi.title')} </h1>
-          <p className="text-sm text-muted-foreground mt-1">Preview loan repayment schedule based on terms.</p>
+          <p className="text-sm text-muted-foreground mt-1">Estimate repayments using the loan schedule calculation. Mixed duration units round up to full installments; month conversions use 30 days. The approved loan schedule determines actual dates and amounts.</p>
         </div>
       </div>
 

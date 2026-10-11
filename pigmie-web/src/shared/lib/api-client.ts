@@ -12,6 +12,10 @@ export interface Notification {
 }
 
 declare module 'axios' {
+  export interface AxiosRequestConfig {
+    expectedAuthUserId?: string;
+  }
+
   export interface AxiosInstance {
     loans: {
       restructureLoan: (id: string, data: { fromInstallmentNumber: number; newTenure: number; reason?: string }) => Promise<any>;
@@ -44,6 +48,9 @@ export const apiClient = axios.create({ baseURL: import.meta.env.VITE_API_URL ||
 
 apiClient.interceptors.request.use(async (config) => {
   const { data } = await supabase.auth.getSession();
+  if (config.expectedAuthUserId && data.session?.user.id !== config.expectedAuthUserId) {
+    throw new Error('Your account changed. Sign in to the account that saved this collection to sync it.');
+  }
   if (data.session?.access_token) {
     config.headers.Authorization = `Bearer ${data.session.access_token}`;
   }

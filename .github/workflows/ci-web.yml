@@ -6,11 +6,19 @@ on:
       - main
     paths:
       - 'pigmie-web/**'
+      - '.github/workflows/ci-web.yml'
+      - 'pigmie-api/src/modules/loans/utils/**'
+      - 'pigmie-api/package*.json'
+      - 'pigmie-api/prisma/**'
   pull_request:
     branches:
       - main
     paths:
       - 'pigmie-web/**'
+      - '.github/workflows/ci-web.yml'
+      - 'pigmie-api/src/modules/loans/utils/**'
+      - 'pigmie-api/package*.json'
+      - 'pigmie-api/prisma/**'
 
 jobs:
   build:
@@ -34,8 +42,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install API contract-test dependencies
+        working-directory: pigmie-api
+        run: npm ci
+
+      - name: Generate API Prisma Client for contract tests
+        working-directory: pigmie-api
+        run: npx prisma generate
+
       - name: Typecheck
         run: npx tsc --noEmit
+
+      - name: Collection regression tests
+        run: npm test
 
       - name: Build
         run: npm run build

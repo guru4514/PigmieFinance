@@ -71,7 +71,7 @@ jobs:
     services:
       postgres:
         image: postgres:15
-        env: { POSTGRES_PASSWORD: postgres }
+        env: { POSTGRES_PASSWORD: dummy-test-password }
         ports: ['5432:5432']
         options: >-
           --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
@@ -82,7 +82,7 @@ jobs:
       - run: npm ci
       - run: npm audit --audit-level=high
       - run: npx prisma migrate deploy
-        env: { DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres, DIRECT_URL: postgresql://postgres:postgres@localhost:5432/postgres }
+        env: { DATABASE_URL: postgresql://postgres:dummy-test-password@localhost:5432/postgres, DIRECT_URL: postgresql://postgres:dummy-test-password@localhost:5432/postgres }
       - run: npm run lint
       - run: npm test    # includes the tenant-isolation RLS suite — 08-backend-implementation-guide.md §8
 ```

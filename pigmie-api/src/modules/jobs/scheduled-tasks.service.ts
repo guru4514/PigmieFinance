@@ -1,122 +1,178 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
+import { businessDate } from '../loans/utils/date.util';
 
 @Injectable()
 export class ScheduledTasksService {
   private readonly logger = new Logger(ScheduledTasksService.name);
-
   constructor(
-    private prisma: PrismaService,
-    private tenantPrisma: TenantPrismaService,
+    private readonly prisma: PrismaService,
+    private readonly tenantPrisma: TenantPrismaService,
   ) {}
 
-  // Runs daily at 1:00 AM
-  @Cron('0 1 * * *')
+  @Cron('0 1 * * *', { timeZone: 'Asia/Kolkata', waitForCompletion: true })
   async markOverdueInstallments() {
-    this.logger.log('Starting daily overdue detection...');
-    const orgs = await this.prisma.organization.findMany({ select: { id: true } });
-    for (const org of orgs) {
-      try {
-        await this.runOverdueDetection(org.id);
-      } catch (error) {
-        this.logger.error(`Overdue detection failed for org ${org.id}`, error);
-      }
-    }
-    this.logger.log('Daily overdue detection complete');
-  }
-
-  private async runOverdueDetection(organizationId: string) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Step 1: Apply late fees ONCE for schedules that are BECOMING overdue today
-    // Fetch products with late fees configured
-    const productsWithFees = await this.prisma.loanProduct.findMany({
-      where: { organizationId, lateFeeValue: { gt: 0 } },
-      select: { id: true, lateFeeType: true, lateFeeValue: true },
+    const today = businessDate();
+    const threshold = new Date(today.getTime() - 90 * 86400000);
+    const organizations = await this.prisma.organization.findMany({
+      where: { isActive: true },
+      select: { id: true },
     });
-
-    if (productsWithFees.length > 0) {
-      for (const product of productsWithFees) {
-        if (product.lateFeeType === 'flat' && product.lateFeeValue) {
-          // Apply flat fee exactly once before marking overdue
-          await this.prisma.loanSchedule.updateMany({
-            where: {
-              loan: { organizationId, loanProductId: product.id, status: 'active' },
-              status: { in: ['pending', 'partially_paid'] },
-              dueDate: { lt: today },
+    for (const organization of organizations) {
+      try {
+        const loans = await this.prisma.loan.findMany({
+          where: {
+            organizationId: organization.id,
+            status: 'active',
+            schedule: {
+              some: {
+                dueDate: { lt: today },
+                status: { in: ['pending', 'partially_paid', 'overdue'] },
+              },
             },
-            data: { dueAmount: { increment: product.lateFeeValue.toNumber() } },
-          });
-        }
-        if (product.lateFeeType === 'percentage' && product.lateFeeValue) {
-          const rows = await this.prisma.loanSchedule.findMany({
-            where: {
-              loan: { organizationId, loanProductId: product.id, status: 'active' },
-              status: { in: ['pending', 'partially_paid'] },
-              dueDate: { lt: today },
-            },
-            select: { id: true, dueAmount: true },
-          });
-          for (const row of rows) {
-            const fee = Math.round(row.dueAmount.toNumber() * (product.lateFeeValue.toNumber() / 100) * 100) / 100;
-            if (fee > 0) {
-              await this.prisma.loanSchedule.update({
-                where: { id: row.id },
-                data: { dueAmount: { increment: fee } },
-              });
-            }
+          },
+          select: { id: true },
+        });
+        for (const candidate of loans) {
+          try {
+            await this.tenantPrisma.run(
+              organization.id,
+              async (tx) => {
+                // Collection posting, reversal and pre-closure acquire this same lock first.
+                await tx.$executeRaw`SELECT 1 FROM loans WHERE id = ${candidate.id}::uuid AND organization_id = ${organization.id}::uuid FOR UPDATE`;
+                const loan = await tx.loan.findFirst({
+                  where: {
+                    id: candidate.id,
+                    organizationId: organization.id,
+                    status: 'active',
+                  },
+                  include: { loanProduct: true },
+                });
+                if (!loan) return;
+                const rows = await tx.loanSchedule.findMany({
+                  where: {
+                    loanId: loan.id,
+                    dueDate: { lt: today },
+                    status: { in: ['pending', 'partially_paid'] },
+                  },
+                  orderBy: { installmentNumber: 'asc' },
+                });
+                const markers = await tx.auditLog.findMany({
+                  where: {
+                    organizationId: organization.id,
+                    action: 'loan_schedule.overdue',
+                    entityType: 'LoanSchedule',
+                    entityId: { in: rows.map((row) => row.id) },
+                  },
+                  select: { entityId: true },
+                });
+                const marked = new Set(
+                  markers.map((marker) => marker.entityId),
+                );
+                let totalFees = new Prisma.Decimal(0);
+                for (const row of rows) {
+                  if (row.paidAmount.gte(row.dueAmount)) {
+                    await tx.loanSchedule.update({
+                      where: { id: row.id },
+                      data: { status: 'paid' },
+                    });
+                    continue;
+                  }
+                  const marker = marked.has(row.id);
+                  // Preserve evidence of legacy fees even when an old job wrote no audit marker.
+                  const existingFee = row.dueAmount.gt(
+                    row.principalComponent.plus(row.interestComponent),
+                  );
+                  let fee = new Prisma.Decimal(0);
+                  if (!marker && !existingFee) {
+                    const value = loan.loanProduct.lateFeeValue;
+                    fee =
+                      loan.loanProduct.lateFeeType === 'flat'
+                        ? value
+                        : row.dueAmount.mul(value).div(100);
+                    fee = Prisma.Decimal.max(0, fee).toDecimalPlaces(2);
+                  }
+                  await tx.loanSchedule.update({
+                    where: { id: row.id },
+                    data: { status: 'overdue', dueAmount: { increment: fee } },
+                  });
+                  totalFees = totalFees.plus(fee);
+                  if (!marker) {
+                    await tx.auditLog.create({
+                      data: {
+                        organizationId: organization.id,
+                        actorStaffId: null,
+                        action: 'loan_schedule.overdue',
+                        entityType: 'LoanSchedule',
+                        entityId: row.id,
+                        newValue: {
+                          previousStatus: row.status,
+                          fee: fee.toString(),
+                          legacyFeeDetected: existingFee,
+                        },
+                        ipAddress: 'system',
+                      },
+                    });
+                  }
+                }
+                if (totalFees.gt(0))
+                  await tx.loan.update({
+                    where: { id: loan.id },
+                    data: {
+                      totalPayable: { increment: totalFees },
+                      outstandingBalance: { increment: totalFees },
+                    },
+                  });
+                const severelyOverdue = await tx.loanSchedule.count({
+                  where: {
+                    loanId: loan.id,
+                    status: 'overdue',
+                    dueDate: { lt: threshold },
+                  },
+                });
+                if (severelyOverdue > 0) {
+                  await tx.loan.update({
+                    where: { id: loan.id },
+                    data: { status: 'defaulted' },
+                  });
+                  await tx.auditLog.create({
+                    data: {
+                      organizationId: organization.id,
+                      actorStaffId: null,
+                      action: 'loan.defaulted',
+                      entityType: 'Loan',
+                      entityId: loan.id,
+                      newValue: {
+                        reason: 'Exceeded 90 days overdue threshold',
+                      },
+                      ipAddress: 'system',
+                    },
+                  });
+                }
+              },
+              { timeout: 60000 },
+            );
+          } catch {
+            this.logger.error(
+              `Overdue processing failed for loan ${candidate.id}`,
+            );
           }
         }
+      } catch {
+        this.logger.error(
+          `Overdue processing failed for organization ${organization.id}`,
+        );
       }
     }
-
-    // Step 2: Bulk mark overdue (now that penalties are applied)
-    const overdueResult = await this.prisma.loanSchedule.updateMany({
-      where: {
-        loan: { organizationId, status: 'active' },
-        dueDate: { lt: today },
-        status: { in: ['pending', 'partially_paid'] },
-      },
-      data: { status: 'overdue' },
-    });
-
-    // Step 3: Default loans with 90+ days overdue
-    const thresholdDate = new Date(today);
-    thresholdDate.setDate(thresholdDate.getDate() - 90);
-
-    const defaultResult = await this.prisma.loan.updateMany({
-      where: {
-        organizationId,
-        status: 'active',
-        schedule: { some: { status: 'overdue', dueDate: { lt: thresholdDate } } },
-      },
-      data: { status: 'defaulted' },
-    });
-
-    this.logger.log(`Org ${organizationId}: ${overdueResult.count} rows overdue, ${defaultResult.count} loans defaulted`);
   }
 
-  // Runs daily at 2:00 AM to purge old audit logs and prevent DB bloat
-  @Cron('0 2 * * *')
-  async archiveOldAuditLogs() {
-    this.logger.log('Starting daily audit log purge...');
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-
-    try {
-      const result = await this.prisma.auditLog.deleteMany({
-        where: {
-          createdAt: {
-            lt: ninetyDaysAgo,
-          },
-        },
-      });
-      this.logger.log(`Successfully purged ${result.count} audit logs older than 90 days.`);
-    } catch (error) {
-      this.logger.error('Failed to purge old audit logs', error);
-    }
+  // Retained for callers, but no scheduled deletion: these records include fee idempotency evidence.
+  archiveOldAuditLogs(): void {
+    this.logger.warn(
+      'Audit deletion is disabled until a verified archival and retention policy is configured',
+    );
   }
 }

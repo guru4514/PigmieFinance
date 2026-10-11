@@ -18,7 +18,7 @@ export interface ReceiptCollection {
   customerName: string;
   customerPhone?: string;
   loanId: string;
-  outstandingBalance: number;
+  outstandingBalance?: number;
   receiptNumber?: string;
 }
 
@@ -75,7 +75,7 @@ export function ReceiptModal({ open, onClose, collection }: ReceiptModalProps) {
   const formattedDate = formatDate(collection.collectionDate);
   const formattedMethod = formatMethod(collection.collectionMethod);
   const formattedAmount = formatCurrency(collection.amount);
-  const formattedOutstanding = formatCurrency(collection.outstandingBalance);
+  const formattedOutstanding = collection.outstandingBalance === undefined ? 'See loan details' : formatCurrency(collection.outstandingBalance);
 
   const handleWhatsAppShare = () => {
     const msg = generateReceiptMessage({
