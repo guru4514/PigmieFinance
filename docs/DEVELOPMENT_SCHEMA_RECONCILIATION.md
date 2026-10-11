@@ -18,4 +18,14 @@ The staging database has all four migrations and an empty schema diff. Its resul
 
 ## Remaining controls
 
+## Expanded metadata comparison — 2026-10-11
+
+`scripts/compare-development-schema.mjs` compares development with verified staging using repeatable-read, explicitly read-only transactions and trusted TLS certificate verification. It prints differences by object name, never environment values, raw defaults, function bodies or business rows.
+
+The latest run found no differences in column types, nullability, precision or defaults, and no extra application columns. All 30 differing foreign keys retain the same delete actions but use ON UPDATE CASCADE in development and NO ACTION in staging. Two composite index definitions are missing; 23 other indexes have different names. Trigger names/enabled states match; function bodies and full policy semantics were not compared.
+
+The recorded `0001_init` checksum matches neither the working migration file nor its Git blob. This rules out the current working-file line endings as the sole explanation. Only one version of this migration is available in local Git history. Migrations 0002–0004 remain unrecorded in development. No schema or migration-history writes were made.
+
+Reconciliation remains open. Before changing history, reconstruct the applied baseline or adopt a reviewed baseline procedure preserving the original recorded evidence. Rehearse against a disposable representation of development, explicitly decide the update-action difference, review enum values and remaining constraints/policies/function bodies, verify backup/restore and preserved totals, then align indexes and history. Do not replace the checksum or mark migrations applied based on column presence. Staging remains unchanged by this metadata comparison.
+
 The backend role remains privileged and bypasses RLS. Runtime least privilege, trigger inventory, storage policy review and full historical financial reconciliation remain independent release gates.
