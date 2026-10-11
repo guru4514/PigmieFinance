@@ -13,6 +13,8 @@ import { CreateCollectionDto, QueryCollectionDto } from './dto/collection.dto';
 import { Prisma } from '@prisma/client';
 import PDFDocument from 'pdfkit';
 import type { AuthenticatedUser } from '../../common/types/request-user.type';
+import { businessDate } from '../loans/utils/date.util';
+import { assertSupportedFinancialTerms } from '../loans/utils/financial-terms.util';
 
 @Injectable()
 export class CollectionsService {
@@ -234,6 +236,16 @@ export class CollectionsService {
       if (!loan)
         throw new NotFoundException('Loan not found or not active/defaulted');
       const clientId = dto.clientGeneratedId.toUpperCase();
+      assertSupportedFinancialTerms(loan.financialTerms);
+      if (
+        loan.outstandingBalance.lt(0) ||
+        !loan.totalPayable
+          .minus(loan.totalCollected)
+          .equals(loan.outstandingBalance)
+      )
+        throw new BadRequestException(
+          'Loan balances require reconciliation before recording a payment',
+        );
       const receiptNumber = `RCP-${dto.collectionDate.replace(/-/g, '')}-${clientId}`;
       // A foreign/mismatched unique identifier fails closed; never query inside an aborted PostgreSQL transaction.
       const collection = await tx.collection.create({
@@ -255,7 +267,16 @@ export class CollectionsService {
           status: 'recorded',
         },
       });
-      await this.applyToSchedule(tx, dto.loanId, dto.amount);
+      const allocations = await this.applyToSchedule(
+        tx,
+        dto.loanId,
+        dto.amount,
+        loan.outstandingBalance,
+      );
+      await tx.collection.update({
+        where: { id: collection.id, organizationId },
+        data: { allocationDetails: { version: 1, rows: allocations } },
+      });
       await tx.auditLog.create({
         data: {
           organizationId,
@@ -398,6 +419,7 @@ export class CollectionsService {
         tx,
         collection.loanId,
         Number(collection.amount),
+        collection.allocationDetails,
       );
       await tx.auditLog.create({
         data: {
@@ -525,24 +547,48 @@ export class CollectionsService {
     tx: Prisma.TransactionClient,
     loanId: string,
     amount: number,
+    expectedOutstanding: Prisma.Decimal,
   ) {
     await tx.$executeRaw`SELECT 1 FROM loan_schedule WHERE loan_id = ${loanId}::uuid FOR UPDATE`;
     let remaining = new Prisma.Decimal(amount.toString());
+    const allocations: { scheduleId: string; amount: string }[] = [];
 
     // Phase 1: Apply to pending/partially_paid/overdue rows, oldest first
     const rows = await tx.loanSchedule.findMany({
       where: {
         loanId,
-        status: { in: ['pending', 'partially_paid', 'overdue'] },
+        status: { not: 'waived' },
       },
       orderBy: { installmentNumber: 'asc' },
     });
+    const scheduledOutstanding = rows.reduce(
+      (sum, row) => sum.plus(row.dueAmount.minus(row.paidAmount)),
+      new Prisma.Decimal(0),
+    );
+    if (
+      !scheduledOutstanding.equals(expectedOutstanding) ||
+      rows.some(
+        (row) =>
+          row.paidAmount.lt(0) ||
+          row.paidAmount.gt(row.dueAmount) ||
+          row.principalComponent.lt(0) ||
+          row.interestComponent.lt(0) ||
+          row.dueAmount.lt(
+            row.principalComponent.plus(row.interestComponent),
+          ) ||
+          (row.status === 'paid' && !row.paidAmount.equals(row.dueAmount)),
+      )
+    )
+      throw new BadRequestException(
+        'Schedule requires reconciliation before recording a payment',
+      );
 
     for (const row of rows) {
       if (remaining.lte(0)) break;
       const due = new Prisma.Decimal(row.dueAmount.toString());
       const paid = new Prisma.Decimal(row.paidAmount.toString());
       const owedOnRow = due.minus(paid);
+      if (owedOnRow.isZero()) continue;
       if (owedOnRow.lt(0))
         throw new BadRequestException(
           'Schedule requires reconciliation before recording a payment',
@@ -551,6 +597,8 @@ export class CollectionsService {
       const applied = remaining.lt(owedOnRow) ? remaining : owedOnRow;
       const newPaid = paid.plus(applied);
       remaining = remaining.minus(applied);
+      if (applied.gt(0))
+        allocations.push({ scheduleId: row.id, amount: applied.toFixed(2) });
 
       await tx.loanSchedule.update({
         where: { id: row.id },
@@ -581,48 +629,88 @@ export class CollectionsService {
         });
       }
     }
+    return allocations;
   }
 
   private async reverseScheduleAllocation(
     tx: Prisma.TransactionClient,
     loanId: string,
     amount: number,
+    allocationDetails?: Prisma.JsonValue,
   ) {
-    // Reverse from newest-paid first
-    let remaining = new Prisma.Decimal(amount.toString());
-    const paidRows = await tx.loanSchedule.findMany({
-      where: {
-        loanId,
-        paidAmount: { gt: 0 },
-        status: { in: ['paid', 'partially_paid', 'overdue'] },
-      },
-      orderBy: { installmentNumber: 'desc' },
-    });
-
-    for (const row of paidRows) {
-      if (remaining.lte(0)) break;
-      const paid = new Prisma.Decimal(row.paidAmount.toString());
-      const canReverse = remaining.lt(paid) ? remaining : paid;
-      const newPaid = paid.minus(canReverse);
-      remaining = remaining.minus(canReverse);
-
-      await tx.loanSchedule.update({
-        where: { id: row.id },
-        data: {
-          paidAmount: newPaid,
-          status: newPaid.lte(0) ? 'pending' : 'partially_paid',
+    if (allocationDetails !== null && allocationDetails !== undefined) {
+      const invalid = () =>
+        new BadRequestException(
+          'Saved payment allocation requires reconciliation before reversal',
+        );
+      if (
+        typeof allocationDetails !== 'object' ||
+        Array.isArray(allocationDetails) ||
+        allocationDetails.version !== 1 ||
+        !Array.isArray(allocationDetails.rows)
+      )
+        throw invalid();
+      const allocations: { scheduleId: string; amount: Prisma.Decimal }[] = [];
+      for (const entry of allocationDetails.rows) {
+        if (
+          !entry ||
+          typeof entry !== 'object' ||
+          Array.isArray(entry) ||
+          typeof entry.scheduleId !== 'string' ||
+          !entry.scheduleId ||
+          typeof entry.amount !== 'string' ||
+          !/^\d+\.\d{2}$/.test(entry.amount)
+        )
+          throw invalid();
+        const value = new Prisma.Decimal(entry.amount);
+        if (
+          value.lte(0) ||
+          allocations.some((row) => row.scheduleId === entry.scheduleId)
+        )
+          throw invalid();
+        allocations.push({ scheduleId: entry.scheduleId, amount: value });
+      }
+      if (
+        !allocations
+          .reduce((sum, row) => sum.plus(row.amount), new Prisma.Decimal(0))
+          .equals(amount)
+      )
+        throw invalid();
+      await tx.$executeRaw`SELECT 1 FROM loan_schedule WHERE loan_id = ${loanId}::uuid FOR UPDATE`;
+      const rows = await tx.loanSchedule.findMany({
+        where: {
+          loanId,
+          id: { in: allocations.map((entry) => entry.scheduleId) },
+          status: { in: ['paid', 'partially_paid', 'overdue'] },
         },
       });
+      if (rows.length !== allocations.length) throw invalid();
+      const today = businessDate();
+      for (const entry of allocations) {
+        const row = rows.find((item) => item.id === entry.scheduleId);
+        if (!row || row.paidAmount.lt(entry.amount)) throw invalid();
+        const newPaid = row.paidAmount.minus(entry.amount);
+        await tx.loanSchedule.update({
+          where: { id: row.id },
+          data: {
+            paidAmount: newPaid,
+            status:
+              row.dueDate < today
+                ? 'overdue'
+                : newPaid.isZero()
+                  ? 'pending'
+                  : 'partially_paid',
+          },
+        });
+      }
+      await tx.loan.updateMany({
+        where: { id: loanId, status: 'closed' },
+        data: { status: 'active', closedAt: null },
+      });
+      return;
     }
-
-    if (remaining.gt(0))
-      throw new BadRequestException(
-        'Payment allocation requires reconciliation before reversal',
-      );
-    // Reopen the loan if it was auto-closed
-    await tx.loan.updateMany({
-      where: { id: loanId, status: 'closed' },
-      data: { status: 'active', closedAt: null },
-    });
+    throw new BadRequestException(
+      'Historical payment allocation requires reconciliation before reversal',
+    );
   }
 }

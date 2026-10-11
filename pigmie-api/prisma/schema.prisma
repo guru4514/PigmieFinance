@@ -294,6 +294,7 @@ model Loan {
   loanCode       String @map("loan_code")
 
   principalAmount     Decimal             @map("principal_amount") @db.Decimal(12, 2)
+  financialTerms      Json?               @map("financial_terms")
   interestType        InterestType        @map("interest_type")
   interestRateAnnual  Decimal             @map("interest_rate_annual") @db.Decimal(6, 3)
   collectionFrequency CollectionFrequency @map("collection_frequency")
@@ -363,6 +364,7 @@ model LoanSchedule {
 model Collection {
   id                String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   clientGeneratedId String @unique @map("client_generated_id") @db.Uuid
+  allocationDetails Json?  @map("allocation_details")
   organizationId    String @map("organization_id") @db.Uuid
   loanId            String @map("loan_id") @db.Uuid
   customerId        String @map("customer_id") @db.Uuid

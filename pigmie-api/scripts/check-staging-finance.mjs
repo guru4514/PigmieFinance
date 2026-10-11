@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, unlinkSync, mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
@@ -42,7 +42,7 @@ const prisma = new PrismaService();
 const tenant = new TenantPrismaService(prisma);
 const email = new EmailService();
 const collections = new CollectionsService(tenant, prisma, email);
-const loans = new LoansService(tenant, {}, email);
+const loans = new LoansService(tenant, { notify: async () => {} }, email);
 const approvals = new ApprovalsService(tenant, {}, collections, loans);
 const documents = new DocumentsService(tenant, { get: (key) => config[key] });
 const storage = createClient(
@@ -59,9 +59,27 @@ const storage = createClient(
 let evidencePath;
 let kycPath;
 const orgId = randomUUID();
+const fixtureJournal = new URL(
+  `../../.recovery/fixture-finance-${orgId}.json`,
+  import.meta.url,
+);
 let seeded = false;
 let checkpoint = 'connect';
 try {
+  mkdirSync(new URL('../../.recovery/', import.meta.url), {
+    recursive: true,
+    mode: 0o700,
+  });
+  writeFileSync(
+    fixtureJournal,
+    JSON.stringify({
+      organizationId: orgId,
+      project: config.STAGING_PROJECT_REF,
+      createdAt: new Date().toISOString(),
+      syntheticOnly: true,
+    }),
+    { flag: 'wx', mode: 0o600 },
+  );
   await prisma.$connect();
   checkpoint = 'synthetic fixture';
   const fixture = await prisma.$transaction(
@@ -154,6 +172,7 @@ try {
         admin,
         replacementAgent,
         customer,
+        product,
         paymentLoan: await makeLoan('SYNTHETIC-PAYMENT'),
         closureLoan: await makeLoan('SYNTHETIC-CLOSURE'),
         raceLoan: await makeLoan('SYNTHETIC-RACE'),
@@ -424,6 +443,72 @@ try {
     ).paidAmount.toString(),
     '0',
   );
+  checkpoint = 'partial payment closure approval';
+  checkpoint = 'immutable contract and exact earlier-payment reversal';
+  const contractLoan = await loans.create(orgId, fixture.admin.id, {
+    customerId: fixture.customer.id,
+    loanProductId: fixture.product.id,
+    principalAmount: 100,
+    tenure: 2,
+  });
+  assert.equal(contractLoan.financialTerms.version, 1);
+  assert.equal(contractLoan.financialTerms.processingFee, '0.00');
+  await prisma.loanProduct.update({
+    where: { id: fixture.product.id },
+    data: { interestRateAnnual: 18, processingFee: 9, lateFeeValue: 9 },
+  });
+  await loans.approve(orgId, contractLoan.id, fixture.admin.id);
+  const disbursed = await loans.disburse(
+    orgId,
+    contractLoan.id,
+    '2026-10-01',
+    fixture.admin.id,
+  );
+  assert.equal(disbursed.loan.interestRateAnnual.toString(), '12');
+  assert.equal(disbursed.loan.financialTerms.processingFee, '0.00');
+  const firstPayment = await collections.recordCollection(
+    orgId,
+    fixture.agent.id,
+    { ...payment(contractLoan.id), amount: disbursed.schedule[0].dueAmount },
+  );
+  await collections.recordCollection(orgId, fixture.agent.id, {
+    ...payment(contractLoan.id),
+    amount: disbursed.schedule[1].dueAmount,
+  });
+  assert.equal(
+    (await prisma.loan.findUniqueOrThrow({ where: { id: contractLoan.id } }))
+      .status,
+    'closed',
+  );
+  await assert.rejects(
+    prisma.loan.update({
+      where: { id: contractLoan.id },
+      data: { financialTerms: { version: 1, processingFee: '9.00' } },
+    }),
+  );
+  await assert.rejects(
+    prisma.collection.update({
+      where: { id: firstPayment.collection.id },
+      data: { allocationDetails: { version: 1, rows: [] } },
+    }),
+  );
+  await collections.reverseCollection(
+    orgId,
+    firstPayment.collection.id,
+    fixture.admin.id,
+    'Synthetic earlier payment reversal',
+  );
+  const contractRows = await prisma.loanSchedule.findMany({
+    where: { loanId: contractLoan.id },
+    orderBy: { installmentNumber: 'asc' },
+  });
+  assert.equal(contractRows[0].paidAmount.toString(), '0');
+  assert.ok(contractRows[1].paidAmount.equals(contractRows[1].dueAmount));
+  const reopened = await prisma.loan.findUniqueOrThrow({
+    where: { id: contractLoan.id },
+  });
+  assert.equal(reopened.status, 'active');
+  assert.ok(reopened.outstandingBalance.equals(contractRows[0].dueAmount));
   checkpoint = 'partial payment closure approval';
   await prisma.loan.update({
     where: { id: fixture.recoveryLoan.id },
@@ -775,6 +860,8 @@ try {
       cashReconciliation:
         'carry-forward preserved for inactive staff; own handover verification denied',
       data: 'synthetic only',
+      immutableFinancialEvidence:
+        'product changes do not change saved policy; contract/allocation overwrites denied; reversing earlier payment leaves later installment paid',
       privateKyc: 'owned PDF upload/download passed; another agent denied',
     }),
   );
@@ -826,9 +913,18 @@ try {
         0,
       );
       console.log('Synthetic staging fixtures removed and cleanup verified.');
+      unlinkSync(fixtureJournal);
     } catch {
       console.error('Synthetic fixture cleanup needs attention.');
       process.exitCode = 1;
+    }
+  }
+  if (!seeded) {
+    // The seed transaction never committed. No fixture was established.
+    try {
+      unlinkSync(fixtureJournal);
+    } catch {
+      /* Keep diagnostics secret-free. */
     }
   }
   await prisma.$disconnect();

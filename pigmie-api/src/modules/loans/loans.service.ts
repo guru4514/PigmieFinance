@@ -13,6 +13,7 @@ import { QueryLoanDto } from './dto/query-loan.dto';
 import { RestructureLoanDto } from './dto/restructure-loan.dto';
 import { generateSchedule } from './utils/schedule-generator.util';
 import { calculatePreClosure } from './utils/pre-closure.util';
+import { assertSupportedFinancialTerms } from './utils/financial-terms.util';
 import { businessDate } from './utils/date.util';
 import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
@@ -99,6 +100,24 @@ export class LoansService {
           loanCode,
           status: 'pending_approval',
           principalAmount: new Prisma.Decimal(dto.principalAmount),
+          financialTerms: {
+            version: 1,
+            currency: 'INR',
+            businessTimezone: 'Asia/Kolkata',
+            originalPrincipal: new Prisma.Decimal(dto.principalAmount).toFixed(
+              2,
+            ),
+            originalTenure: dto.tenure,
+            interestType: product.interestType,
+            interestRateAnnual: product.interestRateAnnual.toString(),
+            collectionFrequency: product.collectionFrequency,
+            paymentAllocation: 'oldest_installment_proportional_components_v1',
+            earlyClosure: 'unpaid_principal_daily_accrued_interest_v1',
+            lateFee: '0.00',
+            processingFee: '0.00',
+            preClosurePenalty: '0.00',
+            rounding: 'INR_two_decimal_half_up',
+          },
           tenure: dto.tenure,
           interestType: product.interestType,
           interestRateAnnual: product.interestRateAnnual,
@@ -279,6 +298,7 @@ export class LoansService {
         where: { ...where, status: 'approved' },
         include: { loanProduct: true, customer: true },
       });
+      assertSupportedFinancialTerms(loan.financialTerms);
 
       const rows = generateSchedule({
         principal: loan.principalAmount.toNumber(),
@@ -364,6 +384,7 @@ export class LoansService {
       if (loan.status !== 'active')
         throw new BadRequestException('Loan is not active');
       this.assertClosureBalances(loan);
+      assertSupportedFinancialTerms(loan.financialTerms);
       if (body?.preClosureAmount !== undefined) {
         const amount = body.preClosureAmount;
         if (
@@ -463,6 +484,7 @@ export class LoansService {
           'Loan must be active to calculate pre-closure',
         );
       this.assertClosureBalances(loan);
+      assertSupportedFinancialTerms(loan.financialTerms);
       return calculatePreClosure(loan.schedule, loan.startDate);
     });
   }
@@ -568,6 +590,7 @@ export class LoansService {
       if (loan.status !== 'active') {
         throw new BadRequestException('Can only restructure active loans');
       }
+      assertSupportedFinancialTerms(loan.financialTerms);
 
       const targetRow = await tx.loanSchedule.findFirst({
         where: { loanId: id, installmentNumber: dto.fromInstallmentNumber },

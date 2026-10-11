@@ -24,6 +24,10 @@ function harness() {
     installmentNumber: 1,
     dueAmount: new Prisma.Decimal(110),
     paidAmount: new Prisma.Decimal(0),
+    principalComponent: new Prisma.Decimal(100),
+    interestComponent: new Prisma.Decimal(10),
+    status: 'pending',
+    dueDate: new Date('2026-01-31'),
   };
   const collection = {
     id: 'collection',
@@ -33,6 +37,7 @@ function harness() {
     collectionMethod: 'cash',
     receiptNumber: 'receipt',
     notes: null as string | null,
+    allocationDetails: null as Prisma.JsonValue,
   };
   const tx = {
     auditLog: { create: jest.fn().mockResolvedValue({ id: 'audit' }) },
@@ -43,12 +48,18 @@ function harness() {
         .fn<
           Promise<{
             id: string;
+            totalPayable: Prisma.Decimal;
+            totalCollected: Prisma.Decimal;
+            outstandingBalance: Prisma.Decimal;
             customer: { id: string; email: string; fullName: string };
           } | null>,
           [args: Prisma.LoanFindFirstArgs]
         >()
         .mockResolvedValue({
           id: dto.loanId,
+          totalPayable: new Prisma.Decimal(110),
+          totalCollected: new Prisma.Decimal(0),
+          outstandingBalance: new Prisma.Decimal(110),
           customer: {
             id: 'customer',
             email: 'synthetic@example.invalid',
@@ -72,7 +83,10 @@ function harness() {
     },
     loanSchedule: {
       findMany: jest.fn().mockResolvedValue([row]),
-      update: jest.fn(),
+      update: jest.fn<
+        Promise<unknown>,
+        [args: Prisma.LoanScheduleUpdateArgs]
+      >(),
       count: jest.fn().mockResolvedValue(1),
     },
   };
@@ -207,6 +221,81 @@ describe('Payment posting and retry safety', () => {
       h.service.recordCollection('org', 'staff', { ...dto, amount: 111 }),
     ).rejects.toThrow('exceeds');
     expect(h.send).not.toHaveBeenCalled();
+  });
+  it('persists exact installment allocation in the payment transaction', async () => {
+    const h = harness();
+    await h.service.recordCollection('org', 'staff', dto);
+    expect(h.tx.collection.update).toHaveBeenCalledWith({
+      where: { id: 'collection', organizationId: 'org' },
+      data: {
+        allocationDetails: {
+          version: 1,
+          rows: [{ scheduleId: 'row', amount: '55.00' }],
+        },
+      },
+    });
+  });
+  it('rejects a schedule that disagrees with outstanding balance', async () => {
+    const h = harness();
+    h.row.dueAmount = new Prisma.Decimal(120);
+    await expect(
+      h.service.recordCollection('org', 'staff', dto),
+    ).rejects.toThrow('Schedule requires reconciliation');
+    expect(h.tx.loanSchedule.update).not.toHaveBeenCalled();
+    expect(h.send).not.toHaveBeenCalled();
+  });
+  it('refuses to guess the installment allocation of a historical payment', async () => {
+    const h = harness();
+    h.actor.role = 'org_admin';
+    h.tx.collection.findFirst.mockResolvedValue(h.collection);
+    h.tx.loanSchedule.count.mockResolvedValue(0);
+    await expect(
+      h.service.reverseCollection('org', 'collection', 'staff', 'test'),
+    ).rejects.toThrow('Historical payment allocation');
+    expect(h.tx.loanSchedule.update).not.toHaveBeenCalled();
+  });
+  it('reverses the recorded installment rather than the newest paid installment', async () => {
+    const h = harness();
+    h.actor.role = 'org_admin';
+    h.row.paidAmount = new Prisma.Decimal(55);
+    h.collection.allocationDetails = {
+      version: 1,
+      rows: [{ scheduleId: 'row', amount: '55.00' }],
+    };
+    h.tx.collection.findFirst.mockResolvedValue(h.collection);
+    h.tx.loanSchedule.count.mockResolvedValue(0);
+    await h.service.reverseCollection('org', 'collection', 'staff', 'test');
+    expect(h.tx.loanSchedule.findMany).toHaveBeenCalledWith({
+      where: {
+        loanId: dto.loanId,
+        id: { in: ['row'] },
+        status: { in: ['paid', 'partially_paid', 'overdue'] },
+      },
+    });
+    expect(h.tx.loanSchedule.update.mock.calls[0][0].where).toEqual({
+      id: 'row',
+    });
+    expect(h.tx.loanSchedule.update.mock.calls[0][0].data.paidAmount).toEqual(
+      new Prisma.Decimal(0),
+    );
+    expect(h.tx.loan.updateMany).toHaveBeenCalledWith({
+      where: { id: dto.loanId, status: 'closed' },
+      data: { status: 'active', closedAt: null },
+    });
+  });
+  it('rejects mismatched saved allocation before schedule mutation', async () => {
+    const h = harness();
+    h.actor.role = 'org_admin';
+    h.collection.allocationDetails = {
+      version: 1,
+      rows: [{ scheduleId: 'row', amount: '54.00' }],
+    };
+    h.tx.collection.findFirst.mockResolvedValue(h.collection);
+    h.tx.loanSchedule.count.mockResolvedValue(0);
+    await expect(
+      h.service.reverseCollection('org', 'collection', 'staff', 'test'),
+    ).rejects.toThrow('allocation requires reconciliation');
+    expect(h.tx.loanSchedule.update).not.toHaveBeenCalled();
   });
   it('keeps a committed payment when the confirmation service fails', async () => {
     const warning = jest

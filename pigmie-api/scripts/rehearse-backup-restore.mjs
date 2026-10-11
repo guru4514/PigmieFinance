@@ -162,6 +162,11 @@ try {
     await source.query('SELECT pg_export_snapshot() AS snapshot')
   ).rows[0].snapshot;
   assert.match(snapshot, /^[A-Fa-f0-9-]+$/);
+  const archivedHistory = (
+    await source.query(
+      "SELECT to_regclass('pigmie_migration_evidence.original_history') IS NOT NULL AS present",
+    )
+  ).rows[0].present;
   checkpoint = 'encrypted application dump';
   const dump = await command(
     'pg_dump',
@@ -169,6 +174,7 @@ try {
       '--no-password',
       '--format=custom',
       '--schema=public',
+      ...(archivedHistory ? ['--schema=pigmie_migration_evidence'] : []),
       `--snapshot=${snapshot}`,
     ],
     backupProcessEnvironment(
@@ -347,6 +353,19 @@ try {
     );
   }
   checkpoint = 'restored constraints and RLS comparison';
+  if (archivedHistory)
+    assert.deepEqual(
+      (
+        await target.query(
+          'SELECT * FROM pigmie_migration_evidence.original_history ORDER BY id',
+        )
+      ).rows,
+      (
+        await source.query(
+          'SELECT * FROM pigmie_migration_evidence.original_history ORDER BY id',
+        )
+      ).rows,
+    );
   const metadata = `SELECT c.relname,c.relrowsecurity,p.conname,pg_get_constraintdef(p.oid) AS definition FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace LEFT JOIN pg_constraint p ON p.conrelid=c.oid WHERE n.nspname='public' AND c.relkind='r' ORDER BY c.relname,p.conname`;
   assert.deepEqual(
     (await target.query(metadata)).rows,
@@ -451,6 +470,7 @@ try {
           scope: 'public',
           tablesCompared: tables.length,
           restoreVerified: true,
+          archivedHistoryRestored: archivedHistory,
           baselineVerification,
           limitations:
             'No Auth/Storage blobs, ownership/ACL restoration or off-site durability verified',
@@ -476,9 +496,10 @@ try {
         : false,
       target: 'disposable loopback PostgreSQL',
       plaintextDumpWritten: false,
+      archivedHistoryRestored: archivedHistory,
       externalUploadTested: false,
       limit:
-        'public schema only; ACLs/ownership, Supabase Auth, Storage blobs, service configuration and full-platform recovery excluded',
+        'public application schema and archived migration history when present; ACLs/ownership, Supabase Auth, Storage blobs, service configuration and full-platform recovery excluded',
     }),
   );
 } catch (error) {

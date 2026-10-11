@@ -2,6 +2,8 @@
 
 The application is not yet approved for release. Continue web stabilization before starting the agent mobile app; desktop wrapping remains optional.
 
+Latest [four-package execution](FOUR_PACKAGE_EXECUTION.md): the development baseline discrepancy is closed, migration 0005 adds immutable loan/payment evidence, provider/API recovery passed, and a post-migration application/history restore passed. Nonzero fee contracts, historical test-data reconciliation, real-device checks and complete off-site/platform recovery remain open.
+
 ## Latest verified batch
 
 The [third stabilization pass](FOUR_PRIORITY_THIRD_PASS_2026-10-11.md) records newer evidence: retained development application restore, two applied development indexes, private evidence in both environments, closure consistency checks and temporary fee gates. Earlier test counts and storage/schema descriptions below are historical; the linked record describes remaining limits.

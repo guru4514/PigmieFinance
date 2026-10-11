@@ -52,6 +52,13 @@ const request = async (token, path) => {
   return response;
 };
 try {
+  checkpoint = 'staging API availability';
+  const probe = await fetch('http://127.0.0.1:3001/api/v1/auth/me', {
+    signal: AbortSignal.timeout(5000),
+  });
+  await probe.body?.cancel();
+  assert.equal(probe.status, 401);
+  checkpoint = 'provider account';
   const email = `staging-check-${randomUUID()}@example.test`;
   const password = randomBytes(32).toString('base64url');
   const created = await admin.auth.admin.createUser({
