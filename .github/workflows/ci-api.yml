@@ -40,5 +40,8 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      - name: Regression tests
+        run: npm test -- --runInBand
+
       - name: Build
         run: npm run build

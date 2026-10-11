@@ -1,9 +1,18 @@
-import { IsOptional, IsString, IsInt, Min, Max, IsUUID, IsEnum, IsDateString, IsIn } from 'class-validator';
+import {
+  IsOptional,
+  IsInt,
+  Min,
+  Max,
+  IsUUID,
+  IsDateString,
+  IsIn,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class ReportQueryDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number = 1;
-  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit?: number = 20;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit?: number =
+    20;
 }
 
 export class OverdueQueryDto extends ReportQueryDto {
@@ -15,10 +24,27 @@ export class OverdueQueryDto extends ReportQueryDto {
 export class CollectionEfficiencyQueryDto {
   @IsOptional() @IsDateString() dateFrom?: string;
   @IsOptional() @IsDateString() dateTo?: string;
-  @IsOptional() @IsIn(['agent', 'branch', 'day']) groupBy?: 'agent' | 'branch' | 'day' = 'agent';
+  @IsOptional() @IsIn(['agent', 'branch', 'day']) groupBy?:
+    'agent' | 'branch' | 'day' = 'agent';
 }
 
 export class ExportQueryDto {
-  @IsIn(['customers', 'loans', 'collections', 'schedule']) type: 'customers' | 'loans' | 'collections' | 'schedule';
+  @IsIn([
+    'customers',
+    'loans',
+    'collections',
+    'schedule',
+    'par',
+    'efficiency',
+    'agents',
+  ])
+  type:
+    | 'customers'
+    | 'loans'
+    | 'collections'
+    | 'schedule'
+    | 'par'
+    | 'efficiency'
+    | 'agents';
   @IsIn(['csv']) format: 'csv';
 }

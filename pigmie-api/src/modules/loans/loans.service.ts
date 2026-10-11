@@ -1,4 +1,10 @@
-import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  Logger,
+  ForbiddenException,
+} from '@nestjs/common';
 import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '../email/email.service';
@@ -6,8 +12,12 @@ import { CreateLoanDto } from './dto/create-loan.dto';
 import { QueryLoanDto } from './dto/query-loan.dto';
 import { RestructureLoanDto } from './dto/restructure-loan.dto';
 import { generateSchedule } from './utils/schedule-generator.util';
+import { calculatePreClosure } from './utils/pre-closure.util';
+import { businessDate } from './utils/date.util';
 import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
+import type { StaffRole } from '../../common/types/request-user.type';
+import type { AuthenticatedUser } from '../../common/types/request-user.type';
 
 @Injectable()
 export class LoansService {
@@ -21,13 +31,22 @@ export class LoansService {
 
   async create(organizationId: string, staffId: string, dto: CreateLoanDto) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
+      const actor = await this.lockActor(tx, organizationId, staffId, [
+        'org_admin',
+        'branch_manager',
+        'agent',
+      ]);
+      await tx.$executeRaw`SELECT 1 FROM customers WHERE id = ${dto.customerId}::uuid AND organization_id = ${organizationId}::uuid FOR SHARE`;
       const product = await tx.loanProduct.findFirstOrThrow({
         where: { id: dto.loanProductId, organizationId, isActive: true },
       });
 
-      if (dto.principalAmount < product.minAmount.toNumber() || dto.principalAmount > product.maxAmount.toNumber()) {
+      if (
+        dto.principalAmount < product.minAmount.toNumber() ||
+        dto.principalAmount > product.maxAmount.toNumber()
+      ) {
         throw new BadRequestException(
-          `Principal amount must be between ${product.minAmount} and ${product.maxAmount}`,
+          `Principal amount must be between ${product.minAmount.toString()} and ${product.maxAmount.toString()}`,
         );
       }
       if (dto.tenure < product.minTenure || dto.tenure > product.maxTenure) {
@@ -37,22 +56,34 @@ export class LoansService {
       }
 
       const customer = await tx.customer.findFirstOrThrow({
-        where: { id: dto.customerId, organizationId },
+        where: {
+          id: dto.customerId,
+          organizationId,
+          ...(actor.role === 'agent' ? { assignedAgentId: actor.id } : {}),
+          ...(actor.role === 'branch_manager'
+            ? { branchId: actor.branchId }
+            : {}),
+        },
       });
 
-      const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+      const random = Math.floor(Math.random() * 10000)
+        .toString()
+        .padStart(4, '0');
       const loanCode = `LN-${Date.now()}-${random}`;
 
       // Calculate installment and total for display (will be finalized at disburse)
       const schedulePreview = generateSchedule({
         principal: dto.principalAmount,
-        interestType: product.interestType as 'flat' | 'reducing_balance',
+        interestType: product.interestType,
         annualRate: product.interestRateAnnual.toNumber(),
         tenure: dto.tenure,
-        frequency: product.collectionFrequency as 'daily' | 'weekly' | 'biweekly' | 'monthly',
+        frequency: product.collectionFrequency,
         startDate: new Date().toISOString().split('T')[0],
       });
-      const totalPayable = schedulePreview.reduce((sum, r) => sum + r.dueAmount, 0);
+      const totalPayable = schedulePreview.reduce(
+        (sum, r) => sum.plus(r.dueAmount),
+        new Prisma.Decimal(0),
+      );
 
       return tx.loan.create({
         data: {
@@ -66,7 +97,9 @@ export class LoansService {
           interestType: product.interestType,
           interestRateAnnual: product.interestRateAnnual,
           collectionFrequency: product.collectionFrequency,
-          installmentAmount: new Prisma.Decimal(schedulePreview[0]?.dueAmount ?? 0),
+          installmentAmount: new Prisma.Decimal(
+            schedulePreview[0]?.dueAmount ?? 0,
+          ),
           totalPayable: new Prisma.Decimal(totalPayable),
           outstandingBalance: new Prisma.Decimal(totalPayable),
           assignedAgentId: customer.assignedAgentId,
@@ -77,12 +110,22 @@ export class LoansService {
     });
   }
 
-  async findAll(organizationId: string, user: any, query: QueryLoanDto) {
+  async findAll(
+    organizationId: string,
+    user: AuthenticatedUser,
+    query: QueryLoanDto,
+  ) {
+    if (
+      user.type !== 'staff' ||
+      user.organizationId !== organizationId ||
+      (user.role === 'branch_manager' && !user.branchId)
+    )
+      throw new ForbiddenException('Scoped staff access is required');
     return this.tenantPrisma.run(organizationId, async (tx) => {
       const page = query.page ?? 1;
       const limit = query.limit ?? 20;
 
-      const where: any = { organizationId };
+      const where: Prisma.LoanWhereInput = { organizationId };
       if (query.status) where.status = query.status;
       if (query.customerId) where.customerId = query.customerId;
 
@@ -112,7 +155,10 @@ export class LoansService {
         tx.loan.count({ where }),
       ]);
 
-      return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+      return {
+        data,
+        meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      };
     });
   }
 
@@ -140,10 +186,10 @@ export class LoansService {
 
   async approve(organizationId: string, id: string, staffId: string) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      await tx.$executeRaw`SELECT 1 FROM loans WHERE id = ${id}::uuid FOR UPDATE`;
-      const loan = await tx.loan.findFirstOrThrow({ 
-        where: { id, organizationId },
-        include: { customer: true }
+      const where = await this.lockLoanScope(tx, organizationId, id, staffId);
+      const loan = await tx.loan.findFirstOrThrow({
+        where,
+        include: { customer: true },
       });
       if (loan.status !== 'pending_approval') {
         throw new BadRequestException('Loan is not pending approval');
@@ -166,7 +212,7 @@ export class LoansService {
           'Loan Approved',
           `Loan ${loan.loanCode} has been approved`,
           'loan',
-          loan.id
+          loan.id,
         );
       }
 
@@ -175,21 +221,28 @@ export class LoansService {
           await this.emailService.sendLoanApproved(
             loan.customer.email,
             loan.loanCode,
-            loan.customer.fullName
+            loan.customer.fullName,
           );
         }
-      } catch (e) {
-        this.logger.warn('Email send failed', e);
+      } catch {
+        this.logger.warn('Email send failed');
       }
 
       return updatedLoan;
     });
   }
 
-  async reject(organizationId: string, id: string, staffId: string, reason: string) {
+  async reject(
+    organizationId: string,
+    id: string,
+    staffId: string,
+    reason: string,
+  ) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      await tx.$executeRaw`SELECT 1 FROM loans WHERE id = ${id}::uuid FOR UPDATE`;
-      const loan = await tx.loan.findFirstOrThrow({ where: { id, organizationId } });
+      const where = await this.lockLoanScope(tx, organizationId, id, staffId);
+      const loan = await tx.loan.findFirstOrThrow({
+        where,
+      });
       if (loan.status !== 'pending_approval') {
         throw new BadRequestException('Loan is not pending approval');
       }
@@ -203,20 +256,30 @@ export class LoansService {
     });
   }
 
-  async disburse(organizationId: string, loanId: string, startDate: string, staffId: string) {
+  async disburse(
+    organizationId: string,
+    loanId: string,
+    startDate: string,
+    staffId: string,
+  ) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      await tx.$executeRaw`SELECT 1 FROM loans WHERE id = ${loanId}::uuid FOR UPDATE`;
+      const where = await this.lockLoanScope(
+        tx,
+        organizationId,
+        loanId,
+        staffId,
+      );
       const loan = await tx.loan.findFirstOrThrow({
-        where: { id: loanId, organizationId, status: 'approved' },
+        where: { ...where, status: 'approved' },
         include: { loanProduct: true, customer: true },
       });
 
       const rows = generateSchedule({
         principal: loan.principalAmount.toNumber(),
-        interestType: loan.interestType as 'flat' | 'reducing_balance',
+        interestType: loan.interestType,
         annualRate: loan.interestRateAnnual.toNumber(),
         tenure: loan.tenure,
-        frequency: loan.collectionFrequency as 'daily' | 'weekly' | 'biweekly' | 'monthly',
+        frequency: loan.collectionFrequency,
         startDate,
       });
 
@@ -232,7 +295,10 @@ export class LoansService {
         })),
       });
 
-      const totalPayable = rows.reduce((sum, r) => sum + r.dueAmount, 0);
+      const totalPayable = rows.reduce(
+        (sum, r) => sum.plus(r.dueAmount),
+        new Prisma.Decimal(0),
+      );
       const updated = await tx.loan.update({
         where: { id: loanId },
         data: {
@@ -256,7 +322,7 @@ export class LoansService {
           'Loan Disbursed',
           `Loan ${loan.loanCode} has been disbursed`,
           'loan',
-          loan.id
+          loan.id,
         );
       }
 
@@ -266,89 +332,112 @@ export class LoansService {
             loan.customer.email,
             loan.loanCode,
             loan.principalAmount.toString(),
-            loan.customer.fullName
+            loan.customer.fullName,
           );
         }
-      } catch (e) {
-        this.logger.warn('Email send failed', e);
+      } catch {
+        this.logger.warn('Email send failed');
       }
 
       return { loan: updated, schedule: rows };
     });
   }
 
-  async close(organizationId: string, id: string, staffId: string, body?: { preClosureAmount?: number }) {
+  async close(
+    organizationId: string,
+    id: string,
+    staffId: string,
+    body?: { preClosureAmount?: number },
+  ) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      await tx.$executeRaw`SELECT 1 FROM loans WHERE id = ${id}::uuid FOR UPDATE`;
-      const loan = await tx.loan.findFirstOrThrow({ where: { id, organizationId } });
-      if (loan.status !== 'active') {
+      const where = await this.lockLoanScope(tx, organizationId, id, staffId);
+      const loan = await tx.loan.findFirstOrThrow({
+        where,
+        include: { schedule: true },
+      });
+      if (loan.status !== 'active')
         throw new BadRequestException('Loan is not active');
-      }
-
       if (body?.preClosureAmount !== undefined) {
-         const pendingSchedule = await tx.loanSchedule.findMany({
-           where: { loanId: id, status: { in: ['pending', 'overdue'] } }
-         });
-         const outstandingPrincipal = pendingSchedule.reduce((sum, s) => sum + s.principalComponent.toNumber(), 0);
-         
-         if (body.preClosureAmount < outstandingPrincipal) {
-           throw new BadRequestException(
-             `Pre-closure amount (₹${body.preClosureAmount}) must cover at least the outstanding principal (₹${outstandingPrincipal})`
-           );
-         }
-         const preClosureAmount = new Prisma.Decimal(body.preClosureAmount.toString());
-         const today = new Date();
-         const dateString = today.toISOString().split('T')[0];
-         
-         const countToday = await tx.collection.count({
-           where: {
-             organizationId,
-             collectionDate: new Date(dateString),
-           },
-         });
-         const receiptNumber = `RCP-${dateString.replace(/-/g, '')}-${String(countToday + 1).padStart(4, '0')}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
-         const clientGeneratedId = crypto.randomUUID();
-
-         await tx.collection.create({
-           data: {
-             clientGeneratedId,
-             organizationId,
-             loanId: loan.id,
-             customerId: loan.customerId,
-             collectedById: staffId,
-             amount: preClosureAmount,
-             collectionDate: new Date(dateString),
-             collectedAt: today,
-             collectionMethod: 'other',
-             receiptNumber,
-             notes: 'Pre-closure payment',
-             status: 'recorded',
-           },
-         });
-
-         const newTotalCollected = loan.totalCollected.plus(preClosureAmount);
-
-         await tx.loanSchedule.updateMany({
-           where: { loanId: loan.id, status: { in: ['pending', 'overdue'] } },
-           data: { status: 'waived' }
-         });
-
-         // Mark as closed and zero out outstanding balance
-         return tx.loan.update({
-           where: { id },
-           data: { 
-             outstandingBalance: 0, 
-             totalCollected: newTotalCollected,
-             status: 'closed', 
-             closedAt: today, 
-             notes: `${loan.notes ? loan.notes + '\n' : ''}Pre-closed with amount ${body.preClosureAmount}` 
-           }
-         });
+        const amount = body.preClosureAmount;
+        if (
+          !Number.isFinite(amount) ||
+          amount <= 0 ||
+          amount > 9999999999.99 ||
+          !new Prisma.Decimal(amount).equals(
+            new Prisma.Decimal(amount).toDecimalPlaces(2),
+          )
+        ) {
+          throw new BadRequestException(
+            'Payoff must be a positive amount with at most two decimal places',
+          );
+        }
+        const today = new Date();
+        const quote = calculatePreClosure(loan.schedule, loan.startDate, today);
+        if (!new Prisma.Decimal(amount).equals(quote.preClosureAmount)) {
+          throw new BadRequestException(
+            'Payoff changed. Refresh the early-closure quote before confirming',
+          );
+        }
+        const payment = new Prisma.Decimal(amount);
+        const date = businessDate(today);
+        const clientGeneratedId = crypto.randomUUID();
+        const receiptNumber = `RCP-${date.toISOString().slice(0, 10).replace(/-/g, '')}-${clientGeneratedId.toUpperCase()}`;
+        await tx.collection.create({
+          data: {
+            clientGeneratedId,
+            organizationId,
+            loanId: id,
+            customerId: loan.customerId,
+            collectedById: staffId,
+            amount: payment,
+            collectionDate: date,
+            collectedAt: today,
+            collectionMethod: 'other',
+            receiptNumber,
+            notes: 'Pre-closure payment',
+            status: 'recorded',
+          },
+        });
+        const totalCollected = loan.totalCollected.plus(payment);
+        await tx.loanSchedule.updateMany({
+          where: {
+            loanId: id,
+            status: { in: ['pending', 'partially_paid', 'overdue'] },
+          },
+          data: { status: 'waived' },
+        });
+        const updated = await tx.loan.update({
+          where: { id },
+          data: {
+            outstandingBalance: 0,
+            totalCollected,
+            totalPayable: totalCollected,
+            status: 'closed',
+            closedAt: today,
+            notes: `${loan.notes ? loan.notes + '\n' : ''}Pre-closed with amount ${amount}`,
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            organizationId,
+            actorStaffId: staffId,
+            action: 'loan.pre_closed',
+            entityType: 'Loan',
+            entityId: id,
+            newValue: {
+              payment: payment.toString(),
+              previousTotalPayable: loan.totalPayable.toString(),
+              settledTotalPayable: totalCollected.toString(),
+              calculation: quote,
+            },
+          },
+        });
+        return updated;
       }
-
-      if (loan.outstandingBalance && loan.outstandingBalance.toNumber() > 0) {
-        throw new BadRequestException('Cannot close loan with outstanding balance');
-      }
+      if (loan.outstandingBalance.gt(0))
+        throw new BadRequestException(
+          'Cannot close loan with outstanding balance',
+        );
       return tx.loan.update({
         where: { id },
         data: { status: 'closed', closedAt: new Date() },
@@ -360,58 +449,33 @@ export class LoansService {
     return this.tenantPrisma.run(organizationId, async (tx) => {
       const loan = await tx.loan.findFirstOrThrow({
         where: { id, organizationId },
-        include: { schedule: { orderBy: { installmentNumber: 'asc' } }, loanProduct: true }
+        include: { schedule: true },
       });
-
-      if (loan.status !== 'active') {
-        throw new BadRequestException('Loan must be active to calculate pre-closure');
-      }
-
-      const pendingSchedule = loan.schedule.filter(s => s.status === 'pending' || s.status === 'overdue');
-      const outstandingPrincipal = pendingSchedule.reduce((sum, s) => sum + s.principalComponent.toNumber(), 0);
-      
-      const today = new Date();
-      const overdueInterest = pendingSchedule.filter(s => s.dueDate < today).reduce((sum, s) => sum + s.interestComponent.toNumber(), 0);
-      
-      const currentPeriod = pendingSchedule.find(s => s.dueDate >= today);
-      let currentPeriodInterest = 0;
-      if (currentPeriod) {
-        const prevPeriod = loan.schedule.find(s => s.installmentNumber === currentPeriod.installmentNumber - 1);
-        const periodStart = prevPeriod ? prevPeriod.dueDate : (loan.startDate || new Date());
-        const periodEnd = currentPeriod.dueDate;
-        
-        const daysInPeriod = Math.max(1, (periodEnd.getTime() - periodStart.getTime()) / (1000 * 3600 * 24));
-        const daysElapsed = Math.max(0, (today.getTime() - periodStart.getTime()) / (1000 * 3600 * 24));
-        
-        currentPeriodInterest = (currentPeriod.interestComponent.toNumber() * daysElapsed) / daysInPeriod;
-      }
-      
-      const accruedInterest = overdueInterest + currentPeriodInterest;
-
-      // Make configurable via loan product (fallback to 2)
-      const penaltyRate = (loan.loanProduct as any).preClosurePenaltyRate ?? 2;
-      const preClosurePenalty = (outstandingPrincipal * penaltyRate) / 100;
-      
-      const preClosureAmount = outstandingPrincipal + accruedInterest + preClosurePenalty;
-      const remainingScheduledPayments = pendingSchedule.reduce((sum, s) => sum + s.dueAmount.toNumber(), 0);
-      const amountSaved = remainingScheduledPayments - preClosureAmount;
-
-      return {
-        outstandingPrincipal,
-        accruedInterest,
-        preClosurePenalty,
-        preClosureAmount,
-        amountSaved,
-        penaltyRate
-      };
+      if (loan.status !== 'active')
+        throw new BadRequestException(
+          'Loan must be active to calculate pre-closure',
+        );
+      return calculatePreClosure(loan.schedule, loan.startDate);
     });
   }
 
-  async writeOff(organizationId: string, id: string, reason: string) {
+  async writeOff(
+    organizationId: string,
+    id: string,
+    reason: string,
+    staffId: string,
+  ) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      const loan = await tx.loan.findFirstOrThrow({ where: { id, organizationId } });
+      const where = await this.lockLoanScope(tx, organizationId, id, staffId, [
+        'org_admin',
+      ]);
+      const loan = await tx.loan.findFirstOrThrow({
+        where,
+      });
       if (loan.status !== 'active' && loan.status !== 'defaulted') {
-        throw new BadRequestException('Can only write-off active or defaulted loans');
+        throw new BadRequestException(
+          'Can only write-off active or defaulted loans',
+        );
       }
       return tx.loan.update({
         where: { id },
@@ -426,9 +490,14 @@ export class LoansService {
 
   async markDefault(organizationId: string, id: string, staffId: string) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
-      const loan = await tx.loan.findFirstOrThrow({ where: { id, organizationId } });
+      const where = await this.lockLoanScope(tx, organizationId, id, staffId);
+      const loan = await tx.loan.findFirstOrThrow({
+        where,
+      });
       if (loan.status !== 'active') {
-        throw new BadRequestException('Only active loans can be marked as default');
+        throw new BadRequestException(
+          'Only active loans can be marked as default',
+        );
       }
       return tx.loan.update({
         where: { id },
@@ -447,10 +516,16 @@ export class LoansService {
     });
   }
 
-  async restructure(organizationId: string, id: string, staffId: string, dto: RestructureLoanDto) {
+  async restructure(
+    organizationId: string,
+    id: string,
+    staffId: string,
+    dto: RestructureLoanDto,
+  ) {
     return this.tenantPrisma.run(organizationId, async (tx) => {
+      const where = await this.lockLoanScope(tx, organizationId, id, staffId);
       const loan = await tx.loan.findFirstOrThrow({
-        where: { id, organizationId },
+        where,
       });
 
       if (loan.status !== 'active') {
@@ -458,57 +533,101 @@ export class LoansService {
       }
 
       const targetRow = await tx.loanSchedule.findFirst({
-        where: { loanId: id, installmentNumber: dto.fromInstallmentNumber }
+        where: { loanId: id, installmentNumber: dto.fromInstallmentNumber },
       });
 
       if (!targetRow) {
         throw new BadRequestException('Invalid installment number');
       }
 
-      if (targetRow.status === 'paid' || targetRow.status === 'partially_paid') {
-        throw new BadRequestException('Cannot restructure from an already paid or partially paid installment');
+      if (
+        targetRow.status === 'paid' ||
+        targetRow.status === 'partially_paid'
+      ) {
+        throw new BadRequestException(
+          'Cannot restructure from an already paid or partially paid installment',
+        );
       }
 
       const rowsToDelete = await tx.loanSchedule.findMany({
         where: {
           loanId: id,
           installmentNumber: { gte: dto.fromInstallmentNumber },
-          status: { in: ['pending', 'overdue'] }
-        }
+        },
       });
 
       if (rowsToDelete.length === 0) {
-        throw new BadRequestException('No pending installments found to restructure');
+        throw new BadRequestException(
+          'No pending installments found to restructure',
+        );
+      }
+      if (
+        rowsToDelete.some(
+          (row) =>
+            !['pending', 'overdue'].includes(row.status) ||
+            row.paidAmount.gt(0) ||
+            row.principalComponent.lt(0) ||
+            row.interestComponent.lt(0) ||
+            !row.dueAmount.equals(
+              row.principalComponent.plus(row.interestComponent),
+            ),
+        )
+      ) {
+        throw new BadRequestException(
+          'Paid, waived or fee-bearing installments require reconciliation before restructuring',
+        );
+      }
+      if (
+        !Number.isInteger(dto.newTenure) ||
+        dto.newTenure < 1 ||
+        dto.fromInstallmentNumber - 1 + dto.newTenure > 10000
+      ) {
+        throw new BadRequestException(
+          'Restructured tenure exceeds the supported installment count',
+        );
       }
 
-      const remainingPrincipal = rowsToDelete.reduce((sum, r) => sum + r.principalComponent.toNumber(), 0);
-      const deletedDueAmountSum = rowsToDelete.reduce((sum, r) => sum + r.dueAmount.toNumber(), 0);
+      const remainingPrincipal = rowsToDelete
+        .reduce(
+          (sum, r) => sum.plus(r.principalComponent),
+          new Prisma.Decimal(0),
+        )
+        .toNumber();
+      const deletedDueAmountSum = rowsToDelete.reduce(
+        (sum, r) => sum.plus(r.dueAmount),
+        new Prisma.Decimal(0),
+      );
 
       await tx.loanSchedule.deleteMany({
         where: {
           loanId: id,
           installmentNumber: { gte: dto.fromInstallmentNumber },
-          status: { in: ['pending', 'overdue'] }
-        }
+          status: { in: ['pending', 'overdue'] },
+        },
       });
 
       let prevDueDate = loan.startDate;
       if (dto.fromInstallmentNumber > 1) {
         const prevRow = await tx.loanSchedule.findFirst({
-          where: { loanId: id, installmentNumber: dto.fromInstallmentNumber - 1 }
+          where: {
+            loanId: id,
+            installmentNumber: dto.fromInstallmentNumber - 1,
+          },
         });
         if (prevRow) {
           prevDueDate = prevRow.dueDate;
         }
       }
-      const startDateStr = prevDueDate ? prevDueDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+      const startDateStr = prevDueDate
+        ? prevDueDate.toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0];
 
       const newRows = generateSchedule({
         principal: remainingPrincipal,
-        interestType: loan.interestType as 'flat' | 'reducing_balance',
+        interestType: loan.interestType,
         annualRate: loan.interestRateAnnual.toNumber(),
         tenure: dto.newTenure,
-        frequency: loan.collectionFrequency as 'daily' | 'weekly' | 'biweekly' | 'monthly',
+        frequency: loan.collectionFrequency,
         startDate: startDateStr,
       });
 
@@ -524,11 +643,17 @@ export class LoansService {
 
       await tx.loanSchedule.createMany({ data: scheduleData });
 
-      const newDueAmountSum = newRows.reduce((sum, r) => sum + r.dueAmount, 0);
-      const newDueAmountSumDec = new Prisma.Decimal(newDueAmountSum);
-      const deletedDueAmountSumDec = new Prisma.Decimal(deletedDueAmountSum);
-      const newTotalPayable = loan.totalPayable.minus(deletedDueAmountSumDec).plus(newDueAmountSumDec);
-      const newOutstandingBalance = loan.outstandingBalance.minus(deletedDueAmountSumDec).plus(newDueAmountSumDec);
+      const newDueAmountSumDec = newRows.reduce(
+        (sum, r) => sum.plus(r.dueAmount),
+        new Prisma.Decimal(0),
+      );
+      const deletedDueAmountSumDec = deletedDueAmountSum;
+      const newTotalPayable = loan.totalPayable
+        .minus(deletedDueAmountSumDec)
+        .plus(newDueAmountSumDec);
+      const newOutstandingBalance = loan.outstandingBalance
+        .minus(deletedDueAmountSumDec)
+        .plus(newDueAmountSumDec);
       const newExpectedEndDate = new Date(newRows[newRows.length - 1].dueDate);
       const newTenureTotal = dto.fromInstallmentNumber - 1 + dto.newTenure;
 
@@ -539,8 +664,10 @@ export class LoansService {
           totalPayable: newTotalPayable,
           outstandingBalance: newOutstandingBalance,
           expectedEndDate: newExpectedEndDate,
-          notes: dto.reason ? `${loan.notes ? loan.notes + '\n' : ''}Restructured: ${dto.reason}` : loan.notes,
-        }
+          notes: dto.reason
+            ? `${loan.notes ? loan.notes + '\n' : ''}Restructured: ${dto.reason}`
+            : loan.notes,
+        },
       });
 
       await tx.auditLog.create({
@@ -555,12 +682,52 @@ export class LoansService {
             newTenure: dto.newTenure,
             reason: dto.reason,
             remainingPrincipal,
-            newTotalPayable
-          }
-        }
+            newTotalPayable,
+          },
+        },
       });
 
       return { loan: updated, newSchedule: scheduleData };
     });
+  }
+
+  private async lockActor(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    staffId: string,
+    roles: StaffRole[],
+  ) {
+    await tx.$executeRaw`SELECT 1 FROM staff WHERE id = ${staffId}::uuid AND organization_id = ${organizationId}::uuid FOR SHARE`;
+    const actor = await tx.staff.findFirst({
+      where: { id: staffId, organizationId, isActive: true },
+      select: { id: true, role: true, branchId: true },
+    });
+    if (
+      !actor ||
+      !roles.includes(actor.role) ||
+      (actor.role === 'branch_manager' && !actor.branchId)
+    ) {
+      throw new ForbiddenException('Loan mutation is not permitted');
+    }
+    return actor;
+  }
+
+  private async lockLoanScope(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    id: string,
+    staffId: string,
+    roles: StaffRole[] = ['org_admin', 'branch_manager'],
+  ): Promise<Prisma.LoanWhereInput> {
+    const actor = await this.lockActor(tx, organizationId, staffId, roles);
+    await tx.$executeRaw`SELECT c.id FROM customers c JOIN loans l ON l.customer_id = c.id WHERE l.id = ${id}::uuid AND l.organization_id = ${organizationId}::uuid AND c.organization_id = ${organizationId}::uuid FOR SHARE OF c`;
+    await tx.$executeRaw`SELECT 1 FROM loans WHERE id = ${id}::uuid AND organization_id = ${organizationId}::uuid FOR UPDATE`;
+    return {
+      id,
+      organizationId,
+      ...(actor.role === 'branch_manager'
+        ? { customer: { branchId: actor.branchId } }
+        : {}),
+    };
   }
 }

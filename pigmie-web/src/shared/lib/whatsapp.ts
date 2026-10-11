@@ -11,7 +11,7 @@ export function generateReceiptMessage(data: {
   amount: number;
   date: string;
   loanId: string;
-  outstandingBalance: number;
+  outstandingBalance?: number;
   organizationName?: string;
 }) {
   return `🧾 *Payment Receipt*\n\n` +
@@ -19,7 +19,7 @@ export function generateReceiptMessage(data: {
     `Amount: ₹${((data.amount) || 0).toLocaleString('en-IN')}\n` +
     `Date: ${data.date}\n` +
     `Loan ID: ${data.loanId}\n` +
-    `Outstanding: ₹${((data.outstandingBalance) || 0).toLocaleString('en-IN')}\n\n` +
+    (data.outstandingBalance === undefined ? '\n' : `Outstanding: ₹${data.outstandingBalance.toLocaleString('en-IN')}\n\n`) +
     `${data.organizationName ? `— ${data.organizationName}` : ''}`;
 }
 

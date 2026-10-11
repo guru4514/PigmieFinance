@@ -1,5 +1,13 @@
 import {
-  Controller, Get, Post, Param, Query, Body, UseGuards, HttpCode, HttpStatus,
+  Controller,
+  Get,
+  Post,
+  Param,
+  Query,
+  Body,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -10,6 +18,10 @@ import { AuthenticatedUser } from '../../common/types/request-user.type';
 import { CashDepositsService } from './cash-deposits.service';
 import { CreateCashDepositDto } from './dto/create-cash-deposit.dto';
 import { VerifyCashDepositDto } from './dto/verify-cash-deposit.dto';
+import {
+  QueryCashDepositsDto,
+  ReconciliationQueryDto,
+} from './dto/query-cash-deposits.dto';
 
 @Controller('cash-deposits')
 @UseGuards(SupabaseAuthGuard, RolesGuard)
@@ -19,24 +31,34 @@ export class CashDepositsController {
   @Post()
   @Roles('agent', 'branch_manager', 'org_admin')
   @AuditAction('cash_deposit.create')
-  async create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateCashDepositDto) {
+  async create(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateCashDepositDto,
+  ) {
     return this.cashDepositsService.create(user.organizationId, user.id, dto);
   }
 
   @Get()
   @Roles('agent', 'branch_manager', 'org_admin')
-  async findAll(@CurrentUser() user: AuthenticatedUser, @Query() query: any) {
-    return this.cashDepositsService.findAll(user.organizationId, query);
+  async findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: QueryCashDepositsDto,
+  ) {
+    return this.cashDepositsService.findAll(user.organizationId, query, user);
   }
 
   @Get('reconciliation')
   @Roles('org_admin', 'branch_manager', 'accountant')
   async getReconciliation(
     @CurrentUser() user: AuthenticatedUser,
-    @Query('startDate') startDate: string,
-    @Query('endDate') endDate: string,
+    @Query() query: ReconciliationQueryDto,
   ) {
-    return this.cashDepositsService.getReconciliation(user.organizationId, startDate, endDate);
+    return this.cashDepositsService.getReconciliation(
+      user.organizationId,
+      query.startDate,
+      query.endDate,
+      user,
+    );
   }
 
   @Post(':id/verify')
@@ -48,6 +70,11 @@ export class CashDepositsController {
     @Param('id') id: string,
     @Body() dto: VerifyCashDepositDto,
   ) {
-    return this.cashDepositsService.verify(user.organizationId, id, user.id, dto);
+    return this.cashDepositsService.verify(
+      user.organizationId,
+      id,
+      user.id,
+      dto,
+    );
   }
 }

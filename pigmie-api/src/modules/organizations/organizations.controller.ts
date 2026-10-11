@@ -1,11 +1,21 @@
-import { Throttle } from '@nestjs/throttler';
-import { Controller, Get, Post, Patch, Body, UseGuards, ConflictException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  UseGuards,
+  ConflictException,
+} from '@nestjs/common';
 import { OrganizationsService } from './organizations.service';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { AuthenticatedUser, RequestUser } from '../../common/types/request-user.type';
+import {
+  AuthenticatedUser,
+  RequestUser,
+} from '../../common/types/request-user.type';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
@@ -22,7 +32,10 @@ export class OrganizationsController {
   @AuditAction('organization.create')
   @AllowUnprovisioned()
   @AllowAnyRole()
-  async createOrganization(@CurrentUser() user: RequestUser, @Body() dto: CreateOrganizationDto) {
+  async createOrganization(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: CreateOrganizationDto,
+  ) {
     if (user.type !== 'unprovisioned') {
       throw new ConflictException('User is already provisioned');
     }
@@ -32,17 +45,27 @@ export class OrganizationsController {
   @Get('me')
   @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
   async getMyOrganization(@CurrentUser() user: AuthenticatedUser) {
-    if (user.type !== 'staff') throw new ConflictException('Only staff can access this endpoint');
-    return this.organizationsService.getMyOrganization(user.organizationId);
+    if (user.type !== 'staff')
+      throw new ConflictException('Only staff can access this endpoint');
+    return this.organizationsService.getMyOrganization(
+      user.organizationId,
+      user.id,
+    );
   }
 
   @Patch('me')
   @Roles('org_admin')
   @AuditAction('organization.update')
-  async updateOrganization(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateOrganizationDto) {
-    if (user.type !== 'staff') throw new ConflictException('Only staff can access this endpoint');
-    return this.organizationsService.updateOrganization(user.organizationId, dto);
+  async updateOrganization(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdateOrganizationDto,
+  ) {
+    if (user.type !== 'staff')
+      throw new ConflictException('Only staff can access this endpoint');
+    return this.organizationsService.updateOrganization(
+      user.organizationId,
+      dto,
+      user.id,
+    );
   }
 }
-
-

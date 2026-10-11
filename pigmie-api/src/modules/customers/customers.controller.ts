@@ -1,4 +1,16 @@
-import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Query, UseGuards, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+  Res,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { CustomersService } from './customers.service';
 import { CustomerPdfService } from './customer-pdf.service';
@@ -10,62 +22,95 @@ import { ImportCustomersDto } from './dto/import-customers.dto';
 import { BulkCreateCustomerDto } from './dto/customer.dto';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { RecordAccessGuard } from '../../common/guards/record-access.guard';
+import { RecordAccess } from '../../common/decorators/record-access.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../common/types/request-user.type';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 
 @Controller('customers')
-@UseGuards(SupabaseAuthGuard, RolesGuard)
+@UseGuards(SupabaseAuthGuard, RolesGuard, RecordAccessGuard)
+@RecordAccess({ resource: 'customer' })
 export class CustomersController {
   constructor(
     private readonly customersService: CustomersService,
-    private readonly customerPdfService: CustomerPdfService
+    private readonly customerPdfService: CustomerPdfService,
   ) {}
 
   @Get()
   @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
-  async findAll(@Query() query: QueryCustomerDto, @CurrentUser() user: AuthenticatedUser) {
-    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+  async findAll(
+    @Query() query: QueryCustomerDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (user.type !== 'staff')
+      throw new ForbiddenException('Only staff can access this endpoint');
     return this.customersService.findAll(user.organizationId, query, user);
   }
 
   @Post()
   @Roles('org_admin', 'branch_manager', 'agent')
   @AuditAction('customer.create')
-  async create(@Body() dto: CreateCustomerDto, @CurrentUser() user: AuthenticatedUser) {
-    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
-    return this.customersService.create(user.organizationId, dto);
+  async create(
+    @Body() dto: CreateCustomerDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (user.type !== 'staff')
+      throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.create(user.organizationId, dto, user);
   }
 
   @Post('import')
   @Roles('org_admin')
   @AuditAction('customer.import')
-  async importCustomers(@Body() dto: ImportCustomersDto, @CurrentUser() user: AuthenticatedUser) {
-    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
-    return this.customersService.importCustomers(user.organizationId, dto);
+  async importCustomers(
+    @Body() dto: ImportCustomersDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (user.type !== 'staff')
+      throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.importCustomers(
+      user.organizationId,
+      dto,
+      user,
+    );
   }
 
   @Post('bulk')
   @Roles('branch_manager', 'org_admin')
   @AuditAction('customer.bulk_create')
-  async bulkCreate(@Body() dto: BulkCreateCustomerDto, @CurrentUser() user: AuthenticatedUser) {
-    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
-    return this.customersService.bulkCreate(user.organizationId, dto);
+  async bulkCreate(
+    @Body() dto: BulkCreateCustomerDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (user.type !== 'staff')
+      throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.bulkCreate(user.organizationId, dto, user);
   }
 
   @Get('kyc-summary')
   @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
   async getKycSummary(@CurrentUser() user: AuthenticatedUser) {
-    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
-    return this.customersService.getKycSummary(user.organizationId);
+    if (user.type !== 'staff')
+      throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.getKycSummary(user.organizationId, user);
   }
 
   @Get(':id')
   @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
-  async findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
-    return this.customersService.findOne(user.organizationId, id, user.role, user.id);
+  async findOne(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (user.type !== 'staff')
+      throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.findOne(
+      user.organizationId,
+      id,
+      user.role,
+      user.id,
+    );
   }
 
   @Patch(':id')
@@ -74,17 +119,22 @@ export class CustomersController {
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateCustomerDto,
-    @CurrentUser() user: AuthenticatedUser
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
-    return this.customersService.update(user.organizationId, id, dto, user.role, user.id);
+    if (user.type !== 'staff')
+      throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.update(user.organizationId, id, dto, user);
   }
 
   @Delete(':id')
   @Roles('org_admin', 'branch_manager')
   @AuditAction('customer.delete')
-  async remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+  async remove(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (user.type !== 'staff')
+      throw new ForbiddenException('Only staff can access this endpoint');
     return this.customersService.remove(user.organizationId, id);
   }
 
@@ -93,17 +143,26 @@ export class CustomersController {
   @AuditAction('customer.update_kyc_status')
   async updateKycStatus(
     @Param('id') id: string,
-    @Body('status') status: any,
-    @CurrentUser() user: AuthenticatedUser
+    @Body('status') status: unknown,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
-    return this.customersService.updateKycStatus(user.organizationId, id, status);
+    if (user.type !== 'staff')
+      throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.updateKycStatus(
+      user.organizationId,
+      id,
+      status,
+    );
   }
 
   @Get(':id/loans')
   @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
-  async findLoans(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
+  async findLoans(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (user.type !== 'staff')
+      throw new ForbiddenException('Only staff can access this endpoint');
     return this.customersService.findLoans(user.organizationId, id);
   }
 
@@ -113,18 +172,32 @@ export class CustomersController {
   async grantPortalAccess(
     @Param('id') id: string,
     @Body() dto: PortalAccessDto,
-    @CurrentUser() user: AuthenticatedUser
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
-    return this.customersService.grantPortalAccess(user.organizationId, id, dto);
+    if (user.type !== 'staff')
+      throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.grantPortalAccess(
+      user.organizationId,
+      id,
+      dto,
+      user.id,
+    );
   }
 
   @Delete(':id/portal-access')
   @Roles('org_admin', 'branch_manager')
   @AuditAction('customer.revoke_portal_access')
-  async revokePortalAccess(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
-    return this.customersService.revokePortalAccess(user.organizationId, id);
+  async revokePortalAccess(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (user.type !== 'staff')
+      throw new ForbiddenException('Only staff can access this endpoint');
+    return this.customersService.revokePortalAccess(
+      user.organizationId,
+      id,
+      user.id,
+    );
   }
 
   @Get(':id/passbook')
@@ -132,15 +205,29 @@ export class CustomersController {
   async downloadPassbook(
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
-    @Res() res: Response
+    @Res() res: Response,
   ) {
-    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
-    
+    if (user.type !== 'staff')
+      throw new ForbiddenException('Only staff can access this endpoint');
+
     // First ensure the staff member can access this customer
-    await this.customersService.findOne(user.organizationId, id, user.role, user.id);
-    
-    const customer = await this.customersService.findOne(user.organizationId, id, user.role, user.id);
-    const pdfBuffer = await this.customerPdfService.generatePassbook(id, user.organizationId);
+    await this.customersService.findOne(
+      user.organizationId,
+      id,
+      user.role,
+      user.id,
+    );
+
+    const customer = await this.customersService.findOne(
+      user.organizationId,
+      id,
+      user.role,
+      user.id,
+    );
+    const pdfBuffer = await this.customerPdfService.generatePassbook(
+      id,
+      user.organizationId,
+    );
 
     res.set({
       'Content-Type': 'application/pdf',
@@ -151,5 +238,3 @@ export class CustomersController {
     res.end(pdfBuffer);
   }
 }
-
-

@@ -1,9 +1,20 @@
 import {
-  Controller, Get, Post, Param, Query, Body, UseGuards, HttpCode, HttpStatus, Res,
+  Controller,
+  Get,
+  Post,
+  Param,
+  Query,
+  Body,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+  Res,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { RecordAccessGuard } from '../../common/guards/record-access.guard';
+import { RecordAccess } from '../../common/decorators/record-access.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
@@ -11,6 +22,7 @@ import { AuthenticatedUser } from '../../common/types/request-user.type';
 import { LoansService } from './loans.service';
 import { PdfService } from './pdf.service';
 import { CreateLoanDto } from './dto/create-loan.dto';
+import { CloseLoanDto } from './dto/close-loan.dto';
 import { DisburseLoanDto } from './dto/disburse-loan.dto';
 import { RejectLoanDto } from './dto/reject-loan.dto';
 import { WriteOffLoanDto } from './dto/write-off-loan.dto';
@@ -18,7 +30,8 @@ import { QueryLoanDto } from './dto/query-loan.dto';
 import { RestructureLoanDto } from './dto/restructure-loan.dto';
 
 @Controller('loans')
-@UseGuards(SupabaseAuthGuard, RolesGuard)
+@UseGuards(SupabaseAuthGuard, RolesGuard, RecordAccessGuard)
+@RecordAccess({ resource: 'loan' })
 export class LoansController {
   constructor(
     private readonly loansService: LoansService,
@@ -27,20 +40,30 @@ export class LoansController {
 
   @Get()
   @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
-  async findAll(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryLoanDto) {
+  async findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: QueryLoanDto,
+  ) {
     return this.loansService.findAll(user.organizationId, user, query);
   }
 
   @Get(':id')
   @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
-  async findOne(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+  async findOne(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
     return this.loansService.findOne(user.organizationId, id);
   }
 
   @Post()
+  @RecordAccess({ resource: 'customer', source: 'body', field: 'customerId' })
   @Roles('org_admin', 'branch_manager', 'agent')
   @AuditAction('loan.create')
-  async create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateLoanDto) {
+  async create(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateLoanDto,
+  ) {
     return this.loansService.create(user.organizationId, user.id, dto);
   }
 
@@ -48,7 +71,10 @@ export class LoansController {
   @HttpCode(HttpStatus.OK)
   @Roles('org_admin', 'branch_manager')
   @AuditAction('loan.approve')
-  async approve(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+  async approve(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
     return this.loansService.approve(user.organizationId, id, user.id);
   }
 
@@ -61,7 +87,12 @@ export class LoansController {
     @Param('id') id: string,
     @Body() dto: RejectLoanDto,
   ) {
-    return this.loansService.reject(user.organizationId, id, user.id, dto.reason);
+    return this.loansService.reject(
+      user.organizationId,
+      id,
+      user.id,
+      dto.reason,
+    );
   }
 
   @Post(':id/disburse')
@@ -73,7 +104,12 @@ export class LoansController {
     @Param('id') id: string,
     @Body() dto: DisburseLoanDto,
   ) {
-    return this.loansService.disburse(user.organizationId, id, dto.startDate, user.id);
+    return this.loansService.disburse(
+      user.organizationId,
+      id,
+      dto.startDate,
+      user.id,
+    );
   }
 
   @Post(':id/close')
@@ -81,16 +117,19 @@ export class LoansController {
   @Roles('org_admin', 'branch_manager')
   @AuditAction('loan.close')
   async close(
-    @CurrentUser() user: AuthenticatedUser, 
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
-    @Body() body: any
+    @Body() body: CloseLoanDto,
   ) {
     return this.loansService.close(user.organizationId, id, user.id, body);
   }
 
   @Get(':id/pre-closure')
   @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
-  async getPreClosureDetails(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+  async getPreClosureDetails(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
     return this.loansService.getPreClosureDetails(user.organizationId, id);
   }
 
@@ -103,7 +142,12 @@ export class LoansController {
     @Param('id') id: string,
     @Body() dto: WriteOffLoanDto,
   ) {
-    return this.loansService.writeOff(user.organizationId, id, dto.reason);
+    return this.loansService.writeOff(
+      user.organizationId,
+      id,
+      dto.reason,
+      user.id,
+    );
   }
 
   @Post(':id/mark-default')
@@ -119,7 +163,10 @@ export class LoansController {
 
   @Get(':id/schedule')
   @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
-  async getSchedule(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+  async getSchedule(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
     return this.loansService.getSchedule(user.organizationId, id);
   }
 
@@ -142,7 +189,10 @@ export class LoansController {
     @Param('id') id: string,
     @Res() res: Response,
   ) {
-    const buffer = await this.pdfService.generateLoanStatement(id, user.organizationId);
+    const buffer = await this.pdfService.generateLoanStatement(
+      id,
+      user.organizationId,
+    );
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="loan-statement-${id}.pdf"`,
@@ -151,4 +201,3 @@ export class LoansController {
     res.end(buffer);
   }
 }
-

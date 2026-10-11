@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Bell } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
@@ -12,9 +12,12 @@ import { Button } from '@/shared/components/ui/button';
 import { apiClient } from '@/shared/lib/api-client';
 
 import { urlBase64ToUint8Array } from '@/shared/lib/utils';
+import { useAuth } from '@/shared/hooks/use-auth';
 
 export function NotificationBell() {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const authUserId = session?.user.id;
   const [open, setOpen] = useState(false);
 
   const { data: notifications = [] } = useQuery({
@@ -34,62 +37,33 @@ export function NotificationBell() {
 
   const [permissionState, setPermissionState] = useState<NotificationPermission>('default');
 
+  const subscribeToPush = useCallback(async () => {
+    if (!authUserId || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    const registration = await navigator.serviceWorker.ready;
+    const { publicKey } = await apiClient.notifications.getVapidPublicKey();
+    const existing = await registration.pushManager.getSubscription();
+    const subscription = existing ?? await registration.pushManager.subscribe({
+      userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
+    // Bind an existing subscription to the current signed-in account too.
+    await apiClient.post('/notifications/subscribe', subscription.toJSON(), { expectedAuthUserId: authUserId });
+  }, [authUserId]);
+
   useEffect(() => {
-    if ('Notification' in window) {
-      setPermissionState(Notification.permission);
+    if (!('Notification' in window)) return;
+    setPermissionState(Notification.permission);
+    if (Notification.permission === 'granted') {
+      void subscribeToPush().catch(() => { /* In-app notifications remain available. */ });
     }
-
-    const subscribeToPush = async () => {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-      
-      try {
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') return;
-
-        const { publicKey } = await apiClient.notifications.getVapidPublicKey();
-        
-        const existingSubscription = await registration.pushManager.getSubscription();
-        if (!existingSubscription) {
-          const subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(publicKey),
-          });
-
-          await apiClient.notifications.subscribe(subscription.toJSON());
-        }
-      } catch (error) {
-        console.error('Push subscription failed:', error);
-      }
-    };
-
-    subscribeToPush();
-  }, []);
+  }, [subscribeToPush]);
 
   const handleEnablePush = async () => {
-    // Kept for backward compatibility if button is still present
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      try {
-        const permission = await Notification.requestPermission();
-        setPermissionState(permission);
-        if (permission === 'granted') {
-          const registration = await navigator.serviceWorker.register('/sw.js');
-          await navigator.serviceWorker.ready;
-          const { publicKey } = await apiClient.notifications.getVapidPublicKey();
-          
-          const existingSubscription = await registration.pushManager.getSubscription();
-          if (!existingSubscription) {
-            const subscription = await registration.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: urlBase64ToUint8Array(publicKey),
-            });
-            await apiClient.notifications.subscribe(subscription.toJSON());
-          }
-        }
-      } catch (err) {
-        console.error('Push registration failed:', err);
-      }
-    }
+    if (!('Notification' in window)) return;
+    try {
+      const permission = await Notification.requestPermission();
+      setPermissionState(permission);
+      if (permission === 'granted') await subscribeToPush();
+    } catch { setPermissionState('default'); }
   };
 
   return (

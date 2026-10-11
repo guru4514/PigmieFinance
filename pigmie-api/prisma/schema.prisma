@@ -171,11 +171,11 @@ model Branch {
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime @default(now()) @map("updated_at") @db.Timestamptz
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   staff        Staff[]
   customers    Customer[]
 
-  @@index([organizationId])
+  @@index([organizationId], map: "idx_branches_org")
   @@map("branches")
 }
 
@@ -196,8 +196,8 @@ model Staff {
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  branch       Branch?      @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  branch       Branch?      @relation(fields: [branchId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   assignedCustomers     Customer[]        @relation("CustomerAgent")
   appliedLoans          Loan[]            @relation("LoanAppliedBy")
@@ -215,9 +215,9 @@ model Staff {
   reviewedApprovals     ApprovalRequest[] @relation("ReviewedApprovals")
 
   @@unique([organizationId, employeeCode])
-  @@index([organizationId])
-  @@index([authUserId])
-  @@index([branchId])
+  @@index([organizationId], map: "idx_staff_org")
+  @@index([authUserId], map: "idx_staff_auth_user")
+  @@index([branchId], map: "idx_staff_branch")
   @@map("staff")
 }
 
@@ -245,9 +245,9 @@ model Customer {
   createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz
   updatedAt              DateTime     @default(now()) @map("updated_at") @db.Timestamptz
 
-  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  branch        Branch?      @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  assignedAgent Staff?       @relation("CustomerAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  branch        Branch?      @relation(fields: [branchId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  assignedAgent Staff?       @relation("CustomerAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   loans                 Loan[]
   collections           Collection[]
@@ -255,9 +255,9 @@ model Customer {
 
   @@unique([organizationId, customerCode])
   @@unique([organizationId, phone])
-  @@index([organizationId])
-  @@index([assignedAgentId])
-  @@index([authUserId])
+  @@index([organizationId], map: "idx_customers_org")
+  @@index([assignedAgentId], map: "idx_customers_agent")
+  @@index([authUserId], map: "idx_customers_auth_user")
   @@map("customers")
 }
 
@@ -279,10 +279,10 @@ model LoanProduct {
   createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz
   updatedAt           DateTime            @default(now()) @map("updated_at") @db.Timestamptz
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   loans        Loan[]
 
-  @@index([organizationId])
+  @@index([organizationId], map: "idx_loan_products_org")
   @@map("loan_products")
 }
 
@@ -320,21 +320,21 @@ model Loan {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz
 
-  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  loanProduct   LoanProduct  @relation(fields: [loanProductId], references: [id], onDelete: Restrict)
-  assignedAgent Staff?       @relation("LoanAssignedAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
-  appliedBy     Staff?       @relation("LoanAppliedBy", fields: [appliedById], references: [id], onDelete: SetNull)
-  approvedBy    Staff?       @relation("LoanApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
-  disbursedBy   Staff?       @relation("LoanDisbursedBy", fields: [disbursedById], references: [id], onDelete: SetNull)
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  loanProduct   LoanProduct  @relation(fields: [loanProductId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  assignedAgent Staff?       @relation("LoanAssignedAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  appliedBy     Staff?       @relation("LoanAppliedBy", fields: [appliedById], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  approvedBy    Staff?       @relation("LoanApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  disbursedBy   Staff?       @relation("LoanDisbursedBy", fields: [disbursedById], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   schedule    LoanSchedule[]
   collections Collection[]
 
   @@unique([organizationId, loanCode])
-  @@index([organizationId, status])
-  @@index([customerId])
-  @@index([assignedAgentId])
+  @@index([organizationId, status], map: "idx_loans_org_status")
+  @@index([customerId], map: "idx_loans_customer")
+  @@index([assignedAgentId], map: "idx_loans_agent")
   @@map("loans")
 }
 
@@ -351,11 +351,11 @@ model LoanSchedule {
   createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz
   updatedAt          DateTime       @default(now()) @map("updated_at") @db.Timestamptz
 
-  loan Loan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  loan Loan @relation(fields: [loanId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([loanId, installmentNumber])
-  @@index([loanId])
-  @@index([dueDate, status])
+  @@index([loanId], map: "idx_schedule_loan")
+  @@index([dueDate, status], map: "idx_schedule_due_status")
   @@index([loanId, status, dueDate])
   @@map("loan_schedule")
 }
@@ -388,17 +388,17 @@ model Collection {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  loan         Loan         @relation(fields: [loanId], references: [id], onDelete: Restrict)
-  customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  collectedBy  Staff        @relation("CollectionAgent", fields: [collectedById], references: [id], onDelete: Restrict)
-  reversedBy   Staff?       @relation("CollectionReverser", fields: [reversedById], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  loan         Loan         @relation(fields: [loanId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  collectedBy  Staff        @relation("CollectionAgent", fields: [collectedById], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  reversedBy   Staff?       @relation("CollectionReverser", fields: [reversedById], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@unique([organizationId, receiptNumber])
-  @@index([loanId])
-  @@index([organizationId, collectionDate])
+  @@index([loanId], map: "idx_collections_loan")
+  @@index([organizationId, collectionDate], map: "idx_collections_org_date")
   @@index([organizationId, collectionDate, status])
-  @@index([collectedById, collectionDate])
+  @@index([collectedById, collectionDate], map: "idx_collections_agent_date")
   @@map("collections")
 }
 
@@ -415,12 +415,12 @@ model CashDeposit {
   createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime      @default(now()) @map("updated_at") @db.Timestamptz
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  agent        Staff        @relation("DepositAgent", fields: [agentId], references: [id], onDelete: Restrict)
-  verifiedBy   Staff?       @relation("DepositVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  agent        Staff        @relation("DepositAgent", fields: [agentId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  verifiedBy   Staff?       @relation("DepositVerifier", fields: [verifiedById], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
-  @@index([organizationId, depositDate])
-  @@index([agentId])
+  @@index([organizationId, depositDate], map: "idx_deposits_org_date")
+  @@index([agentId], map: "idx_deposits_agent")
   @@map("cash_deposits")
 }
 
@@ -436,10 +436,10 @@ model Document {
   uploadedById      String?             @map("uploaded_by") @db.Uuid
   createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  uploadedBy   Staff?       @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  uploadedBy   Staff?       @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
-  @@index([relatedEntityType, relatedEntityId])
+  @@index([relatedEntityType, relatedEntityId], map: "idx_documents_entity")
   @@map("documents")
 }
 
@@ -457,12 +457,12 @@ model Notification {
   isRead              Boolean                   @default(false) @map("is_read")
   createdAt           DateTime                  @default(now()) @map("created_at") @db.Timestamptz
 
-  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  recipientStaff    Staff?       @relation("NotificationStaffRecipient", fields: [recipientStaffId], references: [id], onDelete: Cascade)
-  recipientCustomer Customer?    @relation("NotificationCustomerRecipient", fields: [recipientCustomerId], references: [id], onDelete: Cascade)
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  recipientStaff    Staff?       @relation("NotificationStaffRecipient", fields: [recipientStaffId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  recipientCustomer Customer?    @relation("NotificationCustomerRecipient", fields: [recipientCustomerId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@index([recipientStaffId, isRead])
-  @@index([recipientCustomerId, isRead])
+  @@index([recipientStaffId, isRead], map: "idx_notifications_staff")
+  @@index([recipientCustomerId, isRead], map: "idx_notifications_customer")
   @@map("notifications")
 }
 
@@ -479,11 +479,11 @@ model AuditLog {
   userAgent      String?  @map("user_agent")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  actorStaff   Staff?       @relation("AuditLogActor", fields: [actorStaffId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  actorStaff   Staff?       @relation("AuditLogActor", fields: [actorStaffId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
-  @@index([organizationId, entityType, entityId])
-  @@index([createdAt])
+  @@index([organizationId, entityType, entityId], map: "idx_audit_org_entity")
+  @@index([createdAt], map: "idx_audit_created")
   @@map("audit_logs")
 }
 

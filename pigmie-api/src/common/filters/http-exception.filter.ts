@@ -1,4 +1,10 @@
-import { Catch, ExceptionFilter, ArgumentsHost, HttpException, Logger } from '@nestjs/common';
+import {
+  Catch,
+  ExceptionFilter,
+  ArgumentsHost,
+  HttpException,
+  Logger,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 const STATUS_TO_CODE: Record<number, string> = {
@@ -7,50 +13,65 @@ const STATUS_TO_CODE: Record<number, string> = {
   403: 'FORBIDDEN',
   404: 'NOT_FOUND',
   409: 'CONFLICT',
+  429: 'TOO_MANY_REQUESTS',
   500: 'INTERNAL_ERROR',
+  503: 'SERVICE_UNAVAILABLE',
 };
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
-  private logger = new Logger(HttpExceptionFilter.name);
+  private readonly logger = new Logger(HttpExceptionFilter.name);
 
   catch(exception: unknown, host: ArgumentsHost) {
-    const response = host.switchToHttp().getResponse();
-    
+    const response = host.switchToHttp().getResponse<{
+      status(code: number): { json(body: unknown): void };
+    }>();
     let status = 500;
     let code = 'INTERNAL_ERROR';
-    let message = 'Internal server error';
-    let details: any = undefined;
+    let message: string | string[] = 'Internal server error';
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
-      code = STATUS_TO_CODE[status] ?? 'INTERNAL_ERROR';
-      const body = exception.getResponse();
-      message = typeof body === 'string' ? body : (body as any)?.message ?? message;
-      details = typeof body === 'object' ? body : undefined;
+      code = STATUS_TO_CODE[status] ?? 'REQUEST_FAILED';
+      // Do not return internal details or arbitrary provider response properties.
+      if (status < 500) {
+        const body: unknown = exception.getResponse();
+        const candidate =
+          typeof body === 'string'
+            ? body
+            : typeof body === 'object' && body !== null && 'message' in body
+              ? body.message
+              : undefined;
+        if (
+          typeof candidate === 'string' ||
+          (Array.isArray(candidate) &&
+            candidate.every((value: unknown) => typeof value === 'string'))
+        )
+          message = candidate;
+      }
     } else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
-      // Handle Prisma errors
       if (exception.code === 'P2002') {
         status = 409;
         code = 'CONFLICT';
-        const target = (exception.meta?.target as string[])?.join(', ') || 'field';
-        message = `Unique constraint failed: A record with this ${target} already exists.`;
+        message = 'A record with these details already exists.';
       } else if (exception.code === 'P2025') {
         status = 404;
         code = 'NOT_FOUND';
         message = 'Record to update/delete not found.';
-      } else {
+      } else if (exception.code === 'P2003' || exception.code === 'P2000') {
         status = 400;
-        code = 'BAD_REQUEST';
-        message = `Database error: ${exception.message.split('\\n').pop()}`;
+        code = 'VALIDATION_ERROR';
+        message = 'Invalid record data or related record.';
+      } else if (exception.code === 'P2034') {
+        status = 409;
+        code = 'CONFLICT';
+        message = 'A concurrent change prevented this operation. Please retry.';
       }
     }
 
-    response.status(status).json({
-      error: { code, message, details },
-    });
-
-    if (status >= 500) this.logger.error(exception);
-    if (status === 400 || status === 409) this.logger.warn(`${status} error: ${message}`);
+    response.status(status).json({ error: { code, message } });
+    if (status >= 500) this.logger.error(`Request failed (${status})`);
+    if (status === 400 || status === 409)
+      this.logger.warn(`Request rejected (${status})`);
   }
 }

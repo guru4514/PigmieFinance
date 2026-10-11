@@ -1,24 +1,42 @@
+import { BadRequestException } from '@nestjs/common';
+import { Frequency, periodsPerYear } from './interest.util';
+
 export function addPeriods(
   startDate: string,
   periods: number,
-  frequency: 'daily' | 'weekly' | 'biweekly' | 'monthly'
+  frequency: Frequency,
 ): string {
-  const date = new Date(startDate);
-  
-  switch (frequency) {
-    case 'daily':
-      date.setUTCDate(date.getUTCDate() + periods);
-      break;
-    case 'weekly':
-      date.setUTCDate(date.getUTCDate() + periods * 7);
-      break;
-    case 'biweekly':
-      date.setUTCDate(date.getUTCDate() + periods * 14);
-      break;
-    case 'monthly':
-      date.setUTCMonth(date.getUTCMonth() + periods);
-      break;
+  periodsPerYear(frequency);
+  const date = new Date(`${startDate}T00:00:00.000Z`);
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(startDate) ||
+    !Number.isFinite(date.getTime()) ||
+    date.toISOString().slice(0, 10) !== startDate ||
+    !Number.isInteger(periods) ||
+    periods < 0
+  ) {
+    throw new BadRequestException('Invalid schedule date or period count');
   }
-  
-  return date.toISOString().split('T')[0];
+  if (frequency === 'monthly') {
+    const originalDay = date.getUTCDate();
+    date.setUTCDate(1);
+    date.setUTCMonth(date.getUTCMonth() + periods);
+    const lastDay = new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0),
+    ).getUTCDate();
+    date.setUTCDate(Math.min(originalDay, lastDay));
+  } else {
+    const days = frequency === 'daily' ? 1 : frequency === 'weekly' ? 7 : 14;
+    date.setUTCDate(date.getUTCDate() + periods * days);
+  }
+  if (!Number.isFinite(date.getTime()) || date.getUTCFullYear() > 9999) {
+    throw new BadRequestException('Schedule date is out of range');
+  }
+  return date.toISOString().slice(0, 10);
+}
+
+/** Indian business date represented as UTC midnight for PostgreSQL DATE fields. */
+export function businessDate(now = new Date()): Date {
+  const shifted = new Date(now.getTime() + 330 * 60 * 1000);
+  return new Date(`${shifted.toISOString().slice(0, 10)}T00:00:00.000Z`);
 }

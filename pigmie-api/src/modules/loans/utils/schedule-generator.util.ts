@@ -1,4 +1,12 @@
-import { periodsPerYear, calculateFlatInterest, calculateReducingBalanceEMI } from './interest.util';
+import { BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import {
+  periodsPerYear,
+  calculateFlatInterest,
+  calculateReducingBalanceEMI,
+  validateTerms,
+  Frequency,
+} from './interest.util';
 import { addPeriods } from './date.util';
 
 export interface ScheduleRow {
@@ -14,70 +22,73 @@ export interface GenerateScheduleParams {
   interestType: 'flat' | 'reducing_balance';
   annualRate: number;
   tenure: number;
-  frequency: 'daily' | 'weekly' | 'biweekly' | 'monthly';
+  frequency: Frequency;
   startDate: string;
 }
 
-export function generateSchedule(params: GenerateScheduleParams): ScheduleRow[] {
-  const { principal, interestType, annualRate, tenure, frequency, startDate } = params;
-  const schedule: ScheduleRow[] = [];
-  
-  if (interestType === 'flat') {
-    const { totalInterest, totalPayable } = calculateFlatInterest(principal, annualRate, tenure, frequency);
-    const principalPerRow = Math.round(principal / tenure);
-    const interestPerRow = Math.round(totalInterest / tenure);
-    
-    let remainingPrincipal = principal;
-    let remainingInterest = totalInterest;
-    
-    for (let i = 1; i <= tenure; i++) {
-      const isLast = i === tenure;
-      const pComp = isLast ? remainingPrincipal : principalPerRow;
-      const iComp = isLast ? remainingInterest : interestPerRow;
-      
-      schedule.push({
-        installmentNumber: i,
-        dueDate: addPeriods(startDate, i, frequency),
-        principalComponent: pComp,
-        interestComponent: iComp,
-        dueAmount: pComp + iComp,
-      });
-      
-      remainingPrincipal -= pComp;
-      remainingInterest -= iComp;
-    }
-  } else {
-    const emi = calculateReducingBalanceEMI(principal, annualRate, tenure, frequency);
-    const periodicRate = (annualRate / 100) / periodsPerYear(frequency);
-    let balance = principal;
-    
-    for (let i = 1; i <= tenure; i++) {
-      const isLast = i === tenure;
-      const interestComponent = Math.round(balance * periodicRate);
-      
-      let principalComponent;
-      let dueAmount;
-      
-      if (isLast) {
-        principalComponent = balance;
-        dueAmount = principalComponent + interestComponent;
-      } else {
-        principalComponent = emi - interestComponent;
-        dueAmount = emi;
-      }
-      
-      schedule.push({
-        installmentNumber: i,
-        dueDate: addPeriods(startDate, i, frequency),
-        principalComponent,
-        interestComponent,
-        dueAmount,
-      });
-      
-      balance -= principalComponent;
-    }
+export function generateSchedule(
+  params: GenerateScheduleParams,
+): ScheduleRow[] {
+  const { principal, interestType, annualRate, tenure, frequency, startDate } =
+    params;
+  validateTerms(principal, annualRate, tenure, frequency);
+  if (interestType !== 'flat' && interestType !== 'reducing_balance') {
+    throw new BadRequestException('Unsupported interest type');
   }
-  
+  addPeriods(startDate, 0, frequency);
+  const principalCents = new Prisma.Decimal(principal).mul(100).toNumber();
+  const schedule: ScheduleRow[] = [];
+  const interestCents =
+    interestType === 'flat'
+      ? new Prisma.Decimal(
+          calculateFlatInterest(principal, annualRate, tenure, frequency)
+            .totalInterest,
+        )
+          .mul(100)
+          .toNumber()
+      : 0;
+  const emiCents =
+    interestType === 'reducing_balance'
+      ? new Prisma.Decimal(
+          calculateReducingBalanceEMI(principal, annualRate, tenure, frequency),
+        )
+          .mul(100)
+          .toNumber()
+      : 0;
+  const rate = new Prisma.Decimal(annualRate)
+    .div(100)
+    .div(periodsPerYear(frequency));
+  let balance = principalCents;
+  // Distribute remainder cents across rows; never defer an over-allocation to a negative final row.
+  const share = (cents: number, index: number) =>
+    Math.floor(cents / tenure) + (index < cents % tenure ? 1 : 0);
+  for (let index = 0; index < tenure; index++) {
+    const interest =
+      interestType === 'flat'
+        ? share(interestCents, index)
+        : new Prisma.Decimal(balance).mul(rate).toDecimalPlaces(0).toNumber();
+    const paidPrincipal =
+      interestType === 'flat'
+        ? share(principalCents, index)
+        : index === tenure - 1
+          ? balance
+          : Math.min(balance, Math.max(0, emiCents - interest));
+    balance -= paidPrincipal;
+    if (paidPrincipal + interest > 999999999999)
+      throw new BadRequestException('Installment exceeds the supported amount');
+    schedule.push({
+      installmentNumber: index + 1,
+      dueDate: addPeriods(startDate, index + 1, frequency),
+      principalComponent: paidPrincipal / 100,
+      interestComponent: interest / 100,
+      dueAmount: (paidPrincipal + interest) / 100,
+    });
+  }
+  if (
+    schedule.reduce((sum, row) => sum + Math.round(row.dueAmount * 100), 0) >
+    999999999999
+  ) {
+    throw new BadRequestException('Loan total exceeds the supported amount');
+  }
   return schedule;
 }
-

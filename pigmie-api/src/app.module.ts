@@ -2,7 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ScheduleModule } from '@nestjs/schedule';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 
 // Core
 import { PrismaModule } from './prisma/prisma.module';
@@ -33,14 +34,17 @@ import { EmailModule } from './modules/email/email.module';
     // Global config — validates .env on startup via Zod
     ConfigModule.forRoot({
       isGlobal: true,
+      ignoreEnvFile: process.env.APP_ENV === 'staging',
       validate,
     }),
 
     // Rate limiting — 300 requests per 60 seconds per IP/org
-    ThrottlerModule.forRoot([{
-      ttl: 60000,
-      limit: 300,
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 300,
+      },
+    ]),
 
     // Scheduled jobs (overdue detection, late fees)
     ScheduleModule.forRoot(),
@@ -68,6 +72,7 @@ import { EmailModule } from './modules/email/email.module';
     EmailModule,
   ],
   providers: [
+    { provide: APP_INTERCEPTOR, useClass: AuditLogInterceptor },
     {
       provide: APP_GUARD,
       useClass: OrgThrottlerGuard,

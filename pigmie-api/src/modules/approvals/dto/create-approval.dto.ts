@@ -1,13 +1,21 @@
-import { IsEnum, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
+import { ApprovalActionType, Prisma } from '@prisma/client';
 
 export class CreateApprovalDto {
-  @IsEnum(['delete_customer', 'reverse_collection', 'close_loan', 'write_off_loan', 'restructure_loan'])
+  @IsEnum(ApprovalActionType)
   @IsNotEmpty()
-  actionType: string;
+  actionType: ApprovalActionType;
 
   @IsObject()
   @IsNotEmpty()
-  payload: Record<string, any>;
+  payload: Prisma.InputJsonObject;
 
   @IsString()
   @IsOptional()
