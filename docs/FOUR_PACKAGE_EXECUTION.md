@@ -2,6 +2,25 @@
 
 Work order: verified development baseline; immutable financial contract implementation; offline/device and MFA recovery; complete backup/platform recovery. Passing one package does not close the others.
 
+## Verified continuation — 13 October 2026
+
+The interrupted implementation has been integrated and verified. The following evidence supersedes the older package-specific gaps below; it does not approve production release.
+
+| Package | Completed implementation and verification | Remaining boundary |
+| --- | --- | --- |
+| Database baseline | Existing baseline preserved; migrations 0006/0007 deployed through Prisma in staging and development. Seven exact migration checksums, current status and empty model/schema differences verified in both. Fresh exact restored-copy rehearsal and actual post-deployment comparison preserved all original rows and archived history. Fifteen application tables deny browser CRUD grants and have RLS enabled. | Provider-managed roles/settings and broader application review remain independent release controls. |
+| Financial correctness | Append-only sequential loan amendments, linked audit, immutable original terms, exact paid principal/interest/fee balances and payment allocation, same-installment earlier-payment reversal, explicit settlement component evidence, correct subtraction of previously paid accrued interest, finite/date checks and known-component preservation. Live staging proves financial/audit/approval rollback, concurrent posting/reversal, lost acknowledgement retry and zero-fee contract admission. | Nonzero charge activation requires an approved disclosed policy. Historical test data lacks original source evidence and is preserved rather than reconstructed. |
+| Device recovery | Current-identity recovery, persistent queue reporting, malformed profile handling, explicit service-worker reload and suppressed raw request/error logs. Actual isolated Chrome verifies offline shell, account switch/back, full process restart offline, update activation and storage-loss reporting. | Physical Android/iOS installed-PWA eviction/capture and authenticator recovery require actual devices. Desktop evidence does not establish these hardware outcomes. |
+| Platform recovery | Versioned authenticated encrypted database/Auth/Storage bundles, actual isolated PostgreSQL restoration, exact source row and full captured catalog comparison, private synthetic blob export/byte verification and scoped cleanup. Final development restore matched 52 tables including archived history; staging matched 51 tables plus one 67-byte PNG. Two bucket settings matched in each. | Actual independent off-site object retrieval, independent key escrow, and hosted post-restore Auth/Storage/ACL/provider configuration remain unverified because those recovery facilities are unavailable. |
+
+Current development financial inventory: 25 unknown original contracts, 197 payments without historical allocation evidence, 190 paid installment rows without component evidence, 11 schedule/outstanding discrepancies, one negative historical component row, and 79 fee-bearing historical rows. No loan arithmetic, recorded/verified collection total, cross-tenant or nonfinite-balance discrepancy was found. No historical payment split, borrower consent, fee adjustment or amendment was invented. Staging inventory is clean after fixture removal. These are synthetic legacy findings, not confirmed customer debts.
+
+Required source reconciliation consists of identifying original contract/schedule/receipt evidence, explaining each discrepancy, then recording an authorized adjustment with immutable before/after evidence. Automatically setting balances or historic components from the current product would erase the uncertainty and is intentionally unsupported. New verified fixtures and contracts exercise the corrected path.
+
+Verification: the final backend 436-test suite/build and focused lint, web 75-test suite/build/lint, live staging finance, exact schema/history checks and recovery restore checks passed. Fourteen secret-scanner/staging configuration tests passed. Source and staged secret scans are required before saving each reviewed local commit. No environment files, archives, keys, generated output or fixture data are included in Git; this continuation is not publicly pushed.
+
+Details: [financial amendments](FINANCIAL_AMENDMENT_VERIFICATION.md), [component accounting](FINANCIAL_COMPONENT_ACCOUNTING.md), [device recovery](DEVICE_RECOVERY_VERIFICATION.md), and [platform recovery](PLATFORM_RECOVERY_VERIFICATION.md).
+
 ## Continuation review — financial evidence and recovery
 
 1. Access: restructuring retains current authenticated admin/branch-manager scope checks inside the transaction. Recovery scripts connect only to validated operator development/staging targets.

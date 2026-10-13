@@ -1,10 +1,14 @@
-# Release checkpoint — 2026-10-11
+# Release checkpoint — 2026-10-13
 
 The application is not yet approved for release. Continue web stabilization before starting the agent mobile app; desktop wrapping remains optional.
 
-Latest [four-package execution](FOUR_PACKAGE_EXECUTION.md): the development baseline discrepancy is closed; loan/payment evidence, restructuring snapshots, zero-fee schedule admission and connection recovery have been strengthened. Fifty application/Auth/Storage metadata tables restored identically in staging and development, including development's archived migration history. Nonzero fee accounting, immutable amendment versions, historical reconciliation, transaction-timeout investigation, real-device checks and complete off-site/provider/blob recovery remain open. This is a local verification checkpoint, not release approval.
+Latest [four-package execution](FOUR_PACKAGE_EXECUTION.md): all seven migrations are applied and match the model in development and staging; original rows/history were preserved. Immutable amendments, exact payment and settlement components, earlier-payment reversal and browser recovery are implemented and verified. Actual isolated final-schema recovery matched 52 development tables and 51 staging tables plus a private synthetic blob. Historical source reconciliation, nonzero fee policy approval, physical-device verification and independent off-site/escrow/hosted recovery remain release gates. The local recovery exercise does not establish hosted Auth/ACL runtime restoration.
 
-## Latest verified batch
+## 13 October verification
+
+Backend **436 tests across 39 suites**, build and focused lint passed; web **75 tests across nine files**, build and lint passed with zero errors and five existing warnings. Fourteen secret-scanner/staging configuration tests passed. Live staging finance verified exact component reversals, immutable sequential amendments, component-bearing settlement receipts, rollback and concurrent approval/payment behavior. All synthetic fixtures and uploaded objects were removed with absence verified. Current source secret scan passed. The reviewed changes are saved as separate local financial, web-recovery and platform-recovery commits; environment files, archives, keys and generated output are excluded. No new public push is performed.
+
+## Previous verified batch — 11 October
 
 The [third stabilization pass](FOUR_PRIORITY_THIRD_PASS_2026-10-11.md) records newer evidence: retained development application restore, two applied development indexes, private evidence in both environments, closure consistency checks and temporary fee gates. Earlier test counts and storage/schema descriptions below are historical; the linked record describes remaining limits.
 
