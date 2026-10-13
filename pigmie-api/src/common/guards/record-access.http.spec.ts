@@ -57,6 +57,18 @@ describe('HTTP record access (mocked database)', () => {
         {
           provide: PrismaService,
           useValue: {
+            runIdentity: (
+              _authId: string,
+              operation: (database: unknown) => unknown,
+            ) =>
+              operation({
+                $queryRaw: jest
+                  .fn()
+                  .mockResolvedValue([
+                    { active: true, hasVerifiedFactor: true },
+                  ]),
+                staff: { findUnique: () => ({ ...actor, isActive: true }) },
+              }),
             $queryRaw: jest
               .fn()
               .mockResolvedValue([{ active: true, hasVerifiedFactor: true }]),

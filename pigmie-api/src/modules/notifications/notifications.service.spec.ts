@@ -23,6 +23,17 @@ function harness() {
   const tx = {
     $executeRaw: jest.fn().mockResolvedValue(1),
     pushSubscription: {
+      findMany: jest.fn().mockResolvedValue([
+        {
+          id: 'subscription',
+          endpoint: 'https://fcm.googleapis.com/fcm/send/synthetic-test-only',
+          p256dh: Buffer.concat([
+            Buffer.from([4]),
+            Buffer.alloc(64, 1),
+          ]).toString('base64url'),
+          auth: Buffer.alloc(16, 1).toString('base64url'),
+        },
+      ]),
       findUnique: jest.fn().mockResolvedValue(null),
       create: jest.fn(),
       update: jest.fn(),
@@ -49,31 +60,23 @@ function harness() {
   };
   const prisma = {
     pushSubscription: {
-      findMany: jest.fn().mockResolvedValue([
-        {
-          id: 'subscription',
-          endpoint: 'https://fcm.googleapis.com/fcm/send/synthetic-test-only',
-          p256dh: Buffer.concat([
-            Buffer.from([4]),
-            Buffer.alloc(64, 1),
-          ]).toString('base64url'),
-          auth: Buffer.alloc(16, 1).toString('base64url'),
-        },
-      ]),
+      findMany: jest.fn(),
       deleteMany: jest.fn(),
     },
   };
   const tenant = {
-    run: (
-      _org: string,
-      action: (client: Prisma.TransactionClient) => Promise<unknown>,
-    ) => action(tx as unknown as Prisma.TransactionClient),
+    run: jest.fn(
+      (
+        _org: string,
+        action: (client: Prisma.TransactionClient) => Promise<unknown>,
+      ) => action(tx as unknown as Prisma.TransactionClient),
+    ),
   };
   const service = new NotificationsService(
     prisma as unknown as PrismaService,
     tenant as unknown as TenantPrismaService,
   );
-  return { service, tx, prisma };
+  return { service, tx, prisma, run: tenant.run };
 }
 
 describe('Notification ownership and push privacy', () => {
@@ -120,7 +123,7 @@ describe('Notification ownership and push privacy', () => {
     expect(tx.customer.findMany).not.toHaveBeenCalled();
   });
   it('does not delete a reassigned subscription on a stale provider response', async () => {
-    const { service, prisma } = harness();
+    const { service, prisma, tx, run } = harness();
     jest
       .mocked(webpush.sendNotification)
       .mockRejectedValueOnce({ statusCode: 410 });
@@ -132,7 +135,16 @@ describe('Notification ownership and push privacy', () => {
       'Synthetic',
       'Synthetic',
     );
-    expect(prisma.pushSubscription.deleteMany).toHaveBeenCalledWith({
+    expect(prisma.pushSubscription.findMany).not.toHaveBeenCalled();
+    expect(prisma.pushSubscription.deleteMany).not.toHaveBeenCalled();
+    expect(run.mock.calls).toHaveLength(3);
+    expect(
+      run.mock.calls.every(([organizationId]) => organizationId === 'org'),
+    ).toBe(true);
+    expect(tx.pushSubscription.findMany).toHaveBeenCalledWith({
+      where: { authUserId: 'auth-staff' },
+    });
+    expect(tx.pushSubscription.deleteMany).toHaveBeenCalledWith({
       where: {
         id: 'subscription',
         authUserId: 'auth-staff',

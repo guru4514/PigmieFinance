@@ -11,6 +11,7 @@ const allowed = [
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
   'DATABASE_URL',
+  'RUNTIME_DATABASE_URL',
   'DIRECT_URL',
   'PII_ENCRYPTION_KEY',
   'CORS_ORIGIN',
@@ -77,6 +78,35 @@ export function validateStaging(config, runtime = {}) {
         `${key} must require TLS and verify the Supabase certificate.`,
       );
   }
+  if (config.RUNTIME_DATABASE_URL) {
+    let url;
+    try {
+      url = new URL(config.RUNTIME_DATABASE_URL);
+    } catch {
+      throw new Error(
+        'Runtime configuration must be a restricted staging PostgreSQL URL.',
+      );
+    }
+    const direct =
+      url.hostname === `db.${ref}.supabase.co` &&
+      decodeURIComponent(url.username) === 'pigmie_runtime';
+    const pooled =
+      url.hostname.endsWith('.pooler.supabase.com') &&
+      decodeURIComponent(url.username) === `pigmie_runtime.${ref}` &&
+      ['5432', '6543'].includes(url.port);
+    if (
+      !['postgres:', 'postgresql:'].includes(url.protocol) ||
+      (!direct && !pooled) ||
+      !url.password ||
+      /REPLACE|YOUR-PASSWORD/i.test(decodeURIComponent(url.password)) ||
+      url.pathname !== '/postgres' ||
+      url.searchParams.get('sslmode') !== 'verify-full' ||
+      !url.searchParams.get('sslrootcert')
+    )
+      throw new Error(
+        'Runtime connection must identify the staging project, restricted role and verified TLS.',
+      );
+  }
   if (
     !/^[a-fA-F0-9]{64}$/.test(config.PII_ENCRYPTION_KEY ?? '') ||
     config.PII_ENCRYPTION_KEY === runtime.PII_ENCRYPTION_KEY
@@ -115,6 +145,73 @@ export function validateStaging(config, runtime = {}) {
     );
   }
   return Object.fromEntries(allowed.map((key) => [key, config[key]]));
+}
+
+export function stagingProcessEnvironment(
+  validated,
+  command,
+  system = {},
+  webEnv = {},
+) {
+  const safeSystem = Object.fromEntries(
+    Object.entries(system).filter(([key]) =>
+      [
+        'PATH',
+        'SYSTEMROOT',
+        'WINDIR',
+        'TEMP',
+        'TMP',
+        'USERPROFILE',
+        'APPDATA',
+        'LOCALAPPDATA',
+        'COMSPEC',
+        'PATHEXT',
+      ].includes(key.toUpperCase()),
+    ),
+  );
+  if (command === 'web')
+    return {
+      ...safeSystem,
+      APP_ENV: 'staging',
+      ...Object.fromEntries(
+        ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY', 'VITE_API_URL'].map(
+          (key) => [key, webEnv[key]],
+        ),
+      ),
+      NODE_ENV: 'development',
+    };
+  if (command === 'start') {
+    if (!validated.RUNTIME_DATABASE_URL)
+      throw new Error(
+        'Provision the restricted staging runtime login before starting the API.',
+      );
+    return {
+      ...safeSystem,
+      ...Object.fromEntries(
+        [
+          'APP_ENV',
+          'STAGING_PROJECT_REF',
+          'SUPABASE_URL',
+          'SUPABASE_SERVICE_ROLE_KEY',
+          'RUNTIME_DATABASE_URL',
+          'PII_ENCRYPTION_KEY',
+          'CORS_ORIGIN',
+          'PORT',
+        ].map((key) => [key, validated[key]]),
+      ),
+      NODE_ENV: 'production',
+    };
+  }
+  if (!['status', 'diff'].includes(command))
+    throw new Error('Unsupported staging process.');
+  return {
+    ...safeSystem,
+    DATABASE_URL: validated.DATABASE_URL,
+    DIRECT_URL: validated.DIRECT_URL,
+    APP_ENV: 'staging',
+    NODE_ENV: 'production',
+    DOTENV_CONFIG_PATH: configPath,
+  };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
@@ -213,14 +310,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
             : root,
         stdio: 'inherit',
         shell: false,
-        env: {
-          ...system,
-          ...(command === 'web'
-            ? { APP_ENV: 'staging', ...webEnv }
-            : validated),
-          NODE_ENV: command === 'web' ? 'development' : 'production',
-          DOTENV_CONFIG_PATH: configPath,
-        },
+        env: stagingProcessEnvironment(validated, command, system, webEnv),
       });
       child.on('error', () => {
         console.error('Staging process could not start.');

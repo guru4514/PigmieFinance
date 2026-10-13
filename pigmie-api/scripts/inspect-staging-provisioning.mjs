@@ -12,6 +12,8 @@ if (config.STAGING_PROJECT_REF !== 'sjelnxrlkrvwjcgqbvre')
   throw new Error('Unexpected staging target');
 process.env.APP_ENV = 'staging';
 process.env.DATABASE_URL = config.DATABASE_URL;
+process.env.RUNTIME_DATABASE_URL = config.RUNTIME_DATABASE_URL;
+process.env.SUPABASE_URL = config.SUPABASE_URL;
 const require = createRequire(import.meta.url);
 const { PrismaService } = require('../dist/prisma/prisma.service.js');
 const {
@@ -26,7 +28,7 @@ try {
     JSON.stringify({
       scope: 'staging only; read only',
       limit: 100,
-      candidates,
+      candidates: candidates.length,
     }),
   );
 } catch {
@@ -35,5 +37,5 @@ try {
   );
   process.exitCode = 1;
 } finally {
-  await prisma.$disconnect();
+  await prisma.onModuleDestroy();
 }

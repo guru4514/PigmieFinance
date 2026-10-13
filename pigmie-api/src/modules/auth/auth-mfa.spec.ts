@@ -37,13 +37,26 @@ describe('Custom TOTP validation and state transitions', () => {
   >();
   const encrypt = jest.fn();
   const decrypt = jest.fn();
+  const lock = jest.fn();
+  const run = jest.fn();
   const service = new AuthService(
     { staff: { findUnique, updateMany } } as unknown as PrismaService,
-    {} as TenantPrismaService,
+    { run } as unknown as TenantPrismaService,
     { encrypt, decrypt } as unknown as EncryptionService,
   );
   beforeEach(() => {
     jest.resetAllMocks();
+    run.mockImplementation(
+      (
+        _org: string,
+        action: (tx: Prisma.TransactionClient) => Promise<unknown>,
+      ) =>
+        action({
+          $executeRaw: lock,
+          staff: { findUnique, updateMany },
+        } as unknown as Prisma.TransactionClient),
+    );
+    lock.mockResolvedValue(1);
     findUnique.mockResolvedValue(staff);
     updateMany.mockResolvedValue({ count: 1 });
     decrypt.mockReturnValue('SYNTHETICSECRET');
@@ -131,6 +144,7 @@ describe('Custom TOTP validation and state transitions', () => {
       where: { id: 'staff', organizationId: 'other-org', isActive: true },
     });
     expect(decrypt).not.toHaveBeenCalled();
+    expect(run).toHaveBeenCalledWith('other-org', expect.any(Function));
   });
   it('reports a configuration race instead of claiming successful enablement', async () => {
     jest.mocked(verify).mockResolvedValue({ valid: true, delta: 0, epoch: 1 });
@@ -184,6 +198,27 @@ describe('Custom TOTP validation and state transitions', () => {
         twoFactorEnabled: true,
       },
       data: { twoFactorEnabled: false, twoFactorSecret: null },
+    });
+  });
+  it('locks both accounts before checking an administrator override and resetting the target', async () => {
+    findUnique
+      .mockResolvedValueOnce({ ...staff, id: 'other', twoFactorEnabled: true })
+      .mockResolvedValueOnce({ ...staff, role: 'org_admin' });
+    await expect(
+      service.disable2FA('staff', 'org', 'other', undefined, true),
+    ).resolves.toEqual({ success: true });
+    expect(run).toHaveBeenCalledWith('org', expect.any(Function));
+    expect(lock).toHaveBeenCalledTimes(1);
+    expect(lock.mock.invocationCallOrder[0]).toBeLessThan(
+      findUnique.mock.invocationCallOrder[0],
+    );
+    expect(findUnique.mock.invocationCallOrder[1]).toBeLessThan(
+      updateMany.mock.invocationCallOrder[0],
+    );
+    expect(updateMany.mock.calls[0][0].where).toMatchObject({
+      id: 'other',
+      organizationId: 'org',
+      isActive: true,
     });
   });
   it.each([Enable2FADto, Verify2FADto, Disable2FADto])(

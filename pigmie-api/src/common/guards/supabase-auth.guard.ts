@@ -50,106 +50,95 @@ export class SupabaseAuthGuard implements CanActivate {
       throw new UnauthorizedException('Missing or invalid provider session');
     }
     const authUserId = payload.sub;
-    let session:
-      | {
-          active: boolean;
-          hasVerifiedFactor: boolean;
-          provisioningIdentity: boolean;
-        }
-      | undefined;
-    try {
-      const sessions = await this.prisma.$queryRaw<
-        {
-          active: boolean;
-          hasVerifiedFactor: boolean;
-          provisioningIdentity: boolean;
-        }[]
-      >`
-        SELECT EXISTS (
-          SELECT 1 FROM auth.sessions s JOIN auth.users u ON u.id = s.user_id
-          WHERE s.id = ${payload.session_id}::uuid AND s.user_id = ${authUserId}::uuid
-            AND (s.not_after IS NULL OR s.not_after > now())
-            AND (u.banned_until IS NULL OR u.banned_until <= now())
-        ) AS active,
-        EXISTS (
-          SELECT 1 FROM auth.mfa_factors f
-          WHERE f.user_id = ${authUserId}::uuid AND f.status = 'verified'
-        ) AS "hasVerifiedFactor",
-        EXISTS (
-          SELECT 1 FROM auth.users u WHERE u.id = ${authUserId}::uuid
-          AND u.raw_app_meta_data ? 'pigmie_provisioning_attempt'
-        ) AS "provisioningIdentity"
+    return this.prisma.runIdentity(authUserId, async (database) => {
+      let session:
+        | {
+            active: boolean;
+            hasVerifiedFactor: boolean;
+            provisioningIdentity: boolean;
+          }
+        | undefined;
+      try {
+        const sessions = await database.$queryRaw<
+          {
+            active: boolean;
+            hasVerifiedFactor: boolean;
+            provisioningIdentity: boolean;
+          }[]
+        >`
+        SELECT * FROM public.runtime_provider_session(${authUserId}::uuid, ${payload.session_id}::uuid)
       `;
-      session = sessions[0];
-    } catch {
-      // Fail closed without exposing connection details or provider data.
-      throw new ServiceUnavailableException(
-        'Unable to validate authentication session',
-      );
-    }
-    if (!session?.active) {
-      throw new UnauthorizedException('Authentication session has ended');
-    }
-    const staff = await this.prisma.staff.findUnique({
-      where: { authUserId },
-      select: {
-        id: true,
-        organizationId: true,
-        role: true,
-        branchId: true,
-        isActive: true,
-      },
-    });
-    if (staff && !staff.isActive)
-      throw new UnauthorizedException('Staff account is disabled');
-    if (staff?.isActive) {
-      const bootstrap: unknown = Reflect.getMetadata(
-        ALLOW_FIRST_FACTOR_KEY,
-        context.getHandler(),
-      );
-      if (
-        (payload.aal !== 'aal2' || !session.hasVerifiedFactor) &&
-        bootstrap !== true
-      ) {
-        throw new ForbiddenException({
-          code: 'MFA_REQUIRED',
-          message:
-            'Verify your authenticator before accessing staff operations',
-        });
+        session = sessions[0];
+      } catch {
+        // Fail closed without exposing connection details or provider data.
+        throw new ServiceUnavailableException(
+          'Unable to validate authentication session',
+        );
       }
-      request.user = {
-        type: 'staff',
-        id: staff.id,
-        organizationId: staff.organizationId,
-        role: staff.role,
-        branchId: staff.branchId,
-      };
-      return true;
-    }
+      if (!session?.active) {
+        throw new UnauthorizedException('Authentication session has ended');
+      }
+      const staff = await database.staff.findUnique({
+        where: { authUserId },
+        select: {
+          id: true,
+          organizationId: true,
+          role: true,
+          branchId: true,
+          isActive: true,
+        },
+      });
+      if (staff && !staff.isActive)
+        throw new UnauthorizedException('Staff account is disabled');
+      if (staff?.isActive) {
+        const bootstrap: unknown = Reflect.getMetadata(
+          ALLOW_FIRST_FACTOR_KEY,
+          context.getHandler(),
+        );
+        if (
+          (payload.aal !== 'aal2' || !session.hasVerifiedFactor) &&
+          bootstrap !== true
+        ) {
+          throw new ForbiddenException({
+            code: 'MFA_REQUIRED',
+            message:
+              'Verify your authenticator before accessing staff operations',
+          });
+        }
+        request.user = {
+          type: 'staff',
+          id: staff.id,
+          organizationId: staff.organizationId,
+          role: staff.role,
+          branchId: staff.branchId,
+        };
+        return true;
+      }
 
-    const customer = await this.prisma.customer.findUnique({
-      where: { authUserId },
-      select: {
-        id: true,
-        organizationId: true,
-        isActive: true,
-        portalAccessEnabled: true,
-      },
+      const customer = await database.customer.findUnique({
+        where: { authUserId },
+        select: {
+          id: true,
+          organizationId: true,
+          isActive: true,
+          portalAccessEnabled: true,
+        },
+      });
+      if (customer && (!customer.isActive || !customer.portalAccessEnabled))
+        throw new UnauthorizedException('Customer portal access is disabled');
+      if (customer?.isActive && customer.portalAccessEnabled) {
+        request.user = {
+          type: 'customer',
+          id: customer.id,
+          organizationId: customer.organizationId,
+        };
+        return true;
+      }
+
+      if (session.provisioningIdentity)
+        throw new UnauthorizedException('Staff provisioning is incomplete');
+      request.user = { type: 'unprovisioned', authUserId };
+      return true;
     });
-    if (customer && (!customer.isActive || !customer.portalAccessEnabled))
-      throw new UnauthorizedException('Customer portal access is disabled');
-    if (customer?.isActive && customer.portalAccessEnabled) {
-      request.user = {
-        type: 'customer',
-        id: customer.id,
-        organizationId: customer.organizationId,
-      };
-      return true;
-    }
-
-    if (session.provisioningIdentity)
-      throw new UnauthorizedException('Staff provisioning is incomplete');
-    request.user = { type: 'unprovisioned', authUserId };
-    return true;
   }
 }

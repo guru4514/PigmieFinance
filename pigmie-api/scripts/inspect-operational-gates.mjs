@@ -29,14 +29,24 @@ const tablesSql = `WITH tables AS (
   count(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid=t.oid))::int AS tables_without_policies
   FROM tables t`;
 
-async function inspect(config, ref) {
-  const url = new URL(config.DATABASE_URL);
+async function inspect(config, ref, runtime = false) {
+  if (runtime && !config.RUNTIME_DATABASE_URL)
+    return {
+      configured: false,
+      verified: false,
+      reason: 'Restricted runtime configuration is missing',
+    };
+  const url = new URL(
+    runtime ? config.RUNTIME_DATABASE_URL : config.DIRECT_URL,
+  );
   assert.ok(['postgres:', 'postgresql:'].includes(url.protocol));
   const username = decodeURIComponent(url.username);
+  const expectedRole = runtime ? 'pigmie_runtime' : 'postgres';
   assert.ok(
-    url.hostname === `db.${ref}.supabase.co` ||
+    (url.hostname === `db.${ref}.supabase.co` && username === expectedRole) ||
       (url.hostname.endsWith('.pooler.supabase.com') &&
-        username.endsWith(`.${ref}`)),
+        username === `${expectedRole}.${ref}` &&
+        (runtime ? ['5432', '6543'].includes(url.port) : url.port === '5432')),
   );
   assert.ok(url.password && url.pathname === '/postgres');
   for (const key of [
@@ -67,9 +77,12 @@ async function inspect(config, ref) {
     const role = (
       await client.query(`SELECT
       current_user='postgres' AS operator_login,
+      current_user='pigmie_runtime' AS runtime_login,
       current_user='pigmie_app' AS app_login,
       r.rolsuper AS superuser,r.rolbypassrls AS bypass_rls,
       r.rolcreaterole AS create_role,r.rolcreatedb AS create_database,
+      r.rolinherit AS inherits_privileges,
+      (SELECT count(*)::int FROM pg_auth_members WHERE member=r.oid) AS memberships,
       EXISTS(SELECT 1 FROM pg_roles WHERE rolname='pigmie_app') AS app_role_exists,
       pg_has_role(current_user,'pigmie_app','MEMBER') AS member_of_app_role,
       current_setting('transaction_read_only')='on' AS read_only,
@@ -77,6 +90,63 @@ async function inspect(config, ref) {
       FROM pg_roles r WHERE r.rolname=current_user`)
     ).rows[0];
     const runtimeTables = (await client.query(tablesSql)).rows[0];
+    let boundaryProof;
+    if (runtime) {
+      assert.ok(
+        role.runtime_login &&
+          !role.operator_login &&
+          !role.superuser &&
+          !role.bypass_rls &&
+          !role.create_role &&
+          !role.create_database &&
+          !role.inherits_privileges &&
+          role.memberships === 0,
+      );
+      assert.equal(runtimeTables.owned_by_current_role, 0);
+      assert.equal(runtimeTables.without_rls, 0);
+      assert.equal(runtimeTables.current_role_truncate, 0);
+      assert.equal(role.inherited_organization_context, false);
+      for (const table of [
+        'organizations',
+        'branches',
+        'staff',
+        'customers',
+        'loan_products',
+        'loans',
+        'loan_schedule',
+        'collections',
+        'cash_deposits',
+        'documents',
+        'notifications',
+        'audit_logs',
+        'push_subscriptions',
+        'approval_requests',
+        'loan_amendments',
+      ])
+        assert.equal(
+          (await client.query(`SELECT count(*)::int AS n FROM public.${table}`))
+            .rows[0].n,
+          0,
+        );
+      for (const sql of [
+        'SELECT id FROM auth.users LIMIT 1',
+        'SELECT * FROM public._prisma_migrations LIMIT 1',
+      ]) {
+        await client.query('SAVEPOINT denied_read');
+        let denied = false;
+        try {
+          await client.query(sql);
+        } catch (error) {
+          denied = error.code === '42501';
+        }
+        await client.query('ROLLBACK TO SAVEPOINT denied_read');
+        assert.equal(denied, true);
+      }
+      boundaryProof = {
+        all15UnscopedTablesEmpty: true,
+        directAuthAndMigrationReadsDenied: true,
+      };
+    }
     const browserPrivileges = (
       await client.query(`WITH tables AS (
       SELECT c.oid FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -190,8 +260,14 @@ async function inspect(config, ref) {
     ).rows;
     await client.query('ROLLBACK');
     return {
-      runtimeRole: role,
-      runtimeTables,
+      configured: true,
+      connectionPurpose: runtime
+        ? 'application runtime'
+        : 'maintenance operator',
+      runtimeRestrictionsVerified: runtime,
+      boundaryProof,
+      connectedRole: role,
+      connectedTables: runtimeTables,
       browserPrivileges,
       catalogs,
       defaultTablePrivileges,
@@ -223,11 +299,13 @@ try {
     ['development', development, 'yvxtkzxqaqkhyntdszcu'],
     ['staging', staging, 'sjelnxrlkrvwjcgqbvre'],
   ]) {
-    const evidence = await inspect(config, ref);
+    const maintenanceAccess = await inspect(config, ref);
+    const runtimeAccess = await inspect(config, ref, true);
     console.log(
       JSON.stringify({
         environment,
-        ...evidence,
+        maintenanceAccess,
+        runtimeAccess,
         localRecoveryPresence: Object.fromEntries(
           recoveryNames.map((name) => [
             name,
@@ -236,7 +314,7 @@ try {
         ),
         limits: [
           'Catalog privileges do not prove HTTP Data API exposure or safe RPC bodies.',
-          'Read-only SET LOCAL ROLE is a capability probe; the application does not currently perform that switch.',
+          'Runtime evidence uses the actual RUNTIME_DATABASE_URL login; maintenance evidence uses DIRECT_URL and is not application privilege evidence.',
           'Local configuration absence does not inspect deployment secret stores or independent key escrow.',
         ],
       }),

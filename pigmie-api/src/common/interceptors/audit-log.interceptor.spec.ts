@@ -2,7 +2,7 @@ import { ExecutionContext, Logger } from '@nestjs/common';
 import { firstValueFrom, of, throwError } from 'rxjs';
 import { AuditLogInterceptor } from './audit-log.interceptor';
 import { AUDIT_ACTION_KEY } from '../decorators/audit-action.decorator';
-import { PrismaService } from '../../prisma/prisma.service';
+import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
 import { Prisma } from '@prisma/client';
 
 const org = '46634540-2c2b-42e7-b708-06b2d9a4d774';
@@ -23,10 +23,17 @@ function harness(action: string | undefined = '2fa.setup') {
   const create = jest
     .fn<Promise<{ id: string }>, [Prisma.AuditLogCreateArgs]>()
     .mockResolvedValue({ id });
+  const run = jest.fn(
+    (
+      _org: string,
+      action: (tx: Prisma.TransactionClient) => Promise<unknown>,
+    ) =>
+      action({ auditLog: { create } } as unknown as Prisma.TransactionClient),
+  );
   const interceptor = new AuditLogInterceptor({
-    auditLog: { create },
-  } as unknown as PrismaService);
-  return { context, create, interceptor, request };
+    run,
+  } as unknown as TenantPrismaService);
+  return { context, create, interceptor, request, run };
 }
 describe('Registered generic audit capture', () => {
   it('records action/actor/entity metadata without secrets, tokens or personal data', async () => {
@@ -43,6 +50,7 @@ describe('Registered generic audit capture', () => {
         h.interceptor.intercept(h.context, { handle: () => of(response) }),
       ),
     ).toBe(response);
+    expect(h.run).toHaveBeenCalledWith(org, expect.any(Function));
     expect(h.create).toHaveBeenCalledWith({
       data: {
         organizationId: org,
@@ -104,5 +112,6 @@ describe('Registered generic audit capture', () => {
       h.interceptor.intercept(h.context, { handle: () => of({ id }) }),
     );
     expect(h.create).not.toHaveBeenCalled();
+    expect(h.run).not.toHaveBeenCalled();
   });
 });

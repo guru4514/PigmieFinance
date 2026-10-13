@@ -2,6 +2,10 @@
 
 Work order: verified development baseline; immutable financial contract implementation; offline/device and MFA recovery; complete backup/platform recovery. Passing one package does not close the others.
 
+## Runtime isolation continuation — 14 October 2026
+
+Migration 0009 is verified on staging and development: nine exact migration checksums, original records/history preserved, actual restricted TLS login, fifteen RLS tables, missing/cross-tenant access denied and narrow provider/helper functions. Staging financial/provisioning service integration and real compiled API MFA HTTP flows passed with fixture cleanup. Compiled development startup passed its privilege check. The staging API launcher excludes operator connection credentials; hosted API secret-store rollout remains external. Browser push registration recovers from tenant conflicts through native reset/re-registration with current-account checks and exposes reconnect on failure. Backend 502 tests across 42 suites and web 83 tests across 10 files passed. See [runtime rollout](RUNTIME_ROLLOUT_VERIFICATION.md). Historical evidence, vendor advisories, physical-device and independent off-site/hosted recovery gates remain open; this does not approve production.
+
 ## Subsequent orchestrated integration — 13 October 2026
 
 Final interrupted-review completion, 14 October: the amendment-checker gap is closed with absolute schedule/chain/settlement anchors and causal identity checks; uncertain retained-row payment ordering remains explicitly incomplete. Twenty-nine checker regressions and the full **478-test backend suite across 40 suites** pass, with build/focused lint. Web **75 tests**, build/lint, fourteen secret/configuration tests and secret scans pass. The complete live staging financial/dashboard integration passes and cleanup is verified. Final read-only staging is empty; preserved development inventory remains 13 incomplete/12 inconsistent loans. Both migration status/schema comparisons are current and empty. This completes this implementation batch, not production approval or the dependent runtime-role rollout.

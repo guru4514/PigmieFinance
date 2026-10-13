@@ -13,6 +13,8 @@ import { apiClient } from '@/shared/lib/api-client';
 
 import { urlBase64ToUint8Array } from '@/shared/lib/utils';
 import { useAuth } from '@/shared/hooks/use-auth';
+import { supabase } from '@/shared/lib/supabase';
+import { registerBrowserPush } from '../push-registration';
 
 export function NotificationBell() {
   const queryClient = useQueryClient();
@@ -36,17 +38,25 @@ export function NotificationBell() {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const [permissionState, setPermissionState] = useState<NotificationPermission>('default');
+  const [pushState, setPushState] = useState<'idle' | 'pending' | 'ready' | 'failed'>('idle');
 
   const subscribeToPush = useCallback(async () => {
     if (!authUserId || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
-    const registration = await navigator.serviceWorker.ready;
-    const { publicKey } = await apiClient.notifications.getVapidPublicKey();
-    const existing = await registration.pushManager.getSubscription();
-    const subscription = existing ?? await registration.pushManager.subscribe({
-      userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey),
-    });
-    // Bind an existing subscription to the current signed-in account too.
-    await apiClient.post('/notifications/subscribe', subscription.toJSON(), { expectedAuthUserId: authUserId });
+    setPushState('pending');
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const { publicKey } = await apiClient.notifications.getVapidPublicKey();
+      await registerBrowserPush({
+        currentAccount: async () => (await supabase.auth.getSession()).data.session?.user.id === authUserId,
+        existing: () => registration.pushManager.getSubscription(),
+        create: () => registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) }),
+        save: (subscription) => apiClient.post('/notifications/subscribe', subscription, { expectedAuthUserId: authUserId }),
+      });
+      setPushState('ready');
+    } catch (error) {
+      setPushState('failed');
+      throw error;
+    }
   }, [authUserId]);
 
   useEffect(() => {
@@ -63,7 +73,7 @@ export function NotificationBell() {
       const permission = await Notification.requestPermission();
       setPermissionState(permission);
       if (permission === 'granted') await subscribeToPush();
-    } catch { setPermissionState('default'); }
+    } catch { setPushState('failed'); }
   };
 
   return (
@@ -121,10 +131,11 @@ export function NotificationBell() {
           )}
         </div>
       </DropdownMenuContent>
-      {permissionState === 'default' && (
+      {(permissionState === 'default' || (permissionState === 'granted' && pushState === 'failed')) && (
         <DropdownMenuContent align="end" className="w-80 p-3 mt-2 border-border bg-card text-foreground">
-          <Button onClick={handleEnablePush} className="w-full bg-indigo-600 hover:bg-indigo-700 text-foreground">
-            Enable Push Notifications
+          {pushState === 'failed' && <p className="text-xs text-muted-foreground mb-2">Browser alerts need reconnecting. Your in-app notifications remain available.</p>}
+          <Button onClick={handleEnablePush} disabled={pushState === 'pending'} className="w-full bg-indigo-600 hover:bg-indigo-700 text-foreground">
+            {permissionState === 'granted' ? 'Reconnect Browser Alerts' : 'Enable Push Notifications'}
           </Button>
         </DropdownMenuContent>
       )}

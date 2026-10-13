@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { parse } from 'dotenv';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { operatorFixtureClient } from './operator-fixture-client.mjs';
 
 const ref = 'yvxtkzxqaqkhyntdszcu';
 let config;
@@ -39,9 +40,8 @@ if (
 )
   throw new Error('Unexpected development migration connection');
 const require = createRequire(import.meta.url);
-const { PrismaService } = require('../dist/prisma/prisma.service.js');
 const { Prisma } = require('@prisma/client');
-const prisma = new PrismaService();
+const prisma = operatorFixtureClient(config);
 try {
   const columns =
     await prisma.$queryRaw`SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'public'`;

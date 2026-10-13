@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { parse } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import { validateStaging } from './staging.mjs';
+import { operatorFixtureClient } from './operator-fixture-client.mjs';
 
 const config = parse(readFileSync(new URL('../.env.staging', import.meta.url)));
 validateStaging(
@@ -15,6 +16,7 @@ assert.equal(config.STAGING_PROJECT_REF, 'sjelnxrlkrvwjcgqbvre');
 for (const key of [
   'APP_ENV',
   'DATABASE_URL',
+  'RUNTIME_DATABASE_URL',
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
 ])
@@ -43,10 +45,11 @@ const {
 const {
   NotificationsService,
 } = require('../dist/modules/notifications/notifications.service.js');
-const prisma = new PrismaService();
-const tenant = new TenantPrismaService(prisma);
+const prisma = operatorFixtureClient(config);
+const apiPrisma = new PrismaService();
+const tenant = new TenantPrismaService(apiPrisma);
 const staff = new StaffService(tenant);
-const notifications = new NotificationsService(prisma, tenant);
+const notifications = new NotificationsService(apiPrisma, tenant);
 const orgId = randomUUID();
 let seeded = false;
 let checkpoint = 'fixture';
@@ -55,6 +58,7 @@ const onboardingOrgIds = new Set();
 const storagePaths = new Set();
 let createdKycBucket = false;
 try {
+  await apiPrisma.onModuleInit();
   const fixture = await prisma.$transaction(
     async (tx) => {
       await tx.organization.create({
@@ -396,7 +400,7 @@ try {
     adminDirectory.data.every((row) => !Object.hasOwn(row, 'twoFactorSecret')),
   );
   checkpoint = 'reciprocal administrator updates';
-  const reconciliation = new ProvisioningReconciliationService(prisma);
+  const reconciliation = new ProvisioningReconciliationService(apiPrisma);
   checkpoint = 'unfinished provisioning recovery';
   const orphanEmail = `staging-orphan-${randomUUID()}@example.test`;
   const orphanPassword = randomBytes(32).toString('base64url');
@@ -444,7 +448,7 @@ try {
     },
   };
   await assert.rejects(
-    new SupabaseAuthGuard(prisma).canActivate({
+    new SupabaseAuthGuard(apiPrisma).canActivate({
       getHandler: () => () => undefined,
       switchToHttp: () => ({ getRequest: () => orphanRequest }),
     }),
@@ -532,7 +536,7 @@ try {
   );
   checkpoint = 'inactive self mutation denial';
   checkpoint = 'organization onboarding';
-  const organizations = new OrganizationsService(prisma, tenant);
+  const organizations = new OrganizationsService(apiPrisma, tenant);
   await assert.rejects(
     organizations.createOrganization(orphanId, {
       organizationName: 'Must not create',
@@ -578,11 +582,10 @@ try {
   assert.equal(onboarded.organization.currency, 'INR');
   assert.equal(onboarded.organization.timezone, 'Asia/Kolkata');
   await afterActorChange({ role: 'agent' }, (service) =>
-    new OrganizationsService(prisma, service.tenantPrisma).updateOrganization(
-      orgId,
-      { name: 'Must not change' },
-      fixture.admin.id,
-    ),
+    new OrganizationsService(
+      apiPrisma,
+      service.tenantPrisma,
+    ).updateOrganization(orgId, { name: 'Must not change' }, fixture.admin.id),
   );
   await prisma.staff.update({
     where: { id: fixture.admin.id },
@@ -644,7 +647,7 @@ try {
     switchToHttp: () => ({ getRequest: () => portalRequest }),
   };
   assert.equal(
-    await new SupabaseAuthGuard(prisma).canActivate(portalContext),
+    await new SupabaseAuthGuard(apiPrisma).canActivate(portalContext),
     true,
   );
   assert.equal(portalRequest.user.type, 'customer');
@@ -671,7 +674,7 @@ try {
   assert.equal(disabledPortal.authUserId, portal.authUserId);
   assert.equal(disabledPortal.portalAccessEnabled, false);
   await assert.rejects(
-    new SupabaseAuthGuard(prisma).canActivate(portalContext),
+    new SupabaseAuthGuard(apiPrisma).canActivate(portalContext),
     (error) => error.getStatus() === 401,
   );
   const retainedProvider = await staff.supabaseAdmin.auth.admin.getUserById(
@@ -888,4 +891,5 @@ try {
     process.exitCode = 1;
   }
   await prisma.$disconnect();
+  await apiPrisma.onModuleDestroy();
 }

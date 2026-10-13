@@ -12,20 +12,31 @@ import { verifySupabaseToken } from '../utils/jwks-verifier.util';
 import { SupabaseAuthGuard } from './supabase-auth.guard';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RequestUser } from '../types/request-user.type';
+import { Prisma } from '@prisma/client';
 
 describe('Authenticated account resolution', () => {
   const providerSession = jest.fn();
   const staff = jest.fn();
   const customer = jest.fn();
+  const identity = jest.fn();
   const guard = new SupabaseAuthGuard({
     $queryRaw: providerSession,
     staff: { findUnique: staff },
     customer: { findUnique: customer },
+    runIdentity: identity,
   } as unknown as PrismaService);
   let request: { headers: { authorization?: string }; user?: RequestUser };
   let context: ExecutionContext;
   beforeEach(() => {
     jest.resetAllMocks();
+    identity.mockImplementation(
+      (_authId: string, operation: (tx: Prisma.TransactionClient) => unknown) =>
+        operation({
+          $queryRaw: providerSession,
+          staff: { findUnique: staff },
+          customer: { findUnique: customer },
+        } as unknown as Prisma.TransactionClient),
+    );
     request = { headers: { authorization: 'Bearer synthetic-token' } };
     context = {
       getHandler: () => () => undefined,

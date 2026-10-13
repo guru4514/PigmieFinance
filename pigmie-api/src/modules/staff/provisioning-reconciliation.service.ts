@@ -26,19 +26,10 @@ export class ProvisioningReconciliationService {
     candidate?: UnfinishedProvisioning,
   ): Promise<UnfinishedProvisioning[]> {
     return tx.$queryRaw<UnfinishedProvisioning[]>(Prisma.sql`
-      SELECT u.id AS "authUserId",
-        u.raw_app_meta_data->>'pigmie_provisioning_attempt' AS "attemptId",
-        u.raw_app_meta_data->>'pigmie_organization_id' AS "organizationId",
-        u.created_at AS "createdAt"
-      FROM auth.users u
-      WHERE u.created_at < now() - interval '15 minutes'
-        AND u.raw_app_meta_data->>'pigmie_provisioning_attempt' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-        AND u.raw_app_meta_data->>'pigmie_organization_id' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-        AND NOT EXISTS (SELECT 1 FROM staff s WHERE s.auth_user_id = u.id)
-        AND NOT EXISTS (SELECT 1 FROM customers c WHERE c.auth_user_id = u.id)
-        ${candidate ? Prisma.sql`AND u.id = ${candidate.authUserId}::uuid AND u.raw_app_meta_data->>'pigmie_provisioning_attempt' = ${candidate.attemptId}` : Prisma.empty}
-      ORDER BY u.created_at, u.id
-      LIMIT 100
+      SELECT * FROM public.runtime_provisioning_candidates(
+        ${candidate?.authUserId ?? null}::uuid,
+        ${candidate?.attemptId ?? null}::uuid
+      )
     `);
   }
 

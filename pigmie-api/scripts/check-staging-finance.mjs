@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { parse } from 'dotenv';
 import { validateStaging } from './staging.mjs';
+import { operatorFixtureClient } from './operator-fixture-client.mjs';
 
 const config = parse(readFileSync(new URL('../.env.staging', import.meta.url)));
 validateStaging(
@@ -13,6 +14,7 @@ validateStaging(
 assert.equal(config.STAGING_PROJECT_REF, 'sjelnxrlkrvwjcgqbvre');
 process.env.APP_ENV = 'staging';
 process.env.DATABASE_URL = config.DATABASE_URL;
+process.env.RUNTIME_DATABASE_URL = config.RUNTIME_DATABASE_URL;
 process.env.SUPABASE_URL = config.SUPABASE_URL;
 process.env.SUPABASE_SERVICE_ROLE_KEY = config.SUPABASE_SERVICE_ROLE_KEY;
 const require = createRequire(import.meta.url);
@@ -44,10 +46,11 @@ const {
 const {
   CustomersService,
 } = require('../dist/modules/customers/customers.service.js');
-const prisma = new PrismaService();
-const tenant = new TenantPrismaService(prisma);
+const prisma = operatorFixtureClient(config);
+const apiPrisma = new PrismaService();
+const tenant = new TenantPrismaService(apiPrisma);
 const email = new EmailService();
-const collections = new CollectionsService(tenant, prisma, email);
+const collections = new CollectionsService(tenant, apiPrisma, email);
 const loans = new LoansService(tenant, { notify: async () => {} }, email);
 const reports = new ReportsService(tenant);
 async function reconstructLoan(id) {
@@ -113,6 +116,7 @@ const fixtureJournal = new URL(
 let seeded = false;
 let checkpoint = 'connect';
 try {
+  await apiPrisma.onModuleInit();
   mkdirSync(new URL('../../.recovery/', import.meta.url), {
     recursive: true,
     mode: 0o700,
@@ -726,7 +730,7 @@ try {
   assert.equal(disbursed.loan.interestRateAnnual.toString(), '12');
   assert.equal(disbursed.loan.financialTerms.processingFee, '0.00');
   let acknowledgementLost = true;
-  const ambiguousPrisma = new Proxy(prisma, {
+  const ambiguousPrisma = new Proxy(apiPrisma, {
     get(target, key) {
       if (key === '$transaction')
         return async (...args) => {
@@ -745,7 +749,7 @@ try {
   });
   const retryCollections = new CollectionsService(
     new TenantPrismaService(ambiguousPrisma),
-    prisma,
+    apiPrisma,
     email,
   );
   const firstPayment = await retryCollections.recordCollection(
@@ -1403,7 +1407,8 @@ try {
       lostCommitAcknowledgement:
         'one posting; bounded retry acknowledges original payment identifier',
       privateKyc: 'owned PDF upload/download passed; another agent denied',
-      dashboardFinancialDefinitions: 'full scheduled denominator includes paid closed rows; unrelated receipts do not inflate fulfillment; positive overdue amounts and IST portfolio risk verified',
+      dashboardFinancialDefinitions:
+        'full scheduled denominator includes paid closed rows; unrelated receipts do not inflate fulfillment; positive overdue amounts and IST portfolio risk verified',
     }),
   );
 } catch (error) {
@@ -1469,4 +1474,5 @@ try {
     }
   }
   await prisma.$disconnect();
+  await apiPrisma.onModuleDestroy();
 }

@@ -34,126 +34,141 @@ export class AuthService {
     }
 
     if (user.type === 'staff') {
-      const staff = await this.prisma.staff.findUnique({
-        where: { id: user.id },
-      });
-      if (!staff) throw new NotFoundException('Staff not found');
+      return this.tenantPrisma.run(user.organizationId, async (tx) => {
+        const staff = await tx.staff.findUnique({
+          where: { id: user.id, organizationId: user.organizationId },
+        });
+        if (!staff) throw new NotFoundException('Staff not found');
 
-      return {
-        userType: 'staff',
-        id: staff.id,
-        organizationId: staff.organizationId,
-        branchId: staff.branchId,
-        fullName: staff.fullName,
-        role: staff.role,
-        twoFactorEnabled: staff.twoFactorEnabled,
-      };
+        return {
+          userType: 'staff',
+          id: staff.id,
+          organizationId: staff.organizationId,
+          branchId: staff.branchId,
+          fullName: staff.fullName,
+          role: staff.role,
+          twoFactorEnabled: staff.twoFactorEnabled,
+        };
+      });
     }
 
     if (user.type === 'customer') {
-      const customer = await this.prisma.customer.findUnique({
-        where: { id: user.id },
-      });
-      if (!customer) throw new NotFoundException('Customer not found');
+      return this.tenantPrisma.run(user.organizationId, async (tx) => {
+        const customer = await tx.customer.findUnique({
+          where: { id: user.id, organizationId: user.organizationId },
+        });
+        if (!customer) throw new NotFoundException('Customer not found');
 
-      const activeLoanCount = await this.prisma.loan.count({
-        where: {
-          customerId: customer.id,
-          status: { in: ['pending_approval', 'approved', 'active'] },
-        },
-      });
+        const activeLoanCount = await tx.loan.count({
+          where: {
+            customerId: customer.id,
+            organizationId: user.organizationId,
+            status: { in: ['pending_approval', 'approved', 'active'] },
+          },
+        });
 
-      return {
-        userType: 'customer',
-        id: customer.id,
-        organizationId: customer.organizationId,
-        fullName: customer.fullName,
-        activeLoanCount,
-      };
+        return {
+          userType: 'customer',
+          id: customer.id,
+          organizationId: customer.organizationId,
+          fullName: customer.fullName,
+          activeLoanCount,
+        };
+      });
     }
   }
 
   async setup2FA(staffId: string, organizationId: string) {
-    const staff = await this.prisma.staff.findUnique({
-      where: { id: staffId, organizationId, isActive: true },
-    });
-    if (!staff) throw new NotFoundException('Staff not found');
-    if (staff.twoFactorEnabled)
-      throw new BadRequestException('2FA is already enabled');
+    return this.tenantPrisma.run(organizationId, async (tx) => {
+      const staff = await tx.staff.findUnique({
+        where: { id: staffId, organizationId, isActive: true },
+      });
+      if (!staff) throw new NotFoundException('Staff not found');
+      if (staff.twoFactorEnabled)
+        throw new BadRequestException('2FA is already enabled');
 
-    const secret = authenticator.generateSecret();
-    const encryptedSecret = `v1:${this.encryptionService.encrypt(secret).toString('base64')}`;
-    const otpAuthUrl = authenticator.keyuri(
-      staff.email || staffId,
-      'PigmiePlatform',
-      secret,
-    );
-    const qrCodeDataUrl = await toDataURL(otpAuthUrl, {
-      width: 200,
-      margin: 2,
-    });
+      const secret = authenticator.generateSecret();
+      const encryptedSecret = `v1:${this.encryptionService.encrypt(secret).toString('base64')}`;
+      const otpAuthUrl = authenticator.keyuri(
+        staff.email || staffId,
+        'PigmiePlatform',
+        secret,
+      );
+      const qrCodeDataUrl = await toDataURL(otpAuthUrl, {
+        width: 200,
+        margin: 2,
+      });
 
-    const updated = await this.prisma.staff.updateMany({
-      where: {
-        id: staffId,
-        organizationId,
-        isActive: true,
-        twoFactorEnabled: false,
-        twoFactorSecret: staff.twoFactorSecret,
-      },
-      data: { twoFactorSecret: encryptedSecret },
-    });
-    if (updated.count !== 1)
-      throw new BadRequestException('2FA configuration changed. Please retry.');
+      const updated = await tx.staff.updateMany({
+        where: {
+          id: staffId,
+          organizationId,
+          isActive: true,
+          twoFactorEnabled: false,
+          twoFactorSecret: staff.twoFactorSecret,
+        },
+        data: { twoFactorSecret: encryptedSecret },
+      });
+      if (updated.count !== 1)
+        throw new BadRequestException(
+          '2FA configuration changed. Please retry.',
+        );
 
-    return { secret, otpAuthUrl, qrCodeDataUrl };
+      return { secret, otpAuthUrl, qrCodeDataUrl };
+    });
   }
 
   async enable2FA(staffId: string, organizationId: string, code: string) {
-    const staff = await this.prisma.staff.findUnique({
-      where: { id: staffId, organizationId, isActive: true },
+    return this.tenantPrisma.run(organizationId, async (tx) => {
+      const staff = await tx.staff.findUnique({
+        where: { id: staffId, organizationId, isActive: true },
+      });
+      if (!staff) throw new NotFoundException('Staff not found');
+      if (staff.twoFactorEnabled)
+        throw new BadRequestException('2FA is already enabled');
+
+      if (!staff.twoFactorSecret) {
+        throw new BadRequestException('2FA setup not initiated');
+      }
+
+      const isValid = await this.validCode(staff.twoFactorSecret, code);
+
+      if (!isValid) throw new UnauthorizedException('Invalid 2FA code');
+
+      const updated = await tx.staff.updateMany({
+        where: {
+          id: staffId,
+          organizationId,
+          isActive: true,
+          twoFactorEnabled: false,
+          twoFactorSecret: staff.twoFactorSecret,
+        },
+        data: { twoFactorEnabled: true },
+      });
+      if (updated.count !== 1)
+        throw new BadRequestException(
+          '2FA configuration changed. Please retry.',
+        );
+
+      return { success: true };
     });
-    if (!staff) throw new NotFoundException('Staff not found');
-    if (staff.twoFactorEnabled)
-      throw new BadRequestException('2FA is already enabled');
-
-    if (!staff.twoFactorSecret) {
-      throw new BadRequestException('2FA setup not initiated');
-    }
-
-    const isValid = await this.validCode(staff.twoFactorSecret, code);
-
-    if (!isValid) throw new UnauthorizedException('Invalid 2FA code');
-
-    const updated = await this.prisma.staff.updateMany({
-      where: {
-        id: staffId,
-        organizationId,
-        isActive: true,
-        twoFactorEnabled: false,
-        twoFactorSecret: staff.twoFactorSecret,
-      },
-      data: { twoFactorEnabled: true },
-    });
-    if (updated.count !== 1)
-      throw new BadRequestException('2FA configuration changed. Please retry.');
-
-    return { success: true };
   }
 
   async verify2FA(staffId: string, organizationId: string, code: string) {
-    const staff = await this.prisma.staff.findUnique({
-      where: { id: staffId, organizationId, isActive: true },
+    return this.tenantPrisma.run(organizationId, async (tx) => {
+      const staff = await tx.staff.findUnique({
+        where: { id: staffId, organizationId, isActive: true },
+      });
+      if (!staff || !staff.twoFactorEnabled) return { verified: false };
+
+      if (!staff.twoFactorSecret) {
+        return { verified: false };
+      }
+
+      const isValid = await this.validCode(staff.twoFactorSecret, code);
+
+      return { verified: isValid };
     });
-    if (!staff || !staff.twoFactorEnabled) return { verified: false };
-
-    if (!staff.twoFactorSecret) {
-      return { verified: false };
-    }
-
-    const isValid = await this.validCode(staff.twoFactorSecret, code);
-
-    return { verified: isValid };
   }
 
   async disable2FA(
@@ -163,54 +178,62 @@ export class AuthService {
     code?: string,
     isAdminOverride?: boolean,
   ) {
-    const targetId = targetStaffId || staffId;
+    return this.tenantPrisma.run(organizationId, async (tx) => {
+      const targetId = targetStaffId || staffId;
+      // Keep the actor's role and target state stable through the reset.
+      await tx.$executeRaw`SELECT id FROM public.staff WHERE organization_id = ${organizationId}::uuid AND id IN (${staffId}::uuid, ${targetId}::uuid) ORDER BY id FOR UPDATE`;
 
-    const targetStaff = await this.prisma.staff.findUnique({
-      where: { id: targetId, organizationId, isActive: true },
-    });
-    if (!targetStaff) throw new NotFoundException('Staff not found');
-    if (targetStaff.organizationId !== organizationId)
-      throw new ForbiddenException(
-        'Cannot disable 2FA for staff outside your organization',
-      );
-
-    if (!isAdminOverride) {
-      if (targetId !== staffId)
-        throw new ForbiddenException(
-          'Cannot disable another staff member’s 2FA',
-        );
-      if (!code)
-        throw new BadRequestException(
-          'Code is required when disabling your own 2FA',
-        );
-      if (
-        !targetStaff.twoFactorSecret ||
-        !targetStaff.twoFactorEnabled ||
-        !(await this.validCode(targetStaff.twoFactorSecret, code))
-      )
-        throw new UnauthorizedException('Invalid 2FA code');
-    } else {
-      const actor = await this.prisma.staff.findUnique({
-        where: { id: staffId, organizationId, isActive: true },
+      const targetStaff = await tx.staff.findUnique({
+        where: { id: targetId, organizationId, isActive: true },
       });
-      if (actor?.role !== 'org_admin' || targetId === staffId)
-        throw new ForbiddenException('Administrator override is not permitted');
-    }
+      if (!targetStaff) throw new NotFoundException('Staff not found');
+      if (targetStaff.organizationId !== organizationId)
+        throw new ForbiddenException(
+          'Cannot disable 2FA for staff outside your organization',
+        );
 
-    const updated = await this.prisma.staff.updateMany({
-      where: {
-        id: targetId,
-        organizationId,
-        isActive: true,
-        twoFactorEnabled: targetStaff.twoFactorEnabled,
-        twoFactorSecret: targetStaff.twoFactorSecret,
-      },
-      data: { twoFactorEnabled: false, twoFactorSecret: null },
+      if (!isAdminOverride) {
+        if (targetId !== staffId)
+          throw new ForbiddenException(
+            'Cannot disable another staff member’s 2FA',
+          );
+        if (!code)
+          throw new BadRequestException(
+            'Code is required when disabling your own 2FA',
+          );
+        if (
+          !targetStaff.twoFactorSecret ||
+          !targetStaff.twoFactorEnabled ||
+          !(await this.validCode(targetStaff.twoFactorSecret, code))
+        )
+          throw new UnauthorizedException('Invalid 2FA code');
+      } else {
+        const actor = await tx.staff.findUnique({
+          where: { id: staffId, organizationId, isActive: true },
+        });
+        if (actor?.role !== 'org_admin' || targetId === staffId)
+          throw new ForbiddenException(
+            'Administrator override is not permitted',
+          );
+      }
+
+      const updated = await tx.staff.updateMany({
+        where: {
+          id: targetId,
+          organizationId,
+          isActive: true,
+          twoFactorEnabled: targetStaff.twoFactorEnabled,
+          twoFactorSecret: targetStaff.twoFactorSecret,
+        },
+        data: { twoFactorEnabled: false, twoFactorSecret: null },
+      });
+      if (updated.count !== 1)
+        throw new BadRequestException(
+          '2FA configuration changed. Please retry.',
+        );
+
+      return { success: true };
     });
-    if (updated.count !== 1)
-      throw new BadRequestException('2FA configuration changed. Please retry.');
-
-    return { success: true };
   }
 
   private async validCode(encrypted: string, code: string): Promise<boolean> {
@@ -242,23 +265,25 @@ export class AuthService {
         : null;
 
     try {
-      const auditLog = await this.prisma.auditLog.create({
-        data: {
-          organizationId: user.organizationId,
-          actorStaffId: user.type === 'staff' ? user.id : null,
-          action: 'LOGIN',
-          entityType: 'auth',
-          entityId: user.id,
-          ipAddress,
-          userAgent,
-          newValue: {
-            userId: user.id,
-            userType: user.type,
-            timestamp: new Date().toISOString(),
-            ...(user.type === 'staff' ? { role: user.role } : {}),
+      const auditLog = await this.tenantPrisma.run(user.organizationId, (tx) =>
+        tx.auditLog.create({
+          data: {
+            organizationId: user.organizationId,
+            actorStaffId: user.type === 'staff' ? user.id : null,
+            action: 'LOGIN',
+            entityType: 'auth',
+            entityId: user.id,
+            ipAddress,
+            userAgent,
+            newValue: {
+              userId: user.id,
+              userType: user.type,
+              timestamp: new Date().toISOString(),
+              ...(user.type === 'staff' ? { role: user.role } : {}),
+            },
           },
-        },
-      });
+        }),
+      );
 
       return { success: true, logged: true, id: auditLog.id };
     } catch {

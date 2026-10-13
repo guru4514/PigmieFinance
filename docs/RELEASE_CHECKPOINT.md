@@ -2,6 +2,14 @@
 
 The application is not yet approved for release. Continue web stabilization before starting the agent mobile app; desktop wrapping remains optional.
 
+## Runtime isolation — latest verified increment
+
+Final checks: backend/web builds and focused lint passed, retaining five existing web warnings. All 18 secret/staging-configuration tests passed; source and Git-index credential scans are required for the local checkpoint. Actual staging loan-product actor/permission/bounds races passed with synthetic cleanup verified.
+
+Migration 0009 is applied in development and staging with all nine checksums verified and original data/history preserved. The API requires a dedicated non-owner/non-BYPASSRLS login, verifies its attributes at startup, and scopes business access through tenant transactions. Identity/onboarding, provider session validation, scheduled jobs and provisioning recovery use narrow contexts/functions. Actual staging financial/provisioning integration and compiled API MFA HTTP flows passed; synthetic cleanup and server shutdown were verified. Compiled development startup passed read-only privilege verification. Browser organization-switch push recovery is bounded, checks the current account and exposes reconnect on failure.
+
+Verification: **502 backend tests across 42 suites** and **83 web tests across 10 files** passed. Builds, focused lint and secret/configuration checks are recorded in the final runtime checkpoint. See [runtime rollout](RUNTIME_ROLLOUT_VERIFICATION.md) and [runtime policy](RUNTIME_RLS_VERIFICATION.md). The local staging launcher excludes operator credentials; existing hosted API deployments still need the runtime secret and verified build restart. Broader per-record authorization review, historical source evidence, remaining advisories, physical-device tests and independent off-site/key-escrow/hosted restore remain release work. Previous runtime-role/test-count paragraphs below are historical.
+
 Latest [four-package execution](FOUR_PACKAGE_EXECUTION.md): all eight migrations are applied and match the model in development and staging; original rows/history were preserved. Migration 0008 removes all browser privileges on the fifteen application tables and prevents postgres/public future-table browser defaults. Immutable amendments, exact payment/settlement components, independent evidence reconstruction and corrected dashboard fulfillment/risk metrics are implemented. Compatible dependency patches remove the critical backend findings and clear the web audit. Runtime database least privilege, historical source reconciliation, remaining vendor/tooling advisories, physical devices and independent off-site/escrow/hosted recovery remain release gates. Local recovery evidence does not establish hosted Auth/ACL runtime restoration.
 
 ## Latest orchestrated integration — completed verification on 14 October

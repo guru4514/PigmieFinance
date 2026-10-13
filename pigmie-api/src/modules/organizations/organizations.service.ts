@@ -13,6 +13,7 @@ import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { CreateBranchDto } from './dto/create-branch.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
+import { randomUUID } from 'node:crypto';
 
 @Injectable()
 export class OrganizationsService {
@@ -22,19 +23,18 @@ export class OrganizationsService {
   ) {}
 
   async createOrganization(authUserId: string, dto: CreateOrganizationDto) {
-    return this.prisma.$transaction(async (tx) => {
+    const organizationId = randomUUID();
+    return this.prisma.runOnboarding(authUserId, organizationId, async (tx) => {
       const identities = await tx.$queryRaw<
         {
           email: string | null;
           confirmed: boolean;
           banned: boolean;
           provisioning: boolean;
+          linked: boolean;
         }[]
       >`
-      SELECT email, email_confirmed_at IS NOT NULL AS confirmed,
-        (banned_until IS NOT NULL AND banned_until > now()) AS banned,
-        (coalesce(raw_app_meta_data, '{}'::jsonb) ? 'pigmie_provisioning_attempt') AS provisioning
-      FROM auth.users WHERE id = ${authUserId}::uuid FOR UPDATE
+      SELECT * FROM public.runtime_onboarding_identity(${authUserId}::uuid)
     `;
       const identity = identities[0];
       if (
@@ -59,7 +59,7 @@ export class OrganizationsService {
       const existingCustomer = await tx.customer.findUnique({
         where: { authUserId },
       });
-      if (existingStaff || existingCustomer) {
+      if (identity.linked || existingStaff || existingCustomer) {
         throw new ConflictException(
           'Auth identity already belongs to an organization',
         );
@@ -67,6 +67,7 @@ export class OrganizationsService {
 
       const org = await tx.organization.create({
         data: {
+          id: organizationId,
           name: dto.organizationName,
           operatorType: dto.operatorType || 'organization',
           currency: dto.currency || 'INR',

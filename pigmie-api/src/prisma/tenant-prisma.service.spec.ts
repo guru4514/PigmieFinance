@@ -31,6 +31,9 @@ it('sets the tenant inside the same transaction and forwards job-specific limits
   });
   expect(callback).toHaveBeenCalledWith(tx);
   expect(execute.mock.calls[0][1]).toBe('synthetic-org');
+  const query = execute.mock.calls[0][0].join('?');
+  expect(query).toContain("set_config('app.current_auth_id', '', true)");
+  expect(query).toContain("set_config('app.onboarding_mode', '', true)");
 });
 
 describe('Opt-in atomic workflow transactions', () => {

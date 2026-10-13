@@ -17,25 +17,26 @@ export class ScheduledTasksService {
   async markOverdueInstallments() {
     const today = businessDate();
     const threshold = new Date(today.getTime() - 90 * 86400000);
-    const organizations = await this.prisma.organization.findMany({
-      where: { isActive: true },
-      select: { id: true },
-    });
+    const organizations = await this.prisma.$queryRaw<
+      { id: string }[]
+    >`SELECT id FROM public.runtime_active_organization_ids()`;
     for (const organization of organizations) {
       try {
-        const loans = await this.prisma.loan.findMany({
-          where: {
-            organizationId: organization.id,
-            status: 'active',
-            schedule: {
-              some: {
-                dueDate: { lt: today },
-                status: { in: ['pending', 'partially_paid', 'overdue'] },
+        const loans = await this.tenantPrisma.run(organization.id, (tx) =>
+          tx.loan.findMany({
+            where: {
+              organizationId: organization.id,
+              status: 'active',
+              schedule: {
+                some: {
+                  dueDate: { lt: today },
+                  status: { in: ['pending', 'partially_paid', 'overdue'] },
+                },
               },
             },
-          },
-          select: { id: true },
-        });
+            select: { id: true },
+          }),
+        );
         for (const candidate of loans) {
           try {
             await this.tenantPrisma.run(

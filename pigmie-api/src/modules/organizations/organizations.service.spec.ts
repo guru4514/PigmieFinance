@@ -44,6 +44,11 @@ function harness() {
     callback: (client: Prisma.TransactionClient) => Promise<unknown>,
   ) => callback(tx as unknown as Prisma.TransactionClient);
   const prisma = {
+    runOnboarding: (
+      _auth: string,
+      _org: string,
+      callback: (client: Prisma.TransactionClient) => Promise<unknown>,
+    ) => callback(tx as unknown as Prisma.TransactionClient),
     $transaction: (
       callback: (client: Prisma.TransactionClient) => Promise<unknown>,
     ) => callback(tx as unknown as Prisma.TransactionClient),

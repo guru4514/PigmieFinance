@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { parse } from 'dotenv';
 import pg from 'pg';
 import { validateStaging } from './staging.mjs';
+import { operatorFixtureClient } from './operator-fixture-client.mjs';
 
 const config = parse(readFileSync(new URL('../.env.staging', import.meta.url)));
 validateStaging(
@@ -14,6 +15,8 @@ validateStaging(
 assert.equal(config.STAGING_PROJECT_REF, 'sjelnxrlkrvwjcgqbvre');
 process.env.APP_ENV = 'staging';
 process.env.DATABASE_URL = config.DATABASE_URL;
+process.env.RUNTIME_DATABASE_URL = config.RUNTIME_DATABASE_URL;
+process.env.SUPABASE_URL = config.SUPABASE_URL;
 const require = createRequire(import.meta.url);
 const { PrismaService } = require('../dist/prisma/prisma.service.js');
 const {
@@ -22,12 +25,13 @@ const {
 const {
   LoanProductsService,
 } = require('../dist/modules/loan-products/loan-products.service.js');
-const prisma = new PrismaService();
+const prisma = operatorFixtureClient(config);
+const apiPrisma = new PrismaService();
 const lockProbePool = new pg.Pool({
   connectionString: config.DATABASE_URL,
   connectionTimeoutMillis: 10000,
 });
-const tenant = new TenantPrismaService(prisma);
+const tenant = new TenantPrismaService(apiPrisma);
 const service = new LoanProductsService(tenant);
 const orgId = randomUUID();
 const staffId = randomUUID();
@@ -166,5 +170,6 @@ try {
     }
   }
   await prisma.$disconnect();
+  await apiPrisma.onModuleDestroy();
   await lockProbePool.end();
 }

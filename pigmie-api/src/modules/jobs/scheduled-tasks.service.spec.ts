@@ -28,6 +28,7 @@ function harness() {
   const tx = {
     $executeRaw: jest.fn().mockResolvedValue(1),
     loan: {
+      findMany: jest.fn().mockResolvedValue([{ id: 'loan' }]),
       findFirst: jest.fn(() =>
         Promise.resolve(loan.status === 'active' ? loan : null),
       ),
@@ -98,16 +99,17 @@ function harness() {
   };
   let tail = Promise.resolve();
   const run = jest.fn(
-    (
+    async (
       _org: string,
-      callback: (client: Prisma.TransactionClient) => Promise<void>,
+      callback: (client: Prisma.TransactionClient) => Promise<unknown>,
     ) => {
+      let result: unknown;
       const next = tail.then(async () => {
         const savedRow = { ...row },
           savedLoan = { ...loan },
           savedMarkers = [...markers];
         try {
-          await callback(tx as unknown as Prisma.TransactionClient);
+          result = await callback(tx as unknown as Prisma.TransactionClient);
         } catch (error) {
           row = savedRow;
           loan = savedLoan;
@@ -116,10 +118,12 @@ function harness() {
         }
       });
       tail = next.catch(() => undefined);
-      return next;
+      await next;
+      return result;
     },
   );
   const prisma = {
+    $queryRaw: jest.fn().mockResolvedValue([{ id: 'org' }]),
     organization: { findMany: jest.fn().mockResolvedValue([{ id: 'org' }]) },
     loan: { findMany: jest.fn().mockResolvedValue([{ id: 'loan' }]) },
     auditLog: { deleteMany: jest.fn() },
@@ -246,11 +250,11 @@ describe('Active overdue job', () => {
   it('uses the Indian business date and explicit tenant/active filters', async () => {
     const h = harness();
     await h.service.markOverdueInstallments();
-    expect(h.prisma.organization.findMany).toHaveBeenCalledWith({
-      where: { isActive: true },
-      select: { id: true },
-    });
-    expect(h.prisma.loan.findMany).toHaveBeenCalledWith({
+    expect(h.prisma.$queryRaw).toHaveBeenCalled();
+    expect(h.prisma.organization.findMany).not.toHaveBeenCalled();
+    expect(h.prisma.loan.findMany).not.toHaveBeenCalled();
+    expect(h.run).toHaveBeenCalledWith('org', expect.any(Function));
+    expect(h.tx.loan.findMany).toHaveBeenCalledWith({
       where: {
         organizationId: 'org',
         status: 'active',

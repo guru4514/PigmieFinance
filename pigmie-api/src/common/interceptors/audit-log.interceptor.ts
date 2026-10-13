@@ -9,7 +9,7 @@ import type { Request } from 'express';
 import { Observable } from 'rxjs';
 import { mergeMap } from 'rxjs/operators';
 import { isUUID } from 'class-validator';
-import { PrismaService } from '../../prisma/prisma.service';
+import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
 import { AUDIT_ACTION_KEY } from '../decorators/audit-action.decorator';
 import { RequestUser } from '../types/request-user.type';
 
@@ -22,7 +22,7 @@ function object(value: unknown): Record<string, unknown> {
 @Injectable()
 export class AuditLogInterceptor implements NestInterceptor {
   private readonly logger = new Logger(AuditLogInterceptor.name);
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly tenantPrisma: TenantPrismaService) {}
 
   intercept(
     context: ExecutionContext,
@@ -60,18 +60,20 @@ export class AuditLogInterceptor implements NestInterceptor {
           ) ?? organizationId;
         try {
           // Generic audits contain metadata only. Never serialize request/response payloads.
-          await this.prisma.auditLog.create({
-            data: {
-              organizationId,
-              actorStaffId: user?.type === 'staff' ? user.id : null,
-              action,
-              entityType: action.split('.')[0],
-              entityId,
-              newValue: { outcome: 'succeeded' },
-              ipAddress: request.ip,
-              userAgent: request.headers['user-agent']?.slice(0, 512),
-            },
-          });
+          await this.tenantPrisma.run(organizationId, (tx) =>
+            tx.auditLog.create({
+              data: {
+                organizationId,
+                actorStaffId: user?.type === 'staff' ? user.id : null,
+                action,
+                entityType: action.split('.')[0],
+                entityId,
+                newValue: { outcome: 'succeeded' },
+                ipAddress: request.ip,
+                userAgent: request.headers['user-agent']?.slice(0, 512),
+              },
+            }),
+          );
         } catch {
           this.logger.error(
             `Audit persistence failed for action ${action}; the operation already succeeded`,

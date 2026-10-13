@@ -6,6 +6,7 @@ import { parse } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import { generate } from 'otplib';
 import { validateStaging } from './staging.mjs';
+import { operatorFixtureClient } from './operator-fixture-client.mjs';
 
 const config = parse(readFileSync(new URL('../.env.staging', import.meta.url)));
 validateStaging(
@@ -16,8 +17,7 @@ assert.equal(config.STAGING_PROJECT_REF, 'sjelnxrlkrvwjcgqbvre');
 process.env.APP_ENV = 'staging';
 process.env.DATABASE_URL = config.DATABASE_URL;
 const require = createRequire(import.meta.url);
-const { PrismaService } = require('../dist/prisma/prisma.service.js');
-const prisma = new PrismaService();
+const prisma = operatorFixtureClient(config);
 const options = {
   global: {
     fetch: (input, init) =>
@@ -44,18 +44,24 @@ let userId, staffId;
 let orgCreated = false;
 let checkpoint = 'provider account';
 const request = async (token, path) => {
-  const response = await fetch(`http://127.0.0.1:3001/api/v1/${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    signal: AbortSignal.timeout(15000),
-  });
+  const response = await fetch(
+    `http://127.0.0.1:${process.env.STAGING_TEST_PORT === '3002' ? '3002' : '3001'}/api/v1/${path}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(15000),
+    },
+  );
   await response.body?.cancel();
   return response;
 };
 try {
   checkpoint = 'staging API availability';
-  const probe = await fetch('http://127.0.0.1:3001/api/v1/auth/me', {
-    signal: AbortSignal.timeout(5000),
-  });
+  const probe = await fetch(
+    `http://127.0.0.1:${process.env.STAGING_TEST_PORT === '3002' ? '3002' : '3001'}/api/v1/auth/me`,
+    {
+      signal: AbortSignal.timeout(5000),
+    },
+  );
   await probe.body?.cancel();
   assert.equal(probe.status, 401);
   checkpoint = 'provider account';

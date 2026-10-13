@@ -234,9 +234,11 @@ export class NotificationsService {
     );
 
     if (authUserId && process.env.APP_ENV !== 'staging') {
-      const subscriptions = await this.prisma.pushSubscription.findMany({
-        where: { authUserId },
-      });
+      const subscriptions = await this.tenantPrisma.run(organizationId, (tx) =>
+        tx.pushSubscription.findMany({
+          where: { authUserId },
+        }),
+      );
 
       const payload = JSON.stringify({
         title: 'PigmieFinance',
@@ -269,15 +271,17 @@ export class NotificationsService {
               'statusCode' in error &&
               (error.statusCode === 410 || error.statusCode === 404)
             ) {
-              await this.prisma.pushSubscription.deleteMany({
-                where: {
-                  id: sub.id,
-                  authUserId,
-                  endpoint: sub.endpoint,
-                  p256dh: sub.p256dh,
-                  auth: sub.auth,
-                },
-              });
+              await this.tenantPrisma.run(organizationId, (tx) =>
+                tx.pushSubscription.deleteMany({
+                  where: {
+                    id: sub.id,
+                    authUserId,
+                    endpoint: sub.endpoint,
+                    p256dh: sub.p256dh,
+                    auth: sub.auth,
+                  },
+                }),
+              );
             } else {
               this.logger.error('Failed to send push notification');
             }

@@ -10,6 +10,19 @@ jest.mock('@supabase/supabase-js', () => ({
 
 describe('Provisioning reconciliation warnings', () => {
   afterEach(() => jest.restoreAllMocks());
+  it('enumerates candidates through the narrow function without granting Auth table access', async () => {
+    const query = jest
+      .fn<Promise<unknown[]>, [Prisma.Sql]>()
+      .mockResolvedValue([]);
+    const service = new ProvisioningReconciliationService({
+      $queryRaw: query,
+    } as unknown as PrismaService);
+    await expect(service.inspect()).resolves.toEqual([]);
+    const statement = query.mock.calls[0][0];
+    expect(statement.sql).toContain('public.runtime_provisioning_candidates');
+    expect(statement.sql).not.toContain('auth.users');
+    expect(statement.values).toEqual([null, null]);
+  });
   it('logs counts without exposing candidate metadata', async () => {
     const service = new ProvisioningReconciliationService({
       $queryRaw: jest

@@ -38,7 +38,7 @@ export class TenantPrismaService {
       try {
         return await this.prisma.$transaction(
           async (tx) => {
-            await tx.$executeRaw`SELECT set_config('app.current_org_id', ${organizationId}, true)`;
+            await tx.$executeRaw`SELECT set_config('app.current_org_id', ${organizationId}, true), set_config('app.current_auth_id', '', true), set_config('app.onboarding_mode', '', true)`;
             return fn(tx);
           },
           options ? limits : undefined,
