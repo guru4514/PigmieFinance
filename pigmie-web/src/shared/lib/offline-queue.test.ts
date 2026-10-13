@@ -110,6 +110,22 @@ beforeEach(async () => {
   });
 });
 
+describe('Cold-start recovery metadata', () => {
+  it('counts only the original account without requiring or reconstructing a cached staff role', async () => {
+    const queue = await load();
+    await queue.queueCollection(input, owner);
+    await queue.queueCollection({ ...input, clientGeneratedId: '00000000-0000-4000-8000-000000000012' }, other);
+    vi.resetModules();
+    const restarted = await load();
+    expect(await restarted.getAccountPendingCount(owner.authUserId)).toBe(1);
+    expect(await restarted.getAccountPendingCount(other.authUserId)).toBe(1);
+    expect(await restarted.getAccountPendingCount('unknown')).toBe(0);
+    expect(mocks.get).not.toHaveBeenCalled();
+    expect(mocks.post).not.toHaveBeenCalled();
+    expect(await restarted.getPendingCollections(owner)).toHaveLength(1);
+  });
+});
+
 describe("durable collection outbox", () => {
   it("keeps a legacy URL-only photo pending for explicit recovery", async () => {
     const queue = await load();

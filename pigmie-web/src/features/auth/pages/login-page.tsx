@@ -41,8 +41,8 @@ export function LoginPage() {
       setLoading(false);
     } else {
       // Fire-and-forget login event to record in audit log
-      apiClient.post('/auth/login-event').catch((err) => {
-        console.error('Failed to record login audit event:', err);
+      apiClient.post('/auth/login-event').catch(() => {
+        console.error('Failed to record login audit event.');
       });
 
       const verifiedFactors = data.user?.factors?.filter((f) => f.status === 'verified') || [];

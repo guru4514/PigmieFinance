@@ -49,8 +49,8 @@ export const NewLoanProductPage = () => {
     try {
       await createProduct.mutateAsync(data);
       navigate('/app/loan-products');
-    } catch (error) {
-      console.error('Failed to create product:', error);
+    } catch {
+      console.error('Failed to create product.');
     }
   };
 

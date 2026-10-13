@@ -162,6 +162,15 @@ export async function getPendingCount(
 ): Promise<number> {
   return (await getPendingCollections(owner)).length;
 }
+/** Recovery metadata only. This never grants staff access or reveals payment details. */
+export async function getAccountPendingCount(authUserId: string): Promise<number> {
+  const db = await getDB();
+  try {
+    return (await db.getAll(STORE_NAME)).filter((item) => item.owner?.authUserId === authUserId).length;
+  } finally {
+    db.close();
+  }
+}
 async function updateStored(item: PendingCollection) {
   const db = await getDB();
   try {

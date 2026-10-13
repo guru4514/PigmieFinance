@@ -40,8 +40,8 @@ export const SmsDialog: React.FC<SmsDialogProps> = ({ customerName, customerPhon
       setIsOpen(false);
       setMessage('');
       setTemplate('custom');
-    } catch (error) {
-      console.error('Failed to send SMS', error);
+    } catch {
+      console.error('Failed to send SMS.');
       alert('Failed to send SMS. Please check settings and try again.');
     } finally {
       setIsSending(false);

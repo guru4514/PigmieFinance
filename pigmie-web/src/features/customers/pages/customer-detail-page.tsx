@@ -71,8 +71,8 @@ export const CustomerDetailPage = () => {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Failed to download passbook', error);
+    } catch {
+      console.error('Failed to download passbook.');
       alert('Failed to download passbook. Please try again.');
     } finally {
       setIsDownloading(false);

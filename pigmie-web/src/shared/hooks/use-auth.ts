@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { apiClient } from '../lib/api-client';
 import { ResolvedUser } from '../types';
 import { hasSecondFactor } from '../lib/mfa';
+import { parseAccountProfile } from '../lib/account-profile';
 
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
@@ -35,7 +36,7 @@ export function useAuth() {
 
   const profileQuery = useQuery({
     queryKey: ['auth', 'me', session?.user.id],
-    queryFn: () => apiClient.get('/auth/me', { expectedAuthUserId: session?.user.id, timeout: 10_000 }).then((r) => r.data),
+    queryFn: () => apiClient.get('/auth/me', { expectedAuthUserId: session?.user.id, timeout: 10_000 }).then((r) => parseAccountProfile(r.data, session!.user.id)),
     enabled: !!session,
     // Attempt the profile request even on an offline cold start. The route can
     // then offer recovery instead of waiting forever for a paused query.

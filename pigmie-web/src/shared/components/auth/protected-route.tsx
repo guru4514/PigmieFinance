@@ -3,6 +3,7 @@ import { useAuth } from '@/shared/hooks/use-auth';
 import { StaffRole } from '@/shared/types';
 import { LoadingScreen } from '../ui/loading-spinner';
 import axios from 'axios';
+import { AccountRecovery } from './account-recovery';
 
 interface ProtectedRouteProps {
   allowedRoles?: StaffRole[];
@@ -16,16 +17,7 @@ export function ProtectedRoute({ allowedRoles, requiredUserType, children }: Pro
   if (isLoading) return <LoadingScreen />;
   const status = axios.isAxiosError(error) ? error.response?.status : undefined;
   if (session && error && status !== 401 && status !== 403) {
-    return (
-      <main className="flex min-h-screen items-center justify-center p-6">
-        <div className="max-w-md space-y-4 text-center">
-          <h1 className="text-xl font-semibold">Connect to recover your workspace</h1>
-          <p>We could not verify your account. Reconnect and try again to open your workspace and sync saved collections.</p>
-          <p className="text-sm text-muted-foreground">This does not clear collections saved on this device. Avoid clearing site data or uninstalling the app while payments are waiting to sync.</p>
-          <button type="button" className="rounded-md bg-primary px-4 py-2 text-primary-foreground" onClick={() => { void retryProfile(); }}>Try again</button>
-        </div>
-      </main>
-    );
+    return <AccountRecovery authUserId={session.user.id} retry={() => { void retryProfile(); }} />;
   }
   if (!user) return <Navigate to="/login" replace />;
   if (user.userType === 'unprovisioned') return <Navigate to="/login?error=not_provisioned" replace />;

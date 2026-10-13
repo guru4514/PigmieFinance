@@ -62,8 +62,8 @@ export const LoanDetailPage: React.FC = () => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       toast.success('Statement downloaded successfully');
-    } catch (error) {
-      console.error('Failed to download statement', error);
+    } catch {
+      console.error('Failed to download statement.');
       toast.error('Failed to download statement');
     } finally {
       setDownloadingStatement(false);

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
+    "test:browser-recovery": "node scripts/check-browser-recovery.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",

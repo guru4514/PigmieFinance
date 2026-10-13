@@ -108,8 +108,8 @@ export const CustomerFormPage = () => {
         await createCustomer.mutateAsync(payload);
         navigate('/app/customers');
       }
-    } catch (error) {
-      console.error('Failed to save customer:', error);
+    } catch {
+      console.error('Failed to save customer.');
     }
   };
 
