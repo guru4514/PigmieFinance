@@ -13,10 +13,29 @@ import {
   AuthenticatedUser,
   StaffUser,
 } from '../../common/types/request-user.type';
+import { businessDate } from '../loans/utils/date.util';
 
 @Injectable()
 export class ReportsService {
   constructor(private readonly tenantPrisma: TenantPrismaService) {}
+
+  private sumMoney(values: Prisma.Decimal[]): Prisma.Decimal {
+    if (values.some((value) => !value.isFinite() || value.lt(0))) {
+      throw new BadRequestException('Report balances require reconciliation');
+    }
+    return values.reduce(
+      (sum, value) => sum.plus(value),
+      new Prisma.Decimal(0),
+    );
+  }
+
+  private riskFraction(value: Prisma.Decimal | null | undefined): number {
+    if (value == null) return 0;
+    if (!value.isFinite() || value.lt(0) || value.gt(1)) {
+      throw new BadRequestException('Report balances require reconciliation');
+    }
+    return value.toNumber();
+  }
 
   private async resolveStaff(
     tx: Prisma.TransactionClient,
@@ -45,123 +64,155 @@ export class ReportsService {
   }
 
   async getDashboardSummary(organizationId: string, user: AuthenticatedUser) {
-    return this.tenantPrisma.run(organizationId, async (tx) => {
-      const now = new Date();
-      const istOffset = 5.5 * 60 * 60 * 1000;
-      const istNow = new Date(now.getTime() + istOffset);
-      const istDateStr = istNow.toISOString().split('T')[0];
-      const todayDate = new Date(istDateStr + 'T00:00:00.000Z');
-      const monthStartStr = istDateStr.slice(0, 7) + '-01';
-      const monthStartDate = new Date(monthStartStr + 'T00:00:00.000Z');
+    return this.tenantPrisma.run(
+      organizationId,
+      async (tx) => {
+        const now = new Date();
+        const todayDate = businessDate(now);
+        const istDateStr = todayDate.toISOString().slice(0, 10);
+        const monthStartStr = istDateStr.slice(0, 7) + '-01';
+        const monthStartDate = new Date(monthStartStr + 'T00:00:00.000Z');
 
-      // 1. Get staff scoping rules
-      const staff = await this.resolveStaff(tx, organizationId, user);
-      const isAgent = staff.role === 'agent';
-      const isBranchManager = staff.role === 'branch_manager';
+        // 1. Get staff scoping rules
+        const staff = await this.resolveStaff(tx, organizationId, user);
+        const isAgent = staff.role === 'agent';
+        const isBranchManager = staff.role === 'branch_manager';
 
-      const loanWhere: Prisma.LoanWhereInput = {
-        organizationId,
-        status: 'active',
-      };
-      const collectionTodayWhere: Prisma.CollectionWhereInput = {
-        organizationId,
-        collectionDate: todayDate,
-        status: { in: ['recorded', 'verified'] },
-      };
-      const collectionMonthWhere: Prisma.CollectionWhereInput = {
-        organizationId,
-        collectionDate: { gte: monthStartDate, lte: todayDate },
-        status: { in: ['recorded', 'verified'] },
-      };
+        const loanWhere: Prisma.LoanWhereInput = {
+          organizationId,
+          status: 'active',
+        };
+        const collectionTodayWhere: Prisma.CollectionWhereInput = {
+          organizationId,
+          collectionDate: todayDate,
+          status: { in: ['recorded', 'verified'] },
+        };
+        const collectionMonthWhere: Prisma.CollectionWhereInput = {
+          organizationId,
+          collectionDate: { gte: monthStartDate, lte: todayDate },
+          status: { in: ['recorded', 'verified'] },
+        };
 
-      if (isAgent && staff?.id) {
-        loanWhere.assignedAgentId = staff.id;
-        collectionTodayWhere.collectedById = staff.id;
-        collectionMonthWhere.collectedById = staff.id;
-      } else if (isBranchManager && staff?.branchId) {
-        loanWhere.customer = { branchId: staff.branchId };
-        collectionTodayWhere.loan = { customer: { branchId: staff.branchId } };
-        collectionMonthWhere.loan = { customer: { branchId: staff.branchId } };
-      }
+        if (isAgent && staff?.id) {
+          loanWhere.assignedAgentId = staff.id;
+          collectionTodayWhere.collectedById = staff.id;
+          collectionMonthWhere.collectedById = staff.id;
+        } else if (isBranchManager && staff?.branchId) {
+          loanWhere.customer = { branchId: staff.branchId };
+          collectionTodayWhere.loan = {
+            customer: { branchId: staff.branchId },
+          };
+          collectionMonthWhere.loan = {
+            customer: { branchId: staff.branchId },
+          };
+        }
+        const repaymentLoanWhere: Prisma.LoanWhereInput = {
+          ...loanWhere,
+          status: { in: ['active', 'defaulted'] },
+        };
 
-      const [
-        activeLoansCount,
-        activeLoans,
-        collectionsToday,
-        collectionsThisMonth,
-        dueTodaySchedules,
-        overdueCount,
-      ] = await Promise.all([
-        tx.loan.count({ where: loanWhere }),
-        tx.loan.findMany({ where: loanWhere }),
-        tx.collection.findMany({ where: collectionTodayWhere }),
-        tx.collection.aggregate({
-          where: collectionMonthWhere,
-          _sum: { amount: true },
-        }),
-        tx.loanSchedule.findMany({
-          where: {
-            loan: loanWhere,
-            dueDate: todayDate, // Exact date match for @db.Date
-            status: { in: ['pending', 'partially_paid'] },
-          },
-        }),
-        tx.loanSchedule.count({
-          where: { loan: loanWhere, status: 'overdue' },
-        }),
-      ]);
+        const [
+          activeLoansCount,
+          activeLoans,
+          collectionsToday,
+          collectionsThisMonth,
+          dueTodaySchedules,
+          overdueCount,
+        ] = await Promise.all([
+          tx.loan.count({ where: loanWhere }),
+          tx.loan.findMany({ where: repaymentLoanWhere }),
+          tx.collection.findMany({ where: collectionTodayWhere }),
+          tx.collection.aggregate({
+            where: collectionMonthWhere,
+            _sum: { amount: true },
+          }),
+          tx.loanSchedule.findMany({
+            where: {
+              loan: {
+                ...loanWhere,
+                status: { in: ['active', 'defaulted', 'closed'] },
+              },
+              dueDate: todayDate, // Exact date match for @db.Date
+              status: { not: 'waived' },
+            },
+          }),
+          tx.loan.count({
+            where: {
+              ...repaymentLoanWhere,
+              outstandingBalance: { gt: 0 },
+              schedule: {
+                some: {
+                  dueDate: { lt: todayDate },
+                  dueAmount: { gt: tx.loanSchedule.fields.paidAmount },
+                  status: { in: ['pending', 'partially_paid', 'overdue'] },
+                },
+              },
+            },
+          }),
+        ]);
 
-      const totalOutstanding = activeLoans.reduce(
-        (sum, loan) => sum + loan.outstandingBalance.toNumber(),
-        0,
-      );
-      const collectedToday = collectionsToday.reduce(
-        (sum, col) => sum + col.amount.toNumber(),
-        0,
-      );
-      const dueToday = dueTodaySchedules.reduce(
-        (sum, sch) =>
-          sum + sch.dueAmount.toNumber() - sch.paidAmount.toNumber(),
-        0,
-      );
-      const thisMonthCollection =
-        collectionsThisMonth._sum.amount?.toNumber() || 0;
-      const collectionEfficiency =
-        dueToday > 0
-          ? Math.round((collectedToday / dueToday) * 100)
-          : collectedToday > 0
-            ? 100
-            : 0;
+        const totalOutstanding = this.sumMoney(
+          activeLoans.map((loan) => loan.outstandingBalance),
+        ).toNumber();
+        const collectedToday = this.sumMoney(
+          collectionsToday.map((col) => col.amount),
+        ).toNumber();
+        const scheduledDue = this.sumMoney(
+          dueTodaySchedules.map((row) => row.dueAmount),
+        );
+        const paidTowardDue = this.sumMoney(
+          dueTodaySchedules.map((row) => row.paidAmount),
+        );
+        if (dueTodaySchedules.some((row) => row.paidAmount.gt(row.dueAmount))) {
+          throw new BadRequestException(
+            'Report balances require reconciliation',
+          );
+        }
+        const dueToday = scheduledDue.minus(paidTowardDue).toNumber();
+        const thisMonthCollection = this.sumMoney([
+          collectionsThisMonth._sum.amount ?? new Prisma.Decimal(0),
+        ]).toNumber();
+        const collectionEfficiency = scheduledDue.gt(0)
+          ? paidTowardDue
+              .div(scheduledDue)
+              .mul(100)
+              .toDecimalPlaces(0)
+              .toNumber()
+          : 0;
 
-      const parStats = await tx.$queryRaw<{ par_30: Prisma.Decimal | null }[]>`
+        const parStats = await tx.$queryRaw<
+          { par_30: Prisma.Decimal | null }[]
+        >`
         select
           sum(case when overdue_days > 30 then l.outstanding_balance else 0 end) / nullif(sum(l.outstanding_balance), 0) as par_30
         from "loans" l
         ${staff.role === 'branch_manager' && staff.branchId ? Prisma.sql`join "customers" c on c.id = l.customer_id and c.organization_id = l.organization_id` : Prisma.empty}
         join lateral (
-          select coalesce(max(current_date - s.due_date), 0) as overdue_days
+          select coalesce(max(${todayDate}::date - s.due_date), 0) as overdue_days
           from "loan_schedule" s
-          where s.loan_id = l.id and s.status in ('pending', 'partially_paid', 'overdue')
+          where s.loan_id = l.id and s.status in ('pending', 'partially_paid', 'overdue') and s.due_amount > s.paid_amount
         ) x on true
-        where l.status = 'active' and l.organization_id = ${organizationId}::uuid
+        where l.status in ('active', 'defaulted') and l.organization_id = ${organizationId}::uuid
         ${staff.role === 'branch_manager' && staff.branchId ? Prisma.sql`and c.branch_id = ${staff.branchId}::uuid` : Prisma.empty}
         ${staff.role === 'agent' ? Prisma.sql`and l.assigned_agent_id = ${staff.id}::uuid` : Prisma.empty}
       `;
-      const portfolioAtRisk30 = parStats[0]?.par_30
-        ? Number(parStats[0].par_30)
-        : 0;
+        const portfolioAtRisk30 = this.riskFraction(parStats[0]?.par_30);
 
-      return {
-        activeLoans: activeLoansCount,
-        totalOutstanding,
-        collectedToday,
-        dueToday,
-        collectionEfficiency,
-        thisMonthCollection,
-        overdueCount,
-        portfolioAtRisk30,
-      };
-    });
+        return {
+          activeLoans: activeLoansCount,
+          totalOutstanding,
+          collectedToday,
+          dueToday,
+          collectionEfficiency,
+          scheduledDueToday: scheduledDue.toNumber(),
+          paidTowardDueToday: paidTowardDue.toNumber(),
+          thisMonthCollection,
+          overdueCount,
+          portfolioAtRisk30,
+        };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
   }
 
   async getOverdue(
@@ -175,12 +226,14 @@ export class ReportsService {
       const staff = await this.resolveStaff(tx, organizationId, user);
       const loanWhere: Prisma.LoanWhereInput = {
         organizationId,
-        status: 'active',
+        status: { in: ['active', 'defaulted'] },
       };
 
       const where: Prisma.LoanScheduleWhereInput = {
         loan: loanWhere,
-        status: 'overdue',
+        dueAmount: { gt: tx.loanSchedule.fields.paidAmount },
+        status: { in: ['pending', 'partially_paid', 'overdue'] },
+        dueDate: { lt: businessDate() },
       };
 
       if (staff.role === 'branch_manager')
@@ -190,8 +243,8 @@ export class ReportsService {
       if (staff.role === 'agent') loanWhere.assignedAgentId = staff.id;
       else if (query.agentId) loanWhere.assignedAgentId = query.agentId;
       if (query.minDaysOverdue) {
-        const d = new Date();
-        d.setDate(d.getDate() - query.minDaysOverdue);
+        const d = businessDate();
+        d.setUTCDate(d.getUTCDate() - query.minDaysOverdue);
         where.dueDate = { lte: d };
       }
 
@@ -217,15 +270,30 @@ export class ReportsService {
   }
 
   async getPortfolioAtRisk(organizationId: string, user: AuthenticatedUser) {
-    return this.tenantPrisma.run(organizationId, async (tx) => {
-      const staff = await this.resolveStaff(tx, organizationId, user);
-      const result = await tx.$queryRaw<
-        {
-          par_1: Prisma.Decimal | null;
-          par_30: Prisma.Decimal | null;
-          par_90: Prisma.Decimal | null;
-        }[]
-      >`
+    return this.tenantPrisma.run(
+      organizationId,
+      async (tx) => {
+        const staff = await this.resolveStaff(tx, organizationId, user);
+        const today = businessDate();
+        const balances = await tx.loan.findMany({
+          where: {
+            organizationId,
+            status: { in: ['active', 'defaulted'] },
+            ...(staff.role === 'agent' ? { assignedAgentId: staff.id } : {}),
+            ...(staff.role === 'branch_manager'
+              ? { customer: { branchId: staff.branchId } }
+              : {}),
+          },
+          select: { outstandingBalance: true },
+        });
+        this.sumMoney(balances.map((loan) => loan.outstandingBalance));
+        const result = await tx.$queryRaw<
+          {
+            par_1: Prisma.Decimal | null;
+            par_30: Prisma.Decimal | null;
+            par_90: Prisma.Decimal | null;
+          }[]
+        >`
         select
           sum(case when overdue_days > 1 then l.outstanding_balance else 0 end) / nullif(sum(l.outstanding_balance), 0) as par_1,
           sum(case when overdue_days > 30 then l.outstanding_balance else 0 end) / nullif(sum(l.outstanding_balance), 0) as par_30,
@@ -233,21 +301,23 @@ export class ReportsService {
         from "loans" l
         ${staff.role === 'branch_manager' && staff.branchId ? Prisma.sql`join "customers" c on c.id = l.customer_id and c.organization_id = l.organization_id` : Prisma.empty}
         join lateral (
-          select coalesce(max(current_date - s.due_date), 0) as overdue_days
+          select coalesce(max(${today}::date - s.due_date), 0) as overdue_days
           from "loan_schedule" s
-          where s.loan_id = l.id and s.status in ('pending', 'partially_paid', 'overdue')
+          where s.loan_id = l.id and s.status in ('pending', 'partially_paid', 'overdue') and s.due_amount > s.paid_amount
         ) x on true
-        where l.status = 'active' and l.organization_id = ${organizationId}::uuid
+        where l.status in ('active', 'defaulted') and l.organization_id = ${organizationId}::uuid
         ${staff.role === 'branch_manager' && staff.branchId ? Prisma.sql`and c.branch_id = ${staff.branchId}::uuid` : Prisma.empty}
         ${staff.role === 'agent' ? Prisma.sql`and l.assigned_agent_id = ${staff.id}::uuid` : Prisma.empty}
       `;
 
-      return {
-        par_1: result[0]?.par_1 ? Number(result[0].par_1) : 0,
-        par_30: result[0]?.par_30 ? Number(result[0].par_30) : 0,
-        par_90: result[0]?.par_90 ? Number(result[0].par_90) : 0,
-      };
-    });
+        return {
+          par_1: this.riskFraction(result[0]?.par_1),
+          par_30: this.riskFraction(result[0]?.par_30),
+          par_90: this.riskFraction(result[0]?.par_90),
+        };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
   }
 
   async getCollectionEfficiency(

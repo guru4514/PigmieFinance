@@ -5,6 +5,8 @@
     "totalOutstanding": "कुल बकाया",
     "collectedToday": "आज की वसूली",
     "dueToday": "आज देय",
+    "dueFulfillment": "आज की देय राशि का भुगतान",
+    "dueFulfillmentDescription": "आज की निर्धारित किस्तों के लिए भुगतान, पहले किए गए भुगतानों सहित।",
     "activeLoans": "सक्रिय ऋण",
     "overdueAccounts": "अतिदेय खाते",
     "par30": "PAR30",

@@ -1,6 +1,8 @@
 # Stabilization progress
 
-## Current status — 2026-10-13
+## Current status — 2026-10-14
+
+Latest orchestrated integration: migration 0008 removes residual browser non-CRUD rights and future postgres/public default rights, with original records/history preserved in both environments. Independent financial reconstruction and dashboard fulfillment/overdue/PAR corrections passed synthetic staging integration; compatible dependency patches clear the web audit and remove critical backend findings. Current work and remaining runtime/legacy/advisory/hardware/recovery gates are recorded in [release checkpoint](RELEASE_CHECKPOINT.md). Earlier test counts below are historical.
 
 The interruption has been recovered and the financial, browser recovery and platform restore changes integrated. [Four-package execution](FOUR_PACKAGE_EXECUTION.md) records the current evidence: seven migrations applied in both environments with original rows/history preserved; immutable loan amendments; exact payment/settlement components and reversals; verified desktop offline recovery; and actual encrypted final-schema database/Auth/Storage restores with a private synthetic blob. Historical source reconciliation, physical devices and independent off-site/escrow/hosted restore remain explicit release gates. The project is not yet approved for production. The dated entries below are historical evidence rather than the current unfinished-code list.
 

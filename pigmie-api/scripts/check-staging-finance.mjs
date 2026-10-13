@@ -25,6 +25,12 @@ const {
 } = require('../dist/modules/collections/collections.service.js');
 const { LoansService } = require('../dist/modules/loans/loans.service.js');
 const {
+  ReportsService,
+} = require('../dist/modules/reports/reports.service.js');
+const {
+  reconcileFinancialEvidence,
+} = require('../dist/common/utils/financial-reconciliation.util.js');
+const {
   ApprovalsService,
 } = require('../dist/modules/approvals/approvals.service.js');
 const { EmailService } = require('../dist/modules/email/email.service.js');
@@ -43,6 +49,47 @@ const tenant = new TenantPrismaService(prisma);
 const email = new EmailService();
 const collections = new CollectionsService(tenant, prisma, email);
 const loans = new LoansService(tenant, { notify: async () => {} }, email);
+const reports = new ReportsService(tenant);
+async function reconstructLoan(id) {
+  const loan = await prisma.loan.findUniqueOrThrow({
+    where: { id },
+    include: {
+      customer: { select: { organizationId: true } },
+      loanProduct: { select: { organizationId: true } },
+      schedule: true,
+      collections: {
+        include: {
+          collectedBy: { select: { organizationId: true } },
+          customer: { select: { organizationId: true } },
+        },
+      },
+      amendments: true,
+    },
+  });
+  return reconcileFinancialEvidence({
+    ...loan,
+    startDate: loan.startDate?.toISOString().slice(0, 10) ?? null,
+    customerOrganizationId: loan.customer.organizationId,
+    productOrganizationId: loan.loanProduct.organizationId,
+    schedule: loan.schedule.map((row) => ({
+      ...row,
+      dueDate: row.dueDate.toISOString().slice(0, 10),
+    })),
+    payments: loan.collections.map((row) => ({
+      ...row,
+      collectorOrganizationId: row.collectedBy.organizationId,
+      customerOrganizationId: row.customer.organizationId,
+      collectionDate: row.collectionDate.toISOString().slice(0, 10),
+      collectedAt: row.collectedAt.toISOString(),
+      recordedAt: row.recordedAt.toISOString(),
+      reversedAt: row.reversedAt?.toISOString() ?? null,
+    })),
+    amendments: loan.amendments.map((row) => ({
+      ...row,
+      createdAt: row.createdAt.toISOString(),
+    })),
+  });
+}
 const approvals = new ApprovalsService(tenant, {}, collections, loans);
 const documents = new DocumentsService(tenant, { get: (key) => config[key] });
 const storage = createClient(
@@ -453,6 +500,19 @@ try {
   });
   assert.equal(contractLoan.financialTerms.version, 1);
   assert.equal(contractLoan.financialTerms.processingFee, '0.00');
+  const knownSettlementLoan = await loans.create(orgId, fixture.admin.id, {
+    customerId: fixture.customer.id,
+    loanProductId: fixture.product.id,
+    principalAmount: 100,
+    tenure: 2,
+  });
+  await loans.approve(orgId, knownSettlementLoan.id, fixture.admin.id);
+  await loans.disburse(
+    orgId,
+    knownSettlementLoan.id,
+    '2026-10-01',
+    fixture.admin.id,
+  );
   checkpoint = 'restructure preserves original and replacement schedules';
   const amendmentLoan = await loans.create(orgId, fixture.admin.id, {
     customerId: fixture.customer.id,
@@ -602,6 +662,7 @@ try {
     where: { loanId: amendmentLoan.id },
     orderBy: { installmentNumber: 'asc' },
   });
+  assert.equal((await reconstructLoan(amendmentLoan.id)).state, 'consistent');
   checkpoint = 'saved zero-fee policy rejects drifted schedule charges';
   await prisma.$transaction(async (tx) => {
     await tx.loanSchedule.update({
@@ -649,6 +710,7 @@ try {
     }),
     drifted,
   );
+  assert.equal((await reconstructLoan(amendmentLoan.id)).state, 'inconsistent');
   checkpoint = 'immutable contract and exact earlier-payment reversal';
   await prisma.loanProduct.update({
     where: { id: fixture.product.id },
@@ -800,6 +862,31 @@ try {
     laterPartialEvidence.rows[0].fees,
   );
   checkpoint = 'partial payment closure approval';
+  const reconstructedPartial = await reconstructLoan(contractLoan.id);
+  assert.equal(reconstructedPartial.state, 'consistent');
+  assert.equal(
+    reconstructedPartial.reconstructed.componentTotalsComplete,
+    true,
+  );
+  await collections.recordCollection(orgId, fixture.agent.id, {
+    ...payment(knownSettlementLoan.id),
+    amount: 1.01,
+  });
+  const knownQuote = await loans.getPreClosureDetails(
+    orgId,
+    knownSettlementLoan.id,
+  );
+  await loans.close(orgId, knownSettlementLoan.id, fixture.admin.id, {
+    preClosureAmount: knownQuote.preClosureAmount,
+  });
+  const reconstructedSettlement = await reconstructLoan(knownSettlementLoan.id);
+  assert.equal(reconstructedSettlement.state, 'consistent');
+  assert.equal(
+    reconstructedSettlement.reconstructed.settlementTotal,
+    new (require('@prisma/client').Prisma.Decimal)(
+      knownQuote.preClosureAmount,
+    ).toFixed(2),
+  );
   await prisma.loan.update({
     where: { id: fixture.recoveryLoan.id },
     data: { status: 'defaulted' },
@@ -902,7 +989,11 @@ try {
   );
   assert.equal(
     await prisma.auditLog.count({
-      where: { organizationId: orgId, action: 'loan.pre_closed' },
+      where: {
+        organizationId: orgId,
+        entityId: fixture.closureLoan.id,
+        action: 'loan.pre_closed',
+      },
     }),
     0,
   );
@@ -959,6 +1050,128 @@ try {
       data: { allocationDetails: { version: 1 } },
     }),
   );
+  checkpoint = 'direct client denial';
+  checkpoint = 'dashboard scheduled fulfillment and overdue stock';
+  const { businessDate } = require('../dist/modules/loans/utils/date.util.js');
+  const today = businessDate();
+  const dateBefore = (days) => {
+    const value = new Date(today);
+    value.setUTCDate(value.getUTCDate() - days);
+    return value.toISOString().slice(0, 10);
+  };
+  const reportActor = {
+    type: 'staff',
+    organizationId: orgId,
+    id: fixture.agent.id,
+    role: 'agent',
+    branchId: null,
+  };
+  const beforeReport = await reports.getDashboardSummary(orgId, reportActor);
+  await prisma.loanProduct.update({
+    where: { id: fixture.product.id },
+    data: {
+      interestRateAnnual: 0,
+      processingFee: 0,
+      lateFeeValue: 0,
+      collectionFrequency: 'daily',
+    },
+  });
+  const reportLoan = async (startDate) => {
+    const loan = await loans.create(orgId, fixture.admin.id, {
+      customerId: fixture.customer.id,
+      loanProductId: fixture.product.id,
+      principalAmount: 100,
+      tenure: 1,
+    });
+    await loans.approve(orgId, loan.id, fixture.admin.id);
+    await loans.disburse(orgId, loan.id, startDate, fixture.admin.id);
+    return loan;
+  };
+  const dueReportLoan = await reportLoan(dateBefore(1));
+  const paidReportLoan = await reportLoan(dateBefore(1));
+  const arrearsReportLoan = await reportLoan(dateBefore(33));
+  for (const [loan, amount] of [
+    [dueReportLoan, 50],
+    [paidReportLoan, 100],
+    [arrearsReportLoan, 10],
+  ]) {
+    await collections.recordCollection(orgId, fixture.agent.id, {
+      ...payment(loan.id),
+      amount,
+      collectionDate: today.toISOString().slice(0, 10),
+      collectedAt: new Date().toISOString(),
+    });
+  }
+  const afterReport = await reports.getDashboardSummary(orgId, reportActor);
+  assert.equal(
+    afterReport.scheduledDueToday,
+    beforeReport.scheduledDueToday + 200,
+  );
+  assert.equal(
+    afterReport.paidTowardDueToday,
+    beforeReport.paidTowardDueToday + 150,
+  );
+  assert.equal(afterReport.dueToday, beforeReport.dueToday + 50);
+  assert.equal(afterReport.collectedToday, beforeReport.collectedToday + 160);
+  assert.equal(
+    afterReport.collectionEfficiency,
+    new Decimal(afterReport.paidTowardDueToday)
+      .div(afterReport.scheduledDueToday)
+      .mul(100)
+      .toDecimalPlaces(0)
+      .toNumber(),
+  );
+  assert.equal(afterReport.overdueCount, beforeReport.overdueCount + 1);
+  const futureReportLoan = await reportLoan(dateBefore(-1));
+  const zeroDueRow = await prisma.loanSchedule.create({
+    data: {
+      loanId: futureReportLoan.id,
+      installmentNumber: 2,
+      dueDate: new Date(dateBefore(1)),
+      principalComponent: 0,
+      interestComponent: 0,
+      dueAmount: 0,
+      paidAmount: 0,
+      paidPrincipal: 0,
+      paidInterest: 0,
+      paidFees: 0,
+      status: 'pending',
+    },
+  });
+  const finalReport = await reports.getDashboardSummary(orgId, reportActor);
+  assert.equal(finalReport.overdueCount, afterReport.overdueCount);
+  const overdueReport = await reports.getOverdue(
+    orgId,
+    { limit: 200 },
+    reportActor,
+  );
+  assert.ok(overdueReport.data.every((row) => row.id !== zeroDueRow.id));
+  const riskReport = await reports.getPortfolioAtRisk(orgId, reportActor);
+  assert.equal(riskReport.par_30, finalReport.portfolioAtRisk30);
+  const riskLoans = await prisma.loan.findMany({
+    where: {
+      organizationId: orgId,
+      assignedAgentId: fixture.agent.id,
+      status: { in: ['active', 'defaulted'] },
+    },
+    include: { schedule: true },
+  });
+  const expectedRisk = riskLoans
+    .reduce(
+      (sum, loan) =>
+        loan.schedule.some(
+          (row) =>
+            ['pending', 'partially_paid', 'overdue'].includes(row.status) &&
+            row.dueAmount.gt(row.paidAmount) &&
+            (today.getTime() - row.dueDate.getTime()) / 86400000 > 30,
+        )
+          ? sum.plus(loan.outstandingBalance)
+          : sum,
+      new Decimal(0),
+    )
+    .div(new Decimal(finalReport.totalOutstanding))
+    .toNumber();
+  assert.ok(Math.abs(riskReport.par_30 - expectedRisk) < 1e-10);
   checkpoint = 'direct client denial';
   for (const role of ['anon', 'authenticated']) {
     await assert.rejects(
@@ -1183,11 +1396,14 @@ try {
         'exact principal/interest/fee amounts persisted and earlier reversal preserves later components',
       settlementComponents:
         'immutable early-closure components and waived amount reconcile to the receipt without rewriting original installments',
+      independentFinancialReconstruction:
+        'known partial reversals, multi-amendment history and early closure reconstruct; intentional drift is detected',
       zeroFeeScheduleDrift:
         'payments, payoff quotes and restructuring denied without mutations',
       lostCommitAcknowledgement:
         'one posting; bounded retry acknowledges original payment identifier',
       privateKyc: 'owned PDF upload/download passed; another agent denied',
+      dashboardFinancialDefinitions: 'full scheduled denominator includes paid closed rows; unrelated receipts do not inflate fulfillment; positive overdue amounts and IST portfolio risk verified',
     }),
   );
 } catch (error) {

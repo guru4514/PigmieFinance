@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { ReportsService } from './reports.service';
 import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
 import { StaffUser } from '../../common/types/request-user.type';
+import { businessDate } from '../loans/utils/date.util';
 
 const agent: StaffUser = {
   type: 'staff',
@@ -27,7 +28,9 @@ function harness() {
         .mockResolvedValue({ id: agent.id, role: agent.role, branchId: null }),
     },
     loan: {
-      count: jest.fn().mockResolvedValue(0),
+      count: jest
+        .fn<Promise<number>, [Prisma.LoanCountArgs]>()
+        .mockResolvedValue(0),
       findMany: jest
         .fn<Promise<unknown[]>, [{ where: Prisma.LoanWhereInput }]>()
         .mockResolvedValue([]),
@@ -36,11 +39,28 @@ function harness() {
       findMany: jest
         .fn<Promise<unknown[]>, [{ where: Prisma.CollectionWhereInput }]>()
         .mockResolvedValue([]),
-      aggregate: jest.fn().mockResolvedValue({ _sum: { amount: null } }),
+      aggregate: jest
+        .fn<
+          Promise<{ _sum: { amount: Prisma.Decimal | null } }>,
+          [Prisma.CollectionAggregateArgs]
+        >()
+        .mockResolvedValue({ _sum: { amount: null } }),
     },
     loanSchedule: {
-      findMany: jest.fn().mockResolvedValue([]),
-      count: jest.fn().mockResolvedValue(0),
+      fields: {
+        paidAmount: {
+          field: 'paidAmount',
+        } as unknown as Prisma.LoanScheduleFieldRefs['paidAmount'],
+      },
+      findMany: jest
+        .fn<
+          Promise<{ dueAmount: Prisma.Decimal; paidAmount: Prisma.Decimal }[]>,
+          [Prisma.LoanScheduleFindManyArgs]
+        >()
+        .mockResolvedValue([]),
+      count: jest
+        .fn<Promise<number>, [Prisma.LoanScheduleCountArgs]>()
+        .mockResolvedValue(0),
     },
     $queryRaw: jest
       .fn<
@@ -54,17 +74,175 @@ function harness() {
       _org: string,
       action: (client: Prisma.TransactionClient) => Promise<unknown>,
     ) => action(tx as unknown as Prisma.TransactionClient),
-    run: (
-      _org: string,
-      action: (client: Prisma.TransactionClient) => Promise<unknown>,
-    ) => action(tx as unknown as Prisma.TransactionClient),
+    run: jest.fn(
+      (
+        _org: string,
+        action: (client: Prisma.TransactionClient) => Promise<unknown>,
+        _options?: { isolationLevel: Prisma.TransactionIsolationLevel },
+      ) => {
+        void _options;
+        return action(tx as unknown as Prisma.TransactionClient);
+      },
+    ),
   };
   return {
     service: new ReportsService(tenant as unknown as TenantPrismaService),
     tx,
+    tenant,
   };
 }
 describe('Report identity and scope', () => {
+  it('rejects negative portfolio balances even when the risk fraction looks valid', async () => {
+    const { service, tx } = harness();
+    tx.loan.findMany.mockResolvedValue([
+      { outstandingBalance: new Prisma.Decimal(200) },
+      { outstandingBalance: new Prisma.Decimal(-100) },
+    ]);
+    tx.$queryRaw.mockResolvedValue([{ par_30: new Prisma.Decimal(0) }]);
+    await expect(service.getPortfolioAtRisk('org', agent)).rejects.toThrow(
+      'reconciliation',
+    );
+    expect(tx.$queryRaw).not.toHaveBeenCalled();
+  });
+  it('starts monthly receipts at the Indian calendar month boundary', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-10-31T19:00:00Z'));
+    try {
+      const { service, tx } = harness();
+      await service.getDashboardSummary('org', agent);
+      expect(tx.collection.aggregate.mock.calls[0][0]).toMatchObject({
+        where: {
+          collectionDate: {
+            gte: new Date('2026-11-01'),
+            lte: new Date('2026-11-01'),
+          },
+        },
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+  it.each(['NaN', '-0.1', '1.01'])(
+    'rejects invalid portfolio risk fraction %s',
+    async (fraction) => {
+      const { service, tx } = harness();
+      tx.$queryRaw.mockResolvedValue([
+        { par_30: new Prisma.Decimal(fraction) },
+      ]);
+      await expect(service.getPortfolioAtRisk('org', agent)).rejects.toThrow(
+        'reconciliation',
+      );
+      await expect(service.getDashboardSummary('org', agent)).rejects.toThrow(
+        'reconciliation',
+      );
+    },
+  );
+  it('measures fulfillment against full scheduled dues, independent of unrelated receipts', async () => {
+    const { service, tx } = harness();
+    tx.loanSchedule.findMany.mockResolvedValue([
+      {
+        dueAmount: new Prisma.Decimal(100),
+        paidAmount: new Prisma.Decimal(50),
+      },
+    ]);
+    tx.collection.findMany.mockResolvedValue([
+      { amount: new Prisma.Decimal(1000) },
+    ]);
+    expect(await service.getDashboardSummary('org', agent)).toMatchObject({
+      dueToday: 50,
+      collectionEfficiency: 50,
+      collectedToday: 1000,
+      scheduledDueToday: 100,
+      paidTowardDueToday: 50,
+    });
+  });
+  it('includes paid rows and closed loans in today scheduled fulfillment', async () => {
+    const { service, tx } = harness();
+    tx.loanSchedule.findMany.mockResolvedValue([
+      {
+        dueAmount: new Prisma.Decimal(100),
+        paidAmount: new Prisma.Decimal(100),
+      },
+    ]);
+    expect(await service.getDashboardSummary('org', agent)).toMatchObject({
+      dueToday: 0,
+      collectionEfficiency: 100,
+    });
+    expect(tx.loanSchedule.findMany.mock.calls[0][0].where).toMatchObject({
+      status: { not: 'waived' },
+      loan: {
+        status: { in: ['active', 'defaulted', 'closed'] },
+        assignedAgentId: agent.id,
+      },
+    });
+  });
+  it('does not invent fulfillment when no installments are due', async () => {
+    const { service, tx } = harness();
+    tx.collection.findMany.mockResolvedValue([
+      { amount: new Prisma.Decimal(1000) },
+    ]);
+    expect(await service.getDashboardSummary('org', agent)).toMatchObject({
+      collectionEfficiency: 0,
+      dueToday: 0,
+    });
+  });
+  it('sums paise exactly and includes defaulted outstanding debt', async () => {
+    const { service, tx } = harness();
+    tx.loan.findMany.mockResolvedValue([
+      { outstandingBalance: new Prisma.Decimal('0.1') },
+      { outstandingBalance: new Prisma.Decimal('0.2') },
+    ]);
+    expect(await service.getDashboardSummary('org', agent)).toMatchObject({
+      totalOutstanding: 0.3,
+    });
+    expect(tx.loan.findMany.mock.calls[0][0].where.status).toEqual({
+      in: ['active', 'defaulted'],
+    });
+  });
+  it.each(['NaN', '-1', '101'])(
+    'rejects invalid paid amount %s instead of hiding it in a percentage',
+    async (paid) => {
+      const { service, tx } = harness();
+      tx.loanSchedule.findMany.mockResolvedValue([
+        {
+          dueAmount: new Prisma.Decimal(100),
+          paidAmount: new Prisma.Decimal(paid),
+        },
+      ]);
+      await expect(service.getDashboardSummary('org', agent)).rejects.toThrow(
+        'reconciliation',
+      );
+    },
+  );
+  it('uses the Indian business date and counts overdue loans independently of job status', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-10-13T19:00:00Z'));
+    try {
+      const { service, tx, tenant } = harness();
+      await service.getDashboardSummary('org', agent);
+      expect(tx.loanSchedule.findMany.mock.calls[0][0].where?.dueDate).toEqual(
+        new Date('2026-10-14'),
+      );
+      expect(tx.loan.count.mock.calls[1][0].where).toMatchObject({
+        schedule: {
+          some: {
+            dueDate: { lt: new Date('2026-10-14') },
+            dueAmount: { gt: tx.loanSchedule.fields.paidAmount },
+            status: { in: ['pending', 'partially_paid', 'overdue'] },
+          },
+        },
+      });
+      expect(tenant.run).toHaveBeenCalledWith('org', expect.any(Function), {
+        isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+      });
+      const [strings, ...values] = tx.$queryRaw.mock.calls[0];
+      const sql = Prisma.sql(strings, ...values);
+      expect(sql.text).not.toContain('current_date');
+      expect(sql.values).toContainEqual(new Date('2026-10-14'));
+    } finally {
+      jest.useRealTimers();
+    }
+  });
   it('uses the staff record ID and limits dashboard queries and risk SQL to the agent', async () => {
     const { service, tx } = harness();
     await service.getDashboardSummary('org', agent);
@@ -75,7 +253,7 @@ describe('Report identity and scope', () => {
     expect(tx.loan.findMany).toHaveBeenCalledWith({
       where: {
         organizationId: 'org',
-        status: 'active',
+        status: { in: ['active', 'defaulted'] },
         assignedAgentId: agent.id,
       },
     });
@@ -101,10 +279,12 @@ describe('Report identity and scope', () => {
     );
     expect(tx.loanSchedule.count).toHaveBeenCalledWith({
       where: {
-        status: 'overdue',
+        status: { in: ['pending', 'partially_paid', 'overdue'] },
+        dueDate: { lt: businessDate() },
+        dueAmount: { gt: tx.loanSchedule.fields.paidAmount },
         loan: {
           organizationId: 'org',
-          status: 'active',
+          status: { in: ['active', 'defaulted'] },
           customer: { branchId: 'branch-a' },
         },
       },
