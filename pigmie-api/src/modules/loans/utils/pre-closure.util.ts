@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { Prisma, LoanSchedule } from '@prisma/client';
 import { businessDate } from './date.util';
+import { paidComponents } from './component-accounting.util';
 
 type Row = Pick<
   LoanSchedule,
@@ -11,15 +12,21 @@ type Row = Pick<
   | 'dueAmount'
   | 'paidAmount'
   | 'status'
->;
+> &
+  Partial<Pick<LoanSchedule, 'paidPrincipal' | 'paidInterest' | 'paidFees'>>;
 
-/** Combined payments are allocated proportionally because no component ledger exists. */
+/** Use recorded components; never guess an already-paid historical split. */
 export function calculatePreClosure(
   schedule: Row[],
   startDate: Date | null,
   now = new Date(),
 ) {
-  if (!startDate || schedule.length === 0)
+  if (
+    !startDate ||
+    !Number.isFinite(startDate.getTime()) ||
+    !Number.isFinite(now.getTime()) ||
+    schedule.length === 0
+  )
     throw new BadRequestException('A valid repayment schedule is required');
   const today = businessDate(now);
   const ordered = [...schedule].sort(
@@ -34,6 +41,12 @@ export function calculatePreClosure(
     const base = row.principalComponent.plus(row.interestComponent);
     if (
       row.installmentNumber !== index + 1 ||
+      [
+        row.principalComponent,
+        row.interestComponent,
+        row.dueAmount,
+        row.paidAmount,
+      ].some((value) => !value.isFinite()) ||
       !Number.isFinite(row.dueDate.getTime()) ||
       row.dueDate < startDate ||
       (index > 0 && row.dueDate <= ordered[index - 1].dueDate) ||
@@ -48,19 +61,15 @@ export function calculatePreClosure(
         'Schedule requires reconciliation before early closure',
       );
     }
-    if (row.status === 'paid' || row.status === 'waived') continue;
+    if (row.status === 'waived') continue;
+    const paid = paidComponents(row);
+    if (row.status === 'paid') continue;
     const remaining = row.dueAmount.minus(row.paidAmount);
     if (remaining.isZero()) continue;
-    const ratio = remaining.div(row.dueAmount);
-    const unpaidPrincipal = row.principalComponent
-      .mul(ratio)
-      .toDecimalPlaces(2);
-    const unpaidInterest = Prisma.Decimal.min(
-      remaining.minus(unpaidPrincipal),
-      row.interestComponent.mul(ratio).toDecimalPlaces(2),
-    );
+    const unpaidPrincipal = row.principalComponent.minus(paid.principal);
+    const unpaidInterest = row.interestComponent.minus(paid.interest);
     principal = principal.plus(unpaidPrincipal);
-    fees = fees.plus(remaining.minus(unpaidPrincipal).minus(unpaidInterest));
+    fees = fees.plus(row.dueAmount.minus(base).minus(paid.fees));
     scheduled = scheduled.plus(remaining);
     if (row.dueDate <= today) interest = interest.plus(unpaidInterest);
     else if (row === current) {
@@ -76,7 +85,14 @@ export function calculatePreClosure(
         Math.max(0, today.getTime() - periodStart.getTime()),
       );
       interest = interest.plus(
-        unpaidInterest.mul(elapsed).div(duration).toDecimalPlaces(2),
+        Prisma.Decimal.max(
+          0,
+          row.interestComponent
+            .mul(elapsed)
+            .div(duration)
+            .toDecimalPlaces(2)
+            .minus(paid.interest),
+        ),
       );
     }
   }

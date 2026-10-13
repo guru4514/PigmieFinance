@@ -116,16 +116,26 @@ const row = (
   interestComponent: decimal(10),
   dueAmount: decimal(110),
   paidAmount: decimal(0),
+  paidPrincipal: decimal(0),
+  paidInterest: decimal(0),
+  paidFees: decimal(0),
   status: 'pending' as const,
   ...changes,
 });
 describe('Early closure', () => {
   const start = new Date('2026-01-01');
   const now = new Date('2026-01-31T10:00:00Z');
-  it('includes partially paid installments and subtracts the actual paid balance proportionally', () => {
+  it('subtracts the recorded components of partially paid installments', () => {
     expect(
       calculatePreClosure(
-        [row({ paidAmount: decimal(55), status: 'partially_paid' })],
+        [
+          row({
+            paidAmount: decimal(55),
+            paidPrincipal: decimal(50),
+            paidInterest: decimal(5),
+            status: 'partially_paid',
+          }),
+        ],
         start,
         now,
       ),
@@ -145,6 +155,9 @@ describe('Early closure', () => {
         row({
           dueAmount: decimal(120),
           paidAmount: decimal(60),
+          paidPrincipal: decimal(50),
+          paidInterest: decimal(5),
+          paidFees: decimal(5),
           status: 'overdue',
         }),
       ],
@@ -175,6 +188,28 @@ describe('Early closure', () => {
       amountSaved: 25,
     });
   });
+  it('subtracts interest already paid from accrued interest before quoting a future installment', () => {
+    const result = calculatePreClosure(
+      [
+        row({
+          interestComponent: decimal(30),
+          dueAmount: decimal(130),
+          paidAmount: decimal(65),
+          paidPrincipal: decimal(50),
+          paidInterest: decimal(15),
+          status: 'partially_paid',
+        }),
+      ],
+      start,
+      new Date('2026-01-16T10:00:00Z'),
+    );
+    expect(result).toMatchObject({
+      outstandingPrincipal: 50,
+      accruedInterest: 0,
+      preClosureAmount: 50,
+      amountSaved: 15,
+    });
+  });
   it('does not charge interest before disbursement, nor include paid or waived rows', () => {
     expect(
       calculatePreClosure([row()], start, new Date('2025-12-31')),
@@ -182,7 +217,12 @@ describe('Early closure', () => {
     expect(
       calculatePreClosure(
         [
-          row({ status: 'paid', paidAmount: decimal(110) }),
+          row({
+            status: 'paid',
+            paidAmount: decimal(110),
+            paidPrincipal: decimal(100),
+            paidInterest: decimal(10),
+          }),
           row({
             installmentNumber: 2,
             dueDate: new Date('2026-02-28'),
@@ -208,6 +248,23 @@ describe('Early closure', () => {
     expect(() => calculatePreClosure([row()], null, now)).toThrow();
     expect(() => calculatePreClosure([], start, now)).toThrow();
   });
+  it('requires source reconciliation for historical partial payments without components', () => {
+    expect(() =>
+      calculatePreClosure(
+        [
+          row({
+            paidAmount: decimal(55),
+            paidPrincipal: null,
+            paidInterest: null,
+            paidFees: null,
+            status: 'partially_paid',
+          }),
+        ],
+        start,
+        now,
+      ),
+    ).toThrow('Historical paid components');
+  });
   it('does not hide unpaid debt behind a paid status or an invalid calendar schedule', () => {
     expect(() =>
       calculatePreClosure([row({ status: 'paid' })], start, now),
@@ -217,6 +274,24 @@ describe('Early closure', () => {
     ).toThrow('reconciliation');
     expect(() =>
       calculatePreClosure([row({ installmentNumber: 2 })], start, now),
+    ).toThrow('reconciliation');
+    expect(() =>
+      calculatePreClosure([row()], new Date('invalid'), now),
+    ).toThrow();
+    expect(() =>
+      calculatePreClosure([row()], start, new Date('invalid')),
+    ).toThrow();
+    expect(() =>
+      calculatePreClosure(
+        [
+          row({
+            principalComponent: new Prisma.Decimal('NaN'),
+            dueAmount: new Prisma.Decimal('NaN'),
+          }),
+        ],
+        start,
+        now,
+      ),
     ).toThrow('reconciliation');
   });
 });

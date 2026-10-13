@@ -19,12 +19,16 @@ function harness() {
     notes: null,
     schedule: [
       {
+        id: 'schedule',
         installmentNumber: 1,
         dueDate: new Date('2026-01-31'),
         principalComponent: new Prisma.Decimal(100),
         interestComponent: new Prisma.Decimal(10),
         dueAmount: new Prisma.Decimal(110),
         paidAmount: new Prisma.Decimal(55),
+        paidPrincipal: new Prisma.Decimal(50),
+        paidInterest: new Prisma.Decimal(5),
+        paidFees: new Prisma.Decimal(0),
         status: 'partially_paid' as 'partially_paid' | 'paid',
       },
     ],
@@ -92,6 +96,25 @@ describe('Loan closure settlement', () => {
       data: { status: 'waived' },
     });
     expect(h.tx.auditLog.create).toHaveBeenCalled();
+    expect(
+      h.tx.collection.create.mock.calls[0][0].data.allocationDetails,
+    ).toMatchObject({
+      version: 1,
+      componentVersion: 1,
+      type: 'early_closure',
+      principal: '50.00',
+      interest: '5.00',
+      fees: '0.00',
+      penalty: '0.00',
+      waivedAmount: '0.00',
+      sourceSchedule: [
+        expect.objectContaining({
+          scheduleId: 'schedule',
+          paidPrincipal: '50.00',
+          paidInterest: '5.00',
+        }),
+      ],
+    });
     expect(h.tx.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
       h.tx.collection.create.mock.invocationCallOrder[0],
     );
@@ -129,6 +152,8 @@ describe('Loan closure settlement', () => {
     h.loan.outstandingBalance = new Prisma.Decimal(0);
     h.loan.totalCollected = new Prisma.Decimal(110);
     h.loan.schedule[0].paidAmount = new Prisma.Decimal(110);
+    h.loan.schedule[0].paidPrincipal = new Prisma.Decimal(100);
+    h.loan.schedule[0].paidInterest = new Prisma.Decimal(10);
     h.loan.schedule[0].status = 'paid';
     await h.service.close('org', 'loan', 'staff');
     expect(h.tx.collection.create).not.toHaveBeenCalled();

@@ -13,10 +13,8 @@ import { QueryLoanDto } from './dto/query-loan.dto';
 import { RestructureLoanDto } from './dto/restructure-loan.dto';
 import { generateSchedule } from './utils/schedule-generator.util';
 import { calculatePreClosure } from './utils/pre-closure.util';
-import {
-  assertSupportedFinancialTerms,
-  assertScheduleMatchesFinancialTerms,
-} from './utils/financial-terms.util';
+import { assertScheduleMatchesFinancialTerms } from './utils/financial-terms.util';
+import { assertLoanMatchesOriginalTerms } from './utils/original-terms.util';
 import { businessDate } from './utils/date.util';
 import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
@@ -301,7 +299,7 @@ export class LoansService {
         where: { ...where, status: 'approved' },
         include: { loanProduct: true, customer: true },
       });
-      assertSupportedFinancialTerms(loan.financialTerms);
+      assertLoanMatchesOriginalTerms(loan, true);
 
       const rows = generateSchedule({
         principal: loan.principalAmount.toNumber(),
@@ -320,6 +318,9 @@ export class LoansService {
           principalComponent: new Prisma.Decimal(r.principalComponent),
           interestComponent: new Prisma.Decimal(r.interestComponent),
           dueAmount: new Prisma.Decimal(r.dueAmount),
+          paidPrincipal: new Prisma.Decimal(0),
+          paidInterest: new Prisma.Decimal(0),
+          paidFees: new Prisma.Decimal(0),
           status: 'pending',
         })),
       });
@@ -387,7 +388,7 @@ export class LoansService {
       if (loan.status !== 'active')
         throw new BadRequestException('Loan is not active');
       this.assertClosureBalances(loan);
-      assertSupportedFinancialTerms(loan.financialTerms);
+      await this.assertCurrentFinancialTerms(tx, loan);
       if (body?.preClosureAmount !== undefined) {
         const amount = body.preClosureAmount;
         if (
@@ -413,6 +414,32 @@ export class LoansService {
         const date = businessDate(today);
         const clientGeneratedId = crypto.randomUUID();
         const receiptNumber = `RCP-${date.toISOString().slice(0, 10).replace(/-/g, '')}-${clientGeneratedId.toUpperCase()}`;
+        // A settlement is recorded separately from installment allocations.
+        // Waived schedule rows retain their original charges and paid amounts.
+        const settlementEvidence = {
+          version: 1,
+          componentVersion: 1,
+          type: 'early_closure',
+          principal: new Prisma.Decimal(quote.outstandingPrincipal).toFixed(2),
+          interest: new Prisma.Decimal(quote.accruedInterest).toFixed(2),
+          fees: new Prisma.Decimal(quote.lateFees).toFixed(2),
+          penalty: new Prisma.Decimal(quote.preClosurePenalty).toFixed(2),
+          waivedAmount: new Prisma.Decimal(quote.amountSaved).toFixed(2),
+          settledAt: today.toISOString(),
+          sourceSchedule: loan.schedule.map((row) => ({
+            scheduleId: row.id,
+            installmentNumber: row.installmentNumber,
+            dueDate: row.dueDate.toISOString().slice(0, 10),
+            principal: row.principalComponent.toFixed(2),
+            interest: row.interestComponent.toFixed(2),
+            dueAmount: row.dueAmount.toFixed(2),
+            paidAmount: row.paidAmount.toFixed(2),
+            paidPrincipal: row.paidPrincipal?.toFixed(2) ?? null,
+            paidInterest: row.paidInterest?.toFixed(2) ?? null,
+            paidFees: row.paidFees?.toFixed(2) ?? null,
+            status: row.status,
+          })),
+        };
         await tx.collection.create({
           data: {
             clientGeneratedId,
@@ -426,6 +453,7 @@ export class LoansService {
             collectionMethod: 'other',
             receiptNumber,
             notes: 'Pre-closure payment',
+            allocationDetails: settlementEvidence,
             status: 'recorded',
           },
         });
@@ -460,6 +488,7 @@ export class LoansService {
               previousTotalPayable: loan.totalPayable.toString(),
               settledTotalPayable: totalCollected.toString(),
               calculation: quote,
+              settlementEvidence,
             },
           },
         });
@@ -487,7 +516,7 @@ export class LoansService {
           'Loan must be active to calculate pre-closure',
         );
       this.assertClosureBalances(loan);
-      assertSupportedFinancialTerms(loan.financialTerms);
+      await this.assertCurrentFinancialTerms(tx, loan);
       return calculatePreClosure(loan.schedule, loan.startDate);
     });
   }
@@ -610,7 +639,7 @@ export class LoansService {
       if (loan.status !== 'active') {
         throw new BadRequestException('Can only restructure active loans');
       }
-      assertSupportedFinancialTerms(loan.financialTerms);
+      await this.assertCurrentFinancialTerms(tx, loan);
       this.assertClosureBalances(loan);
 
       const targetRow = await tx.loanSchedule.findFirst({
@@ -648,6 +677,9 @@ export class LoansService {
           (row) =>
             !['pending', 'overdue'].includes(row.status) ||
             row.paidAmount.gt(0) ||
+            [row.paidPrincipal, row.paidInterest, row.paidFees].some(
+              (component) => component !== null && !component.equals(0),
+            ) ||
             row.principalComponent.lt(0) ||
             row.interestComponent.lt(0) ||
             !row.dueAmount.equals(
@@ -720,6 +752,9 @@ export class LoansService {
         principalComponent: new Prisma.Decimal(r.principalComponent),
         interestComponent: new Prisma.Decimal(r.interestComponent),
         dueAmount: new Prisma.Decimal(r.dueAmount),
+        paidPrincipal: new Prisma.Decimal(0),
+        paidInterest: new Prisma.Decimal(0),
+        paidFees: new Prisma.Decimal(0),
         status: 'pending' as const,
       }));
 
@@ -768,9 +803,54 @@ export class LoansService {
           interestComponent: row.interestComponent.toFixed(2),
           dueAmount: row.dueAmount.toFixed(2),
           paidAmount: row.paidAmount.toFixed(2),
+          paidPrincipal: row.paidPrincipal?.toFixed(2) ?? null,
+          paidInterest: row.paidInterest?.toFixed(2) ?? null,
+          paidFees: row.paidFees?.toFixed(2) ?? null,
           status: row.status,
         }));
 
+      const beforeEvidence = {
+        evidenceVersion: 1,
+        financialTerms: loan.financialTerms ?? null,
+        tenure: loan.tenure,
+        totalPayable: loan.totalPayable.toFixed(2),
+        outstandingBalance: loan.outstandingBalance.toFixed(2),
+        replacedSchedule: scheduleEvidence(rowsToDelete),
+      };
+      const afterEvidence = {
+        evidenceVersion: 1,
+        borrowerAcceptance: 'not_recorded',
+        fromInstallmentNumber: dto.fromInstallmentNumber,
+        newTenure: dto.newTenure,
+        reason: dto.reason ?? null,
+        remainingPrincipal: new Prisma.Decimal(remainingPrincipal).toFixed(2),
+        newTotalPayable: newTotalPayable.toFixed(2),
+        newOutstandingBalance: newOutstandingBalance.toFixed(2),
+        totalTenure: newTenureTotal,
+        interestType: loan.interestType,
+        interestRateAnnual: loan.interestRateAnnual.toString(),
+        collectionFrequency: loan.collectionFrequency,
+        replacementSchedule: scheduleEvidence(replacementRows),
+      };
+      // The scoped loan lock serializes allocation of recorded amendment versions.
+      // A version is never inferred from old audit entries or unknown history.
+      const lastAmendment = await tx.loanAmendment.findFirst({
+        where: { organizationId, loanId: id },
+        orderBy: { version: 'desc' },
+        select: { version: true },
+      });
+      const amendment = await tx.loanAmendment.create({
+        data: {
+          organizationId,
+          loanId: id,
+          actorStaffId: staffId,
+          version: (lastAmendment?.version ?? 0) + 1,
+          operation: 'restructure',
+          reason: dto.reason ?? null,
+          beforeEvidence,
+          afterEvidence,
+        },
+      });
       await tx.auditLog.create({
         data: {
           organizationId,
@@ -778,35 +858,58 @@ export class LoansService {
           action: 'loan.restructured',
           entityType: 'loan',
           entityId: id,
-          oldValue: {
-            evidenceVersion: 1,
-            financialTerms: loan.financialTerms ?? null,
-            tenure: loan.tenure,
-            totalPayable: loan.totalPayable.toFixed(2),
-            outstandingBalance: loan.outstandingBalance.toFixed(2),
-            replacedSchedule: scheduleEvidence(rowsToDelete),
-          },
+          oldValue: beforeEvidence,
           newValue: {
-            evidenceVersion: 1,
-            fromInstallmentNumber: dto.fromInstallmentNumber,
-            newTenure: dto.newTenure,
-            reason: dto.reason,
-            remainingPrincipal: new Prisma.Decimal(remainingPrincipal).toFixed(
-              2,
-            ),
-            newTotalPayable: newTotalPayable.toFixed(2),
-            newOutstandingBalance: newOutstandingBalance.toFixed(2),
-            totalTenure: newTenureTotal,
-            interestType: loan.interestType,
-            interestRateAnnual: loan.interestRateAnnual.toString(),
-            collectionFrequency: loan.collectionFrequency,
-            replacementSchedule: scheduleEvidence(replacementRows),
+            ...afterEvidence,
+            amendmentId: amendment.id,
+            amendmentVersion: amendment.version,
           },
         },
       });
-
       return { loan: updated, newSchedule: scheduleData };
     });
+  }
+
+  private async assertCurrentFinancialTerms(
+    tx: Prisma.TransactionClient,
+    loan: Parameters<typeof assertLoanMatchesOriginalTerms>[0] & {
+      id: string;
+      organizationId: string;
+    },
+  ): Promise<void> {
+    assertLoanMatchesOriginalTerms(loan);
+    const terms = loan.financialTerms;
+    if (
+      terms === null ||
+      terms === undefined ||
+      typeof terms !== 'object' ||
+      Array.isArray(terms)
+    )
+      return;
+    const latest = await tx.loanAmendment.findFirst({
+      where: { loanId: loan.id, organizationId: loan.organizationId },
+      orderBy: { version: 'desc' },
+      select: { afterEvidence: true },
+    });
+    if (!latest) {
+      if (loan.tenure === terms.originalTenure) return;
+    } else {
+      const evidence = latest.afterEvidence;
+      if (
+        evidence !== null &&
+        typeof evidence === 'object' &&
+        !Array.isArray(evidence) &&
+        evidence.evidenceVersion === 1 &&
+        evidence.totalTenure === loan.tenure &&
+        evidence.interestType === loan.interestType &&
+        evidence.collectionFrequency === loan.collectionFrequency &&
+        evidence.interestRateAnnual === loan.interestRateAnnual.toString()
+      )
+        return;
+    }
+    throw new BadRequestException(
+      'Current loan tenure differs from its recorded contract amendment; reconciliation is required',
+    );
   }
 
   private async lockActor(

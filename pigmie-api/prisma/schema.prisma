@@ -158,6 +158,7 @@ model Organization {
   notifications    Notification[]
   auditLogs        AuditLog[]
   approvalRequests ApprovalRequest[]
+  loanAmendments   LoanAmendment[]
 
   @@map("organizations")
 }
@@ -213,6 +214,7 @@ model Staff {
   auditLogs             AuditLog[]        @relation("AuditLogActor")
   submittedApprovals    ApprovalRequest[] @relation("SubmittedApprovals")
   reviewedApprovals     ApprovalRequest[] @relation("ReviewedApprovals")
+  loanAmendments        LoanAmendment[]
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId], map: "idx_staff_org")
@@ -331,12 +333,34 @@ model Loan {
 
   schedule    LoanSchedule[]
   collections Collection[]
+  amendments  LoanAmendment[]
 
   @@unique([organizationId, loanCode])
   @@index([organizationId, status], map: "idx_loans_org_status")
   @@index([customerId], map: "idx_loans_customer")
   @@index([assignedAgentId], map: "idx_loans_agent")
   @@map("loans")
+}
+
+model LoanAmendment {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  loanId         String   @map("loan_id") @db.Uuid
+  actorStaffId   String   @map("actor_staff_id") @db.Uuid
+  version        Int
+  operation      String
+  reason         String?
+  beforeEvidence Json     @map("before_evidence")
+  afterEvidence  Json     @map("after_evidence")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  loan         Loan         @relation(fields: [loanId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  actor        Staff        @relation(fields: [actorStaffId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([loanId, version])
+  @@index([organizationId], map: "idx_loan_amendments_org")
+  @@map("loan_amendments")
 }
 
 model LoanSchedule {
@@ -348,6 +372,9 @@ model LoanSchedule {
   interestComponent  Decimal        @map("interest_component") @db.Decimal(12, 2)
   dueAmount          Decimal        @map("due_amount") @db.Decimal(12, 2)
   paidAmount         Decimal        @default(0) @map("paid_amount") @db.Decimal(12, 2)
+  paidPrincipal      Decimal?       @map("paid_principal") @db.Decimal(12, 2)
+  paidInterest       Decimal?       @map("paid_interest") @db.Decimal(12, 2)
+  paidFees           Decimal?       @map("paid_fees") @db.Decimal(12, 2)
   status             ScheduleStatus @default(pending)
   createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz
   updatedAt          DateTime       @default(now()) @map("updated_at") @db.Timestamptz

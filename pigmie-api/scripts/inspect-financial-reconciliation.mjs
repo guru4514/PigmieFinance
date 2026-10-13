@@ -55,11 +55,13 @@ try {
       await client.query(`SELECT
       (SELECT count(*)::int FROM public.loans WHERE financial_terms IS NULL) AS unknown_historical_contracts,
       (SELECT count(*)::int FROM public.collections WHERE allocation_details IS NULL) AS unknown_historical_allocations,
+      (SELECT count(*)::int FROM public.loan_schedule WHERE paid_amount>0 AND num_nonnulls(paid_principal,paid_interest,paid_fees)=0) AS unknown_historical_paid_components,
+      (SELECT count(*)::int FROM public.loan_schedule WHERE principal_component='NaN'::numeric OR interest_component='NaN'::numeric OR due_amount='NaN'::numeric OR paid_amount='NaN'::numeric) AS nonfinite_historical_balances,
       (SELECT count(*)::int FROM public.loan_schedule WHERE paid_amount<0 OR paid_amount>due_amount OR due_amount<principal_component+interest_component OR principal_component<0 OR interest_component<0 OR (status='paid' AND paid_amount<>due_amount)) AS invalid_schedule_balances,
       (SELECT count(*)::int FROM public.loan_schedule WHERE due_amount>principal_component+interest_component) AS schedules_with_existing_fees,
       (SELECT count(*)::int FROM public.loans l WHERE l.status IN ('active','defaulted','closed') AND l.outstanding_balance<>COALESCE((SELECT sum(s.due_amount-s.paid_amount) FROM public.loan_schedule s WHERE s.loan_id=l.id AND s.status<>'waived'),0)) AS schedule_outstanding_mismatches,
       (SELECT count(*)::int FROM public.loans WHERE total_payable-total_collected<>outstanding_balance OR outstanding_balance<0) AS loan_total_mismatches,
-      (SELECT count(*)::int FROM public.loans l WHERE l.total_collected<>COALESCE((SELECT sum(c.amount) FROM public.collections c WHERE c.loan_id=l.id AND c.status='recorded'),0)) AS collection_total_mismatches,
+      (SELECT count(*)::int FROM public.loans l WHERE l.total_collected<>COALESCE((SELECT sum(c.amount) FROM public.collections c WHERE c.loan_id=l.id AND c.status IN ('recorded','verified')),0)) AS collection_total_mismatches,
       (SELECT count(*)::int FROM public.loans l JOIN public.customers c ON c.id=l.customer_id JOIN public.loan_products p ON p.id=l.loan_product_id WHERE l.organization_id<>c.organization_id OR l.organization_id<>p.organization_id) AS cross_tenant_loans,
       (SELECT count(*)::int FROM public.collections c JOIN public.loans l ON l.id=c.loan_id JOIN public.customers u ON u.id=c.customer_id JOIN public.staff s ON s.id=c.collected_by WHERE c.organization_id<>l.organization_id OR c.organization_id<>u.organization_id OR c.organization_id<>s.organization_id OR c.customer_id<>l.customer_id) AS cross_tenant_or_wrong_customer_payments
     `)

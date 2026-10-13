@@ -9,6 +9,10 @@ import net from 'node:net';
 import pg from 'pg';
 import { parse } from 'dotenv';
 import assert from 'node:assert/strict';
+import {
+  sourceEvidence,
+  rehearseFinancialEvidence,
+} from './financial-evidence-migration.mjs';
 import { validateStaging } from './staging.mjs';
 import {
   baselineCatalog,
@@ -39,6 +43,9 @@ const options = process.argv.slice(2);
 const developmentMode = options.includes('--development');
 const retainBackup = options.includes('--retain-backup');
 const baselineRehearsal = options.includes('--baseline-rehearsal');
+const financialEvidenceRehearsal = options.includes(
+  '--financial-evidence-rehearsal',
+);
 const platformMetadata = options.includes('--platform-metadata');
 const schemas = platformMetadata ? ['public', 'auth', 'storage'] : ['public'];
 let baselineVerification;
@@ -111,6 +118,7 @@ try {
         '--development',
         '--retain-backup',
         '--baseline-rehearsal',
+        '--financial-evidence-rehearsal',
         '--platform-metadata',
       ].includes(option),
     ),
@@ -522,6 +530,22 @@ try {
       }),
     );
   }
+  if (financialEvidenceRehearsal) {
+    assert.ok(developmentMode && retainBackup && !baselineRehearsal);
+    checkpoint = 'exact restored financial evidence migration rehearsal';
+    const result = await rehearseFinancialEvidence(target);
+    console.log(
+      JSON.stringify({
+        financialEvidenceRehearsal:
+          'passed on exact restored development copy and rolled back',
+        ...result,
+      }),
+    );
+  }
+  const financialMigrationSourceEvidence =
+    developmentMode && retainedRoot && !baselineRehearsal
+      ? await sourceEvidence(source)
+      : undefined;
   await source.query('ROLLBACK');
   success = true;
   if (retainedRoot)
@@ -536,6 +560,8 @@ try {
           tablesCompared: tables.length,
           restoreVerified: true,
           archivedHistoryRestored: archivedHistory,
+          financialMigrationSourceEvidence,
+          financialEvidenceRehearsal,
           baselineVerification,
           limitations:
             'No provider runtime, Storage blobs, ownership/ACL restoration, settings or off-site durability verified',

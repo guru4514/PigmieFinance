@@ -24,6 +24,9 @@ function harness() {
     installmentNumber: 1,
     dueAmount: new Prisma.Decimal(110),
     paidAmount: new Prisma.Decimal(0),
+    paidPrincipal: new Prisma.Decimal(0),
+    paidInterest: new Prisma.Decimal(0),
+    paidFees: new Prisma.Decimal(0),
     principalComponent: new Prisma.Decimal(100),
     interestComponent: new Prisma.Decimal(10),
     status: 'pending',
@@ -153,7 +156,13 @@ describe('Payment posting and retry safety', () => {
     );
     expect(h.tx.loanSchedule.update).toHaveBeenCalledWith({
       where: { id: 'row' },
-      data: { paidAmount: new Prisma.Decimal(55), status: 'partially_paid' },
+      data: {
+        paidAmount: new Prisma.Decimal(55),
+        paidPrincipal: new Prisma.Decimal(50),
+        paidInterest: new Prisma.Decimal(5),
+        paidFees: new Prisma.Decimal(0),
+        status: 'partially_paid',
+      },
     });
     expect(h.send).toHaveBeenCalledTimes(1);
   });
@@ -230,7 +239,16 @@ describe('Payment posting and retry safety', () => {
       data: {
         allocationDetails: {
           version: 1,
-          rows: [{ scheduleId: 'row', amount: '55.00' }],
+          componentVersion: 1,
+          rows: [
+            {
+              scheduleId: 'row',
+              amount: '55.00',
+              principal: '50.00',
+              interest: '5.00',
+              fees: '0.00',
+            },
+          ],
         },
       },
     });
@@ -243,6 +261,39 @@ describe('Payment posting and retry safety', () => {
     ).rejects.toThrow('Schedule requires reconciliation');
     expect(h.tx.loanSchedule.update).not.toHaveBeenCalled();
     expect(h.send).not.toHaveBeenCalled();
+  });
+  it('does not bypass unknown paid components on an earlier settled installment', async () => {
+    const h = harness();
+    h.tx.loanSchedule.findMany.mockResolvedValue([
+      {
+        ...h.row,
+        id: 'earlier',
+        paidAmount: new Prisma.Decimal(110),
+        paidPrincipal: null,
+        paidInterest: null,
+        paidFees: null,
+        status: 'paid',
+      },
+      { ...h.row, id: 'later', installmentNumber: 2 },
+    ]);
+    await expect(
+      h.service.recordCollection('org', 'staff', dto),
+    ).rejects.toThrow('Historical paid components');
+    expect(h.tx.loanSchedule.update).not.toHaveBeenCalled();
+    expect(h.send).not.toHaveBeenCalled();
+  });
+  it('does not return raw provider diagnostics from collection sync', async () => {
+    const h = harness();
+    h.tx.collection.create.mockRejectedValue(
+      new Error('synthetic sensitive provider diagnostic'),
+    );
+    const result = await h.service.syncCollections('org', 'staff', [dto]);
+    expect(result.results[0]).toEqual({
+      clientGeneratedId: dto.clientGeneratedId,
+      status: 'error',
+      error:
+        'Payment could not be confirmed. Retry with the same payment identifier.',
+    });
   });
   it('refuses to guess the installment allocation of a historical payment', async () => {
     const h = harness();
@@ -258,9 +309,20 @@ describe('Payment posting and retry safety', () => {
     const h = harness();
     h.actor.role = 'org_admin';
     h.row.paidAmount = new Prisma.Decimal(55);
+    h.row.paidPrincipal = new Prisma.Decimal(50);
+    h.row.paidInterest = new Prisma.Decimal(5);
     h.collection.allocationDetails = {
       version: 1,
-      rows: [{ scheduleId: 'row', amount: '55.00' }],
+      componentVersion: 1,
+      rows: [
+        {
+          scheduleId: 'row',
+          amount: '55.00',
+          principal: '50.00',
+          interest: '5.00',
+          fees: '0.00',
+        },
+      ],
     };
     h.tx.collection.findFirst.mockResolvedValue(h.collection);
     h.tx.loanSchedule.count.mockResolvedValue(0);
@@ -288,7 +350,16 @@ describe('Payment posting and retry safety', () => {
     h.actor.role = 'org_admin';
     h.collection.allocationDetails = {
       version: 1,
-      rows: [{ scheduleId: 'row', amount: '54.00' }],
+      componentVersion: 1,
+      rows: [
+        {
+          scheduleId: 'row',
+          amount: '54.00',
+          principal: '49.00',
+          interest: '5.00',
+          fees: '0.00',
+        },
+      ],
     };
     h.tx.collection.findFirst.mockResolvedValue(h.collection);
     h.tx.loanSchedule.count.mockResolvedValue(0);

@@ -524,6 +524,10 @@ try {
     }),
     0,
   );
+  assert.equal(
+    await prisma.loanAmendment.count({ where: { loanId: amendmentLoan.id } }),
+    0,
+  );
   await loans.restructure(orgId, amendmentLoan.id, fixture.admin.id, {
     fromInstallmentNumber: 1,
     newTenure: 3,
@@ -541,6 +545,29 @@ try {
     originalRows.map((r) => r.id),
   );
   assert.equal(amendment.newValue.replacementSchedule.length, 3);
+  const durableAmendment = await prisma.loanAmendment.findFirstOrThrow({
+    where: { loanId: amendmentLoan.id, version: 1 },
+  });
+  assert.equal(durableAmendment.operation, 'restructure');
+  assert.equal(durableAmendment.actorStaffId, fixture.admin.id);
+  assert.deepEqual(durableAmendment.beforeEvidence, amendment.oldValue);
+  const {
+    amendmentId: auditedAmendmentId,
+    amendmentVersion: auditedVersion,
+    ...auditedAfter
+  } = amendment.newValue;
+  assert.equal(auditedAmendmentId, durableAmendment.id);
+  assert.equal(auditedVersion, 1);
+  assert.deepEqual(durableAmendment.afterEvidence, auditedAfter);
+  await assert.rejects(
+    prisma.loanAmendment.update({
+      where: { id: durableAmendment.id },
+      data: { reason: 'Synthetic forbidden rewrite' },
+    }),
+  );
+  await assert.rejects(
+    prisma.loanAmendment.delete({ where: { id: durableAmendment.id } }),
+  );
   const revised = await prisma.loan.findUniqueOrThrow({
     where: { id: amendmentLoan.id },
     include: { schedule: true },
@@ -554,10 +581,31 @@ try {
     ),
   );
   assert.deepEqual(revised.financialTerms, amendmentLoan.financialTerms);
+  await loans.restructure(orgId, amendmentLoan.id, fixture.admin.id, {
+    fromInstallmentNumber: 1,
+    newTenure: 4,
+    reason: 'Synthetic second amendment',
+  });
+  const amendmentVersions = await prisma.loanAmendment.findMany({
+    where: { loanId: amendmentLoan.id },
+    orderBy: { version: 'asc' },
+  });
+  assert.deepEqual(
+    amendmentVersions.map((a) => a.version),
+    [1, 2],
+  );
+  assert.equal(
+    amendmentVersions[1].afterEvidence.replacementSchedule.length,
+    4,
+  );
+  const latestSchedule = await prisma.loanSchedule.findMany({
+    where: { loanId: amendmentLoan.id },
+    orderBy: { installmentNumber: 'asc' },
+  });
   checkpoint = 'saved zero-fee policy rejects drifted schedule charges';
   await prisma.$transaction(async (tx) => {
     await tx.loanSchedule.update({
-      where: { id: revised.schedule[0].id },
+      where: { id: latestSchedule[0].id },
       data: { dueAmount: { increment: 1 } },
     });
     await tx.loan.update({
@@ -644,6 +692,22 @@ try {
     { ...payment(contractLoan.id), amount: disbursed.schedule[0].dueAmount },
   );
   assert.equal(firstPayment.status, 'duplicate');
+  const firstAllocation = (
+    await prisma.collection.findUniqueOrThrow({
+      where: { id: firstPayment.collection.id },
+    })
+  ).allocationDetails;
+  assert.equal(firstAllocation.componentVersion, 1);
+  assert.equal(firstAllocation.rows.length, 1);
+  assert.equal(
+    firstAllocation.rows[0].principal,
+    disbursed.schedule[0].principalComponent.toFixed(2),
+  );
+  assert.equal(
+    firstAllocation.rows[0].interest,
+    disbursed.schedule[0].interestComponent.toFixed(2),
+  );
+  assert.equal(firstAllocation.rows[0].fees, '0.00');
   assert.equal(
     await prisma.collection.count({ where: { loanId: contractLoan.id } }),
     1,
@@ -680,12 +744,61 @@ try {
     orderBy: { installmentNumber: 'asc' },
   });
   assert.equal(contractRows[0].paidAmount.toString(), '0');
+  assert.equal(contractRows[0].paidPrincipal.toString(), '0');
+  assert.equal(contractRows[0].paidInterest.toString(), '0');
+  assert.equal(contractRows[0].paidFees.toString(), '0');
   assert.ok(contractRows[1].paidAmount.equals(contractRows[1].dueAmount));
+  assert.ok(
+    contractRows[1].paidPrincipal.equals(contractRows[1].principalComponent),
+  );
+  assert.ok(
+    contractRows[1].paidInterest.equals(contractRows[1].interestComponent),
+  );
   const reopened = await prisma.loan.findUniqueOrThrow({
     where: { id: contractLoan.id },
   });
   assert.equal(reopened.status, 'active');
   assert.ok(reopened.outstandingBalance.equals(contractRows[0].dueAmount));
+  checkpoint = 'same-installment earlier partial payment reversal';
+  const earlierPartial = await collections.recordCollection(
+    orgId,
+    fixture.agent.id,
+    { ...payment(contractLoan.id), amount: 1.01 },
+  );
+  const laterPartial = await collections.recordCollection(
+    orgId,
+    fixture.agent.id,
+    { ...payment(contractLoan.id), amount: 2.02 },
+  );
+  const laterPartialEvidence = (
+    await prisma.collection.findUniqueOrThrow({
+      where: { id: laterPartial.collection.id },
+    })
+  ).allocationDetails;
+  assert.equal(laterPartialEvidence.rows.length, 1);
+  assert.equal(laterPartialEvidence.rows[0].scheduleId, contractRows[0].id);
+  await collections.reverseCollection(
+    orgId,
+    earlierPartial.collection.id,
+    fixture.admin.id,
+    'Synthetic earlier partial reversal',
+  );
+  const partialRow = await prisma.loanSchedule.findUniqueOrThrow({
+    where: { id: contractRows[0].id },
+  });
+  assert.equal(partialRow.paidAmount.toFixed(2), '2.02');
+  assert.equal(
+    partialRow.paidPrincipal.toFixed(2),
+    laterPartialEvidence.rows[0].principal,
+  );
+  assert.equal(
+    partialRow.paidInterest.toFixed(2),
+    laterPartialEvidence.rows[0].interest,
+  );
+  assert.equal(
+    partialRow.paidFees.toFixed(2),
+    laterPartialEvidence.rows[0].fees,
+  );
   checkpoint = 'partial payment closure approval';
   await prisma.loan.update({
     where: { id: fixture.recoveryLoan.id },
@@ -821,6 +934,31 @@ try {
     _sum: { amount: true },
   });
   assert.ok(sum._sum.amount.equals(actual.totalCollected));
+  const settlement = await prisma.collection.findFirstOrThrow({
+    where: { loanId: actual.id, notes: 'Pre-closure payment' },
+  });
+  const settlementEvidence = settlement.allocationDetails;
+  assert.equal(settlementEvidence.type, 'early_closure');
+  assert.equal(settlementEvidence.componentVersion, 1);
+  const Decimal = require('@prisma/client').Prisma.Decimal;
+  assert.ok(
+    new Decimal(settlementEvidence.principal)
+      .plus(settlementEvidence.interest)
+      .plus(settlementEvidence.fees)
+      .plus(settlementEvidence.penalty)
+      .equals(settlement.amount),
+  );
+  assert.ok(settlementEvidence.sourceSchedule.length > 0);
+  assert.equal(
+    settlementEvidence.waivedAmount,
+    new Decimal(quote.amountSaved).toFixed(2),
+  );
+  await assert.rejects(
+    prisma.collection.update({
+      where: { id: settlement.id },
+      data: { allocationDetails: { version: 1 } },
+    }),
+  );
   checkpoint = 'direct client denial';
   for (const role of ['anon', 'authenticated']) {
     await assert.rejects(
@@ -1040,7 +1178,11 @@ try {
       immutableFinancialEvidence:
         'product changes do not change saved policy; contract/allocation overwrites denied; reversing earlier payment leaves later installment paid',
       restructureEvidence:
-        'original/replacement schedules preserved; audit rejection rolls back loan and schedule',
+        'immutable versioned amendments preserve schedules; audit rejection rolls back amendment, loan and schedule; second amendment accepted',
+      paymentComponents:
+        'exact principal/interest/fee amounts persisted and earlier reversal preserves later components',
+      settlementComponents:
+        'immutable early-closure components and waived amount reconcile to the receipt without rewriting original installments',
       zeroFeeScheduleDrift:
         'payments, payoff quotes and restructuring denied without mutations',
       lostCommitAcknowledgement:

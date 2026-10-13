@@ -5,6 +5,7 @@ import {
   ConflictException,
   ForbiddenException,
   Logger,
+  HttpException,
 } from '@nestjs/common';
 import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -14,6 +15,10 @@ import { Prisma } from '@prisma/client';
 import PDFDocument from 'pdfkit';
 import type { AuthenticatedUser } from '../../common/types/request-user.type';
 import { businessDate } from '../loans/utils/date.util';
+import {
+  allocateComponents,
+  paidComponents,
+} from '../loans/utils/component-accounting.util';
 import {
   assertSupportedFinancialTerms,
   assertScheduleMatchesFinancialTerms,
@@ -281,7 +286,13 @@ export class CollectionsService {
         );
         await tx.collection.update({
           where: { id: collection.id, organizationId },
-          data: { allocationDetails: { version: 1, rows: allocations } },
+          data: {
+            allocationDetails: {
+              version: 1,
+              componentVersion: 1,
+              rows: allocations,
+            },
+          },
         });
         await tx.auditLog.create({
           data: {
@@ -345,7 +356,10 @@ export class CollectionsService {
         results.push({
           clientGeneratedId: dto.clientGeneratedId,
           status: 'error',
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error:
+            error instanceof HttpException && error.getStatus() < 500
+              ? error.message
+              : 'Payment could not be confirmed. Retry with the same payment identifier.',
         });
       }
     }
@@ -560,7 +574,13 @@ export class CollectionsService {
   ) {
     await tx.$executeRaw`SELECT 1 FROM loan_schedule WHERE loan_id = ${loanId}::uuid FOR UPDATE`;
     let remaining = new Prisma.Decimal(amount.toString());
-    const allocations: { scheduleId: string; amount: string }[] = [];
+    const allocations: {
+      scheduleId: string;
+      amount: string;
+      principal: string;
+      interest: string;
+      fees: string;
+    }[] = [];
 
     // Phase 1: Apply to pending/partially_paid/overdue rows, oldest first
     const rows = await tx.loanSchedule.findMany({
@@ -592,6 +612,8 @@ export class CollectionsService {
       throw new BadRequestException(
         'Schedule requires reconciliation before recording a payment',
       );
+    // Validate the entire applicable schedule, including rows this payment skips.
+    for (const row of rows) paidComponents(row);
 
     for (const row of rows) {
       if (remaining.lte(0)) break;
@@ -605,15 +627,26 @@ export class CollectionsService {
         );
 
       const applied = remaining.lt(owedOnRow) ? remaining : owedOnRow;
+      const previous = paidComponents(row);
+      const components = allocateComponents(row, applied);
       const newPaid = paid.plus(applied);
       remaining = remaining.minus(applied);
       if (applied.gt(0))
-        allocations.push({ scheduleId: row.id, amount: applied.toFixed(2) });
+        allocations.push({
+          scheduleId: row.id,
+          amount: applied.toFixed(2),
+          principal: components.principal.toFixed(2),
+          interest: components.interest.toFixed(2),
+          fees: components.fees.toFixed(2),
+        });
 
       await tx.loanSchedule.update({
         where: { id: row.id },
         data: {
           paidAmount: newPaid,
+          paidPrincipal: previous.principal.plus(components.principal),
+          paidInterest: previous.interest.plus(components.interest),
+          paidFees: previous.fees.plus(components.fees),
           status: newPaid.gte(due) ? 'paid' : 'partially_paid',
         },
       });
@@ -657,10 +690,17 @@ export class CollectionsService {
         typeof allocationDetails !== 'object' ||
         Array.isArray(allocationDetails) ||
         allocationDetails.version !== 1 ||
+        allocationDetails.componentVersion !== 1 ||
         !Array.isArray(allocationDetails.rows)
       )
         throw invalid();
-      const allocations: { scheduleId: string; amount: Prisma.Decimal }[] = [];
+      const allocations: {
+        scheduleId: string;
+        amount: Prisma.Decimal;
+        principal: Prisma.Decimal;
+        interest: Prisma.Decimal;
+        fees: Prisma.Decimal;
+      }[] = [];
       for (const entry of allocationDetails.rows) {
         if (
           !entry ||
@@ -669,16 +709,32 @@ export class CollectionsService {
           typeof entry.scheduleId !== 'string' ||
           !entry.scheduleId ||
           typeof entry.amount !== 'string' ||
-          !/^\d+\.\d{2}$/.test(entry.amount)
+          !/^\d+\.\d{2}$/.test(entry.amount) ||
+          typeof entry.principal !== 'string' ||
+          !/^\d+\.\d{2}$/.test(entry.principal) ||
+          typeof entry.interest !== 'string' ||
+          !/^\d+\.\d{2}$/.test(entry.interest) ||
+          typeof entry.fees !== 'string' ||
+          !/^\d+\.\d{2}$/.test(entry.fees)
         )
           throw invalid();
         const value = new Prisma.Decimal(entry.amount);
+        const principal = new Prisma.Decimal(entry.principal);
+        const interest = new Prisma.Decimal(entry.interest);
+        const fees = new Prisma.Decimal(entry.fees);
         if (
           value.lte(0) ||
+          !principal.plus(interest).plus(fees).equals(value) ||
           allocations.some((row) => row.scheduleId === entry.scheduleId)
         )
           throw invalid();
-        allocations.push({ scheduleId: entry.scheduleId, amount: value });
+        allocations.push({
+          scheduleId: entry.scheduleId,
+          amount: value,
+          principal,
+          interest,
+          fees,
+        });
       }
       if (
         !allocations
@@ -699,11 +755,21 @@ export class CollectionsService {
       for (const entry of allocations) {
         const row = rows.find((item) => item.id === entry.scheduleId);
         if (!row || row.paidAmount.lt(entry.amount)) throw invalid();
+        const components = paidComponents(row);
+        if (
+          components.principal.lt(entry.principal) ||
+          components.interest.lt(entry.interest) ||
+          components.fees.lt(entry.fees)
+        )
+          throw invalid();
         const newPaid = row.paidAmount.minus(entry.amount);
         await tx.loanSchedule.update({
           where: { id: row.id },
           data: {
             paidAmount: newPaid,
+            paidPrincipal: components.principal.minus(entry.principal),
+            paidInterest: components.interest.minus(entry.interest),
+            paidFees: components.fees.minus(entry.fees),
             status:
               row.dueDate < today
                 ? 'overdue'
