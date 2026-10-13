@@ -1,5 +1,11 @@
 import {
-  Controller, Get, Post, Param, Body, UseGuards, Delete,
+  Controller,
+  Get,
+  Post,
+  Param,
+  Body,
+  UseGuards,
+  Delete,
 } from '@nestjs/common';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -18,21 +24,42 @@ export class DocumentsController {
   @Post('upload-url')
   @Roles('org_admin', 'branch_manager', 'agent')
   @AuditAction('document.request_upload')
-  async getUploadUrl(@CurrentUser() user: AuthenticatedUser, @Body() dto: RequestUploadUrlDto) {
-    return this.documentsService.getUploadUrl(user.organizationId, user.id, dto);
+  async getUploadUrl(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: RequestUploadUrlDto,
+  ) {
+    return this.documentsService.getUploadUrl(
+      user.organizationId,
+      user.id,
+      dto,
+    );
   }
 
   @Post()
   @Roles('org_admin', 'branch_manager', 'agent')
   @AuditAction('document.register')
-  async registerDocument(@CurrentUser() user: AuthenticatedUser, @Body() dto: RegisterDocumentDto) {
-    return this.documentsService.registerDocument(user.organizationId, user.id, dto);
+  async registerDocument(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: RegisterDocumentDto,
+  ) {
+    return this.documentsService.registerDocument(
+      user.organizationId,
+      user.id,
+      dto,
+    );
   }
 
   @Get(':id/download-url')
   @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
-  async getDownloadUrl(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
-    return this.documentsService.getSignedDownloadUrl(user.organizationId, id);
+  async getDownloadUrl(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.documentsService.getSignedDownloadUrl(
+      user.organizationId,
+      id,
+      user.id,
+    );
   }
 
   @Get('entity/:entityType/:entityId')
@@ -42,7 +69,12 @@ export class DocumentsController {
     @Param('entityType') entityType: string,
     @Param('entityId') entityId: string,
   ) {
-    return this.documentsService.findByEntity(user.organizationId, entityType, entityId);
+    return this.documentsService.findByEntity(
+      user.organizationId,
+      entityType,
+      entityId,
+      user.id,
+    );
   }
   @Delete(':id')
   @Roles('org_admin', 'branch_manager')
@@ -50,6 +82,6 @@ export class DocumentsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
   ) {
-    return this.documentsService.delete(user.organizationId, id);
+    return this.documentsService.delete(user.organizationId, id, user.id);
   }
 }

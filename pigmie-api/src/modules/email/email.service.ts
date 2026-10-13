@@ -7,6 +7,7 @@ export class EmailService {
   private transporter: nodemailer.Transporter;
 
   constructor() {
+    if (process.env.APP_ENV === 'staging') return;
     const host = process.env.SMTP_HOST;
     if (host) {
       this.transporter = nodemailer.createTransport({
@@ -21,7 +22,8 @@ export class EmailService {
     } else {
       this.logger.warn('SMTP not configured — emails will be logged only');
     }
-  }  private buildHtml(title: string, bodyContent: string): string {
+  }
+  private buildHtml(title: string, bodyContent: string): string {
     return `
 <!DOCTYPE html>
 <html>
@@ -64,19 +66,29 @@ export class EmailService {
   }
 
   async sendLoanApproved(to: string, loanCode: string, customerName: string) {
-    const html = this.buildHtml('Loan Approved', `
+    const html = this.buildHtml(
+      'Loan Approved',
+      `
       <p>The loan application has been approved and is ready for disbursement.</p>
       <div class="highlight">
         <strong>Loan Code:</strong> ${loanCode}<br>
         <strong>Customer:</strong> ${customerName}
       </div>
       <p>Please proceed with the disbursement process at your earliest convenience.</p>
-    `);
+    `,
+    );
     await this.send(to, `Loan ${loanCode} Approved`, html);
   }
 
-  async sendLoanDisbursed(to: string, loanCode: string, amount: string, customerName: string) {
-    const html = this.buildHtml('Loan Disbursed', `
+  async sendLoanDisbursed(
+    to: string,
+    loanCode: string,
+    amount: string,
+    customerName: string,
+  ) {
+    const html = this.buildHtml(
+      'Loan Disbursed',
+      `
       <p>Dear ${customerName},</p>
       <p>Your loan has been successfully disbursed.</p>
       <div class="highlight">
@@ -84,12 +96,20 @@ export class EmailService {
         <strong>Amount:</strong> <span class="amount">₹${amount}</span>
       </div>
       <p>Your repayment schedule will begin as per the agreed terms. You can view your schedule in the customer portal.</p>
-    `);
+    `,
+    );
     await this.send(to, `Loan ${loanCode} Disbursed`, html);
   }
 
-  async sendPaymentConfirmation(to: string, amount: string, receiptNo: string, customerName: string) {
-    const html = this.buildHtml('Payment Received', `
+  async sendPaymentConfirmation(
+    to: string,
+    amount: string,
+    receiptNo: string,
+    customerName: string,
+  ) {
+    const html = this.buildHtml(
+      'Payment Received',
+      `
       <p>Dear ${customerName},</p>
       <p>We have received your payment. Thank you!</p>
       <div class="highlight">
@@ -97,12 +117,20 @@ export class EmailService {
         <strong>Receipt:</strong> ${receiptNo}
       </div>
       <p>Thank you for your prompt payment.</p>
-    `);
+    `,
+    );
     await this.send(to, 'Payment Received — PigmieFinance', html);
   }
 
-  async sendOverdueReminder(to: string, customerName: string, amount: string, dueDate: string) {
-    const html = this.buildHtml('Payment Overdue', `
+  async sendOverdueReminder(
+    to: string,
+    customerName: string,
+    amount: string,
+    dueDate: string,
+  ) {
+    const html = this.buildHtml(
+      'Payment Overdue',
+      `
       <p>Dear ${customerName},</p>
       <p>This is a reminder that your payment is overdue.</p>
       <div class="highlight" style="border-left-color: #ef4444;">
@@ -110,12 +138,15 @@ export class EmailService {
         <strong>Due Date:</strong> ${dueDate}
       </div>
       <p>Please make the payment at your earliest convenience to avoid additional late fees.</p>
-    `);
+    `,
+    );
     await this.send(to, 'Payment Overdue — PigmieFinance', html);
   }
 
   async sendWelcome(to: string, orgName: string) {
-    const html = this.buildHtml('Welcome to PigmieFinance', `
+    const html = this.buildHtml(
+      'Welcome to PigmieFinance',
+      `
       <p>Welcome! Your organization <strong>"${orgName}"</strong> has been set up successfully.</p>
       <p>You can now:</p>
       <ul>
@@ -127,14 +158,19 @@ export class EmailService {
       <p style="text-align: center; margin-top: 24px;">
         <a href="#" class="btn">Go to Dashboard</a>
       </p>
-    `);
+    `,
+    );
     await this.send(to, 'Welcome to PigmieFinance', html);
   }
 
   private async send(to: string, subject: string, htmlContent: string) {
-    const textContent = htmlContent.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    if (process.env.APP_ENV === 'staging') return;
+    const textContent = htmlContent
+      .replace(/<[^>]*>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
     if (!this.transporter) {
-      this.logger.log(`[EMAIL LOG] To: ${to} | Subject: ${subject}`);
+      this.logger.log('Mock email delivery completed');
       return;
     }
     try {
@@ -145,9 +181,9 @@ export class EmailService {
         html: htmlContent,
         text: textContent,
       });
-      this.logger.log(`Email sent to ${to}: ${subject}`);
-    } catch (error) {
-      this.logger.error(`Failed to send email to ${to}: ${subject}`, error);
+      this.logger.log('Email delivery completed');
+    } catch {
+      this.logger.error('Email delivery failed');
     }
   }
 }

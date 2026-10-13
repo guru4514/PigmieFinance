@@ -74,7 +74,8 @@ export function DashboardPage() {
           valueClassName="text-emerald-600 dark:text-emerald-400"
         />
         <KPICard 
-          title="Today's Efficiency" 
+          title={t('dashboard.dueFulfillment')}
+          description={t('dashboard.dueFulfillmentDescription')}
           value={`${summary?.collectionEfficiency || 0}%`} 
           icon={TrendingUp} 
           className={`${(summary?.collectionEfficiency || 0) >= 80 ? 'border-emerald-500/20 bg-emerald-500/5' : (summary?.collectionEfficiency || 0) >= 50 ? 'border-amber-500/20 bg-amber-500/5' : 'border-rose-500/20 bg-rose-500/5'}`}

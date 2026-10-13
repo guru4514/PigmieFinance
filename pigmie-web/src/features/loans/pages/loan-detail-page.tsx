@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { openWhatsApp, generateReceiptMessage } from '@/shared/lib/whatsapp';
 import { ReceiptModal, ReceiptCollection } from '@/features/collections/components/receipt-modal';
 import { useTranslation } from 'react-i18next';
+import { CollectionEvidenceButton } from '@/features/collections/components/collection-evidence-button';
 
 type Tab = 'overview' | 'schedule' | 'collections' | 'documents';
 
@@ -61,8 +62,8 @@ export const LoanDetailPage: React.FC = () => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       toast.success('Statement downloaded successfully');
-    } catch (error) {
-      console.error('Failed to download statement', error);
+    } catch {
+      console.error('Failed to download statement.');
       toast.error('Failed to download statement');
     } finally {
       setDownloadingStatement(false);
@@ -79,7 +80,7 @@ export const LoanDetailPage: React.FC = () => {
       amount: loan.nextPaymentAmount || 0,
       date: new Date().toLocaleDateString(),
       loanId: loan.id,
-      outstandingBalance: loan.remainingBalance || 0,
+      outstandingBalance: Number(loan.outstandingBalance ?? 0),
     });
     openWhatsApp(phone, msg);
   };
@@ -124,7 +125,7 @@ export const LoanDetailPage: React.FC = () => {
                   customerName: loan.customer?.fullName || loan.customerId,
                   customerPhone: loan.customer?.phone || loan.customer?.phoneNumber,
                   loanId: loan.id,
-                  outstandingBalance: Number(loan.remainingBalance || 0),
+                  outstandingBalance: Number(loan.outstandingBalance ?? 0),
                   receiptNumber: latestCol?.receiptNumber || undefined,
                 });
                 setReceiptModalOpen(true);
@@ -265,11 +266,11 @@ export const LoanDetailPage: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground"> {t('loans.remainingBalance')} </p>
-                  <p className="text-xl font-semibold text-foreground">₹{(loan.remainingBalance ?? 0).toLocaleString()}</p>
+                  <p className="text-xl font-semibold text-foreground">₹{Number(loan.outstandingBalance ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground"> {t('loans.interestRate')} </p>
-                  <p className="text-lg font-medium text-foreground">{loan.loanProduct?.interestRateAnnual}% p.a.</p>
+                  <p className="text-lg font-medium text-foreground">{loan.interestRateAnnual == null ? 'Unavailable' : `${Number(loan.interestRateAnnual)}% p.a.`}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground"> {t('loans.tenure')} </p>
@@ -363,11 +364,7 @@ export const LoanDetailPage: React.FC = () => {
                         <tr key={col.id} className="hover:bg-muted transition-colors">
                           <td className="py-3 font-mono text-xs text-foreground/80">
                             <div className="flex items-center gap-2">
-                              {col.photoUrl && (
-                                <a href={col.photoUrl} target="_blank" rel="noopener noreferrer" title="View Collection Photo">
-                                  <img src={col.photoUrl} alt="Photo" className="w-8 h-8 rounded object-cover border border-border" />
-                                </a>
-                              )}
+                              <CollectionEvidenceButton collectionId={col.id} />
                               <span>{col.receiptNumber || `COL-${col.id.replace(/-/g, '').slice(0, 5).toUpperCase()}`}</span>
                             </div>
                           </td>
@@ -408,7 +405,7 @@ export const LoanDetailPage: React.FC = () => {
                                     customerName: loan.customer?.fullName || loan.customerId,
                                     customerPhone: loan.customer?.phone || loan.customer?.phoneNumber,
                                     loanId: loan.id,
-                                    outstandingBalance: Number(loan.remainingBalance || 0),
+                                    outstandingBalance: Number(loan.outstandingBalance ?? 0),
                                     receiptNumber: col.receiptNumber || undefined,
                                   });
                                   setReceiptModalOpen(true);

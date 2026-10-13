@@ -1,4 +1,11 @@
-import { Controller, Get, Query, UseGuards, Res, ForbiddenException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  UseGuards,
+  Res,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -6,7 +13,11 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../common/types/request-user.type';
 import { ReportsService } from './reports.service';
-import { OverdueQueryDto, CollectionEfficiencyQueryDto, ExportQueryDto, ReportQueryDto } from './dto/query-reports.dto';
+import {
+  OverdueQueryDto,
+  CollectionEfficiencyQueryDto,
+  ExportQueryDto,
+} from './dto/query-reports.dto';
 
 @Controller('reports')
 @UseGuards(SupabaseAuthGuard, RolesGuard)
@@ -21,28 +32,38 @@ export class ReportsController {
   }
 
   @Get('overdue')
-  @Roles('org_admin', 'branch_manager')
-  async getOverdue(@Query() query: OverdueQueryDto, @CurrentUser() user: AuthenticatedUser) {
+  @Roles('org_admin', 'branch_manager', 'accountant')
+  async getOverdue(
+    @Query() query: OverdueQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
     if (user.type !== 'staff') throw new ForbiddenException();
     return this.reportsService.getOverdue(user.organizationId, query, user);
   }
 
   @Get('portfolio-at-risk')
-  @Roles('org_admin', 'branch_manager')
+  @Roles('org_admin', 'branch_manager', 'accountant')
   async getPortfolioAtRisk(@CurrentUser() user: AuthenticatedUser) {
     if (user.type !== 'staff') throw new ForbiddenException();
     return this.reportsService.getPortfolioAtRisk(user.organizationId, user);
   }
 
   @Get('collection-efficiency')
-  @Roles('org_admin', 'branch_manager')
-  async getCollectionEfficiency(@Query() query: CollectionEfficiencyQueryDto, @CurrentUser() user: AuthenticatedUser) {
+  @Roles('org_admin', 'branch_manager', 'accountant')
+  async getCollectionEfficiency(
+    @Query() query: CollectionEfficiencyQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
     if (user.type !== 'staff') throw new ForbiddenException();
-    return this.reportsService.getCollectionEfficiency(user.organizationId, query, user);
+    return this.reportsService.getCollectionEfficiency(
+      user.organizationId,
+      query,
+      user,
+    );
   }
 
   @Get('agent-performance')
-  @Roles('org_admin', 'branch_manager')
+  @Roles('org_admin', 'branch_manager', 'accountant')
   async getAgentPerformance(@CurrentUser() user: AuthenticatedUser) {
     if (user.type !== 'staff') throw new ForbiddenException();
     return this.reportsService.getAgentPerformance(user.organizationId, user);
@@ -50,11 +71,22 @@ export class ReportsController {
 
   @Get('export')
   @Roles('org_admin')
-  async exportData(@Query() query: ExportQueryDto, @CurrentUser() user: AuthenticatedUser, @Res() res: Response) {
+  async exportData(
+    @Query() query: ExportQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Res() res: Response,
+  ) {
     if (user.type !== 'staff') throw new ForbiddenException();
-    const csvString = await this.reportsService.exportData(user.organizationId, query.type);
+    const csvString = await this.reportsService.exportData(
+      user.organizationId,
+      query.type,
+      user,
+    );
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename=${query.type}-export.csv`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=${query.type}-export.csv`,
+    );
     res.send(csvString);
   }
 
@@ -65,5 +97,3 @@ export class ReportsController {
     return this.reportsService.getBranchComparison(user.organizationId);
   }
 }
-
-

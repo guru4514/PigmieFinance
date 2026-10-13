@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, ForbiddenException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  UseGuards,
+  ForbiddenException,
+} from '@nestjs/common';
 import { OrganizationsService } from './organizations.service';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -18,39 +28,67 @@ export class BranchesController {
   @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
   async getBranches(@CurrentUser() user: AuthenticatedUser) {
     if (user.type !== 'staff') throw new ForbiddenException();
-    return this.organizationsService.getBranches(user.organizationId);
+    return this.organizationsService.getBranches(user.organizationId, user.id);
   }
 
   @Post()
   @Roles('org_admin')
   @AuditAction('branch.create')
-  async createBranch(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateBranchDto) {
+  async createBranch(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateBranchDto,
+  ) {
     if (user.type !== 'staff') throw new ForbiddenException();
-    return this.organizationsService.createBranch(user.organizationId, dto);
+    return this.organizationsService.createBranch(
+      user.organizationId,
+      dto,
+      user.id,
+    );
   }
 
   @Get(':id')
   @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
-  async getBranch(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+  async getBranch(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
     if (user.type !== 'staff') throw new ForbiddenException();
-    return this.organizationsService.getBranch(user.organizationId, id);
+    return this.organizationsService.getBranch(
+      user.organizationId,
+      id,
+      user.id,
+    );
   }
 
   @Patch(':id')
   @Roles('org_admin')
   @AuditAction('branch.update')
-  async updateBranch(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpdateBranchDto) {
+  async updateBranch(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateBranchDto,
+  ) {
     if (user.type !== 'staff') throw new ForbiddenException();
-    return this.organizationsService.updateBranch(user.organizationId, id, dto);
+    return this.organizationsService.updateBranch(
+      user.organizationId,
+      id,
+      dto,
+      user.id,
+    );
   }
 
   @Delete(':id')
   @Roles('org_admin')
   @AuditAction('branch.delete')
-  async deleteBranch(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+  async deleteBranch(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
     if (user.type !== 'staff') throw new ForbiddenException();
-    return this.organizationsService.deleteBranch(user.organizationId, id);
+    return this.organizationsService.deleteBranch(
+      user.organizationId,
+      id,
+      user.id,
+    );
   }
 }
-
-

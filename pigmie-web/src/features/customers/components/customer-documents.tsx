@@ -29,8 +29,8 @@ export function CustomerDocuments({ customerId }: { customerId: string }) {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-    } catch (error) {
-      console.error("Upload failed", error);
+    } catch {
+      console.error("Upload failed.");
     }
   };
 

@@ -12,7 +12,7 @@ interface PreCloseLoanDialogProps {
 
 export const PreCloseLoanDialog: React.FC<PreCloseLoanDialogProps> = ({ loanId, trigger }) => {
   const [open, setOpen] = useState(false);
-  const { data, isLoading } = usePreClosureDetails(loanId, open);
+  const { data, isLoading, isFetching, refetch } = usePreClosureDetails(loanId, open);
   const preCloseLoan = usePreCloseLoan();
 
   const handleConfirm = () => {
@@ -22,7 +22,8 @@ export const PreCloseLoanDialog: React.FC<PreCloseLoanDialogProps> = ({ loanId, 
       {
         onSuccess: () => {
           setOpen(false);
-        }
+        },
+        onError: () => { void refetch(); },
       }
     );
   };
@@ -58,6 +59,10 @@ export const PreCloseLoanDialog: React.FC<PreCloseLoanDialogProps> = ({ loanId, 
                 <span className="font-medium">₹{((data.accruedInterest) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-border">
+                <span className="text-muted-foreground">Unpaid Late Fees</span>
+                <span className="font-medium">₹{(data.lateFees || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-border">
                 <span className="text-muted-foreground">Pre-closure Penalty ({data.penaltyRate}%)</span>
                 <span className="font-medium text-yellow-400">₹{((data.preClosurePenalty) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
               </div>
@@ -86,7 +91,7 @@ export const PreCloseLoanDialog: React.FC<PreCloseLoanDialogProps> = ({ loanId, 
             </Button>
             <Button 
               onClick={handleConfirm} 
-              disabled={isLoading || preCloseLoan.isPending || !data}
+              disabled={isLoading || isFetching || preCloseLoan.isPending || !data || data.preClosureAmount <= 0}
               className="bg-primary text-primary-foreground hover:bg-primary/90 min-w-[140px]"
             >
               {preCloseLoan.isPending ? (

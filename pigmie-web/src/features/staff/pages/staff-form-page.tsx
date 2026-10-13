@@ -39,8 +39,8 @@ export function StaffFormPage() {
     try {
       await createStaff.mutateAsync(data);
       navigate('/app/staff');
-    } catch (error) {
-      console.error(error);
+    } catch {
+      console.error('Failed to save staff member.');
     }
   };
 

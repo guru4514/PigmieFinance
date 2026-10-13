@@ -4,40 +4,47 @@ on:
     - cron: '0 0 * * *' # Run daily at midnight UTC
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: database-backup
+  cancel-in-progress: false
+
 jobs:
   backup:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    defaults:
+      run:
+        working-directory: pigmie-api
     steps:
-      - name: Install PostgreSQL client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
-
-      - name: Dump Database
-        env:
-          PGPASSWORD: ${{ secrets.DB_PASSWORD }}
-        run: |
-          pg_dump -h ${{ secrets.DB_HOST }} \
-                  -U ${{ secrets.DB_USER }} \
-                  -d ${{ secrets.DB_NAME }} \
-                  -F c -b -v -f pigmie-backup.dump
-
-      - name: Encrypt Backup
-        run: |
-          openssl enc -aes-256-cbc -salt -in pigmie-backup.dump -out pigmie-backup.dump.enc \
-            -pass pass:${{ secrets.BACKUP_ENCRYPTION_KEY }} -pbkdf2
-
-      - name: Configure AWS CLI for Cloudflare R2
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          aws-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          aws-region: auto
-
-      - name: Upload to R2
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: pigmie-api/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Install compatible PostgreSQL client
         run: |
-          TIMESTAMP=$(date +%Y-%m-%d-%H%M%S)
-          aws s3 cp pigmie-backup.dump.enc \
-            s3://${{ secrets.R2_BUCKET_NAME }}/backups/pigmie-${TIMESTAMP}.dump.enc \
-            --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
-
-      - name: Cleanup
-        run: rm -f pigmie-backup.dump pigmie-backup.dump.enc
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+      - name: Stream authenticated encrypted database backup to R2
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          PG_DUMP_PATH: /usr/lib/postgresql/17/bin/pg_dump
+        run: npm run backup:db

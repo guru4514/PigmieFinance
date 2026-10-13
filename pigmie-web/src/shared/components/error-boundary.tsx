@@ -1,4 +1,4 @@
-import { Component, ErrorInfo, ReactNode } from 'react';
+import { Component, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
@@ -23,8 +23,9 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    console.error('ErrorBoundary caught an unhandled error:', error, errorInfo);
+  public componentDidCatch(): void {
+    // Provider errors and request objects can contain credentials or customer data.
+    console.error('An application section could not be displayed.');
   }
 
   private handleReload = (): void => {
@@ -50,11 +51,7 @@ export class ErrorBoundary extends Component<Props, State> {
               <p className="text-sm text-muted-foreground">
                 An unexpected error occurred in this section of the application.
               </p>
-              {this.state.error && (
-                <div className="p-3 bg-muted rounded-md text-left text-xs font-mono overflow-auto max-h-32 text-muted-foreground border border-border">
-                  {this.state.error.message || String(this.state.error)}
-                </div>
-              )}
+              <p className="text-sm text-muted-foreground">Finish recovery in the original browser profile. Reloading does not clear saved collections.</p>
               <Button onClick={this.handleReload} className="w-full gap-2">
                 <RefreshCw className="h-4 w-4" />
                 Reload Page

@@ -1,12 +1,13 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/shared/lib/api-client';
+import { agentPerformanceSchema, collectionEfficiencySchema, portfolioRiskSchema } from '../utils/report-contracts';
+import { toast } from 'sonner';
 
 export const usePortfolioAtRisk = () => {
   return useQuery({
     queryKey: ['reports', 'portfolio-at-risk'],
     queryFn: () => apiClient.get('/reports/portfolio-at-risk').then(r => {
-      const d = r.data;
-      return Array.isArray(d) ? d : (d?.data ?? []);
+      return portfolioRiskSchema.parse(r.data);
     }),
   });
 };
@@ -19,8 +20,7 @@ export const useCollectionEfficiency = (dateFrom?: string, dateTo?: string) => {
       if (dateFrom) params.append('dateFrom', dateFrom);
       if (dateTo) params.append('dateTo', dateTo);
       return apiClient.get(`/reports/collection-efficiency?${params.toString()}`).then(r => {
-        const d = r.data;
-        return Array.isArray(d) ? d : (d?.data ?? []);
+        return collectionEfficiencySchema.parse(r.data).data;
       });
     },
   });
@@ -30,8 +30,7 @@ export const useAgentPerformance = () => {
   return useQuery({
     queryKey: ['reports', 'agent-performance'],
     queryFn: () => apiClient.get('/reports/agent-performance').then(r => {
-      const d = r.data;
-      return Array.isArray(d) ? d : (d?.data ?? []);
+      return agentPerformanceSchema.parse(r.data).data;
     }),
   });
 };
@@ -39,11 +38,13 @@ export const useAgentPerformance = () => {
 export const useExportReport = () => {
   return useMutation({
     mutationFn: async (type: 'par' | 'collections' | 'agents') => {
-      const response = await apiClient.get(`/reports/export?type=${type}`, {
+      const exportType = type === 'collections' ? 'efficiency' : type;
+      const response = await apiClient.get(`/reports/export?type=${exportType}&format=csv`, {
         responseType: 'blob'
       });
       return response.data;
     },
+    onError: () => toast.error('Could not export the report. Please retry.'),
     onSuccess: (blob, type) => {
       // Create a link to download the blob
       const url = window.URL.createObjectURL(blob);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Bell } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
@@ -12,9 +12,14 @@ import { Button } from '@/shared/components/ui/button';
 import { apiClient } from '@/shared/lib/api-client';
 
 import { urlBase64ToUint8Array } from '@/shared/lib/utils';
+import { useAuth } from '@/shared/hooks/use-auth';
+import { supabase } from '@/shared/lib/supabase';
+import { registerBrowserPush } from '../push-registration';
 
 export function NotificationBell() {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const authUserId = session?.user.id;
   const [open, setOpen] = useState(false);
 
   const { data: notifications = [] } = useQuery({
@@ -33,63 +38,42 @@ export function NotificationBell() {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const [permissionState, setPermissionState] = useState<NotificationPermission>('default');
+  const [pushState, setPushState] = useState<'idle' | 'pending' | 'ready' | 'failed'>('idle');
+
+  const subscribeToPush = useCallback(async () => {
+    if (!authUserId || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    setPushState('pending');
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const { publicKey } = await apiClient.notifications.getVapidPublicKey();
+      await registerBrowserPush({
+        currentAccount: async () => (await supabase.auth.getSession()).data.session?.user.id === authUserId,
+        existing: () => registration.pushManager.getSubscription(),
+        create: () => registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) }),
+        save: (subscription) => apiClient.post('/notifications/subscribe', subscription, { expectedAuthUserId: authUserId }),
+      });
+      setPushState('ready');
+    } catch (error) {
+      setPushState('failed');
+      throw error;
+    }
+  }, [authUserId]);
 
   useEffect(() => {
-    if ('Notification' in window) {
-      setPermissionState(Notification.permission);
+    if (!('Notification' in window)) return;
+    setPermissionState(Notification.permission);
+    if (Notification.permission === 'granted') {
+      void subscribeToPush().catch(() => { /* In-app notifications remain available. */ });
     }
-
-    const subscribeToPush = async () => {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-      
-      try {
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') return;
-
-        const { publicKey } = await apiClient.notifications.getVapidPublicKey();
-        
-        const existingSubscription = await registration.pushManager.getSubscription();
-        if (!existingSubscription) {
-          const subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(publicKey),
-          });
-
-          await apiClient.notifications.subscribe(subscription.toJSON());
-        }
-      } catch (error) {
-        console.error('Push subscription failed:', error);
-      }
-    };
-
-    subscribeToPush();
-  }, []);
+  }, [subscribeToPush]);
 
   const handleEnablePush = async () => {
-    // Kept for backward compatibility if button is still present
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      try {
-        const permission = await Notification.requestPermission();
-        setPermissionState(permission);
-        if (permission === 'granted') {
-          const registration = await navigator.serviceWorker.register('/sw.js');
-          await navigator.serviceWorker.ready;
-          const { publicKey } = await apiClient.notifications.getVapidPublicKey();
-          
-          const existingSubscription = await registration.pushManager.getSubscription();
-          if (!existingSubscription) {
-            const subscription = await registration.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: urlBase64ToUint8Array(publicKey),
-            });
-            await apiClient.notifications.subscribe(subscription.toJSON());
-          }
-        }
-      } catch (err) {
-        console.error('Push registration failed:', err);
-      }
-    }
+    if (!('Notification' in window)) return;
+    try {
+      const permission = await Notification.requestPermission();
+      setPermissionState(permission);
+      if (permission === 'granted') await subscribeToPush();
+    } catch { setPushState('failed'); }
   };
 
   return (
@@ -147,10 +131,11 @@ export function NotificationBell() {
           )}
         </div>
       </DropdownMenuContent>
-      {permissionState === 'default' && (
+      {(permissionState === 'default' || (permissionState === 'granted' && pushState === 'failed')) && (
         <DropdownMenuContent align="end" className="w-80 p-3 mt-2 border-border bg-card text-foreground">
-          <Button onClick={handleEnablePush} className="w-full bg-indigo-600 hover:bg-indigo-700 text-foreground">
-            Enable Push Notifications
+          {pushState === 'failed' && <p className="text-xs text-muted-foreground mb-2">Browser alerts need reconnecting. Your in-app notifications remain available.</p>}
+          <Button onClick={handleEnablePush} disabled={pushState === 'pending'} className="w-full bg-indigo-600 hover:bg-indigo-700 text-foreground">
+            {permissionState === 'granted' ? 'Reconnect Browser Alerts' : 'Enable Push Notifications'}
           </Button>
         </DropdownMenuContent>
       )}

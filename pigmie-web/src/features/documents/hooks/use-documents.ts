@@ -79,7 +79,7 @@ export const useDownloadDocument = () => {
   return useMutation({
     mutationFn: async (documentId: string) => {
       const { data } = await apiClient.get(`/documents/${documentId}/download-url`);
-      return data.signedDownloadUrl;
+      return data.signedUrl;
     },
     onSuccess: (url) => {
       // Trigger download

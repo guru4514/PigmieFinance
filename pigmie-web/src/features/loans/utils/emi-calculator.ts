@@ -1,3 +1,5 @@
+import Decimal from 'decimal.js';
+
 export type InterestType = 'flat' | 'reducing_balance';
 export type CollectionFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly';
 export type TenurePeriod = 'days' | 'weeks' | 'months';
@@ -27,96 +29,42 @@ export interface EMICalculationResult {
 }
 
 export function calculateEMI(params: EMICalculationParams): EMICalculationResult {
+  const empty = { totalPayable: 0, totalInterest: 0, emi: 0, schedule: [] };
   const { principal, interestRate, tenure, tenurePeriod, collectionFrequency, interestType } = params;
-  
-  if (principal <= 0 || interestRate <= 0 || tenure <= 0) {
-    return { totalPayable: 0, totalInterest: 0, emi: 0, schedule: [] };
-  }
-
-  // Calculate total tenure in days for flat interest approximation
-  let tenureInYears = 0;
-  if (tenurePeriod === 'days') tenureInYears = tenure / 365;
-  else if (tenurePeriod === 'weeks') tenureInYears = tenure / 52;
-  else if (tenurePeriod === 'months') tenureInYears = tenure / 12;
-
-  // Determine number of installments based on collection frequency and total duration
-  let installments = 0;
-  if (tenurePeriod === 'days') {
-      if (collectionFrequency === 'daily') installments = tenure;
-      else if (collectionFrequency === 'weekly') installments = Math.ceil(tenure / 7);
-      else if (collectionFrequency === 'biweekly') installments = Math.ceil(tenure / 14);
-      else if (collectionFrequency === 'monthly') installments = Math.ceil(tenure / 30);
-  } else if (tenurePeriod === 'weeks') {
-      if (collectionFrequency === 'daily') installments = tenure * 7;
-      else if (collectionFrequency === 'weekly') installments = tenure;
-      else if (collectionFrequency === 'biweekly') installments = Math.ceil(tenure / 2);
-      else if (collectionFrequency === 'monthly') installments = Math.ceil((tenure * 7) / 30);
-  } else if (tenurePeriod === 'months') {
-      if (collectionFrequency === 'daily') installments = tenure * 30;
-      else if (collectionFrequency === 'weekly') installments = Math.ceil((tenure * 30) / 7);
-      else if (collectionFrequency === 'biweekly') installments = Math.ceil((tenure * 30) / 14);
-      else if (collectionFrequency === 'monthly') installments = tenure;
-  }
-
-  if (installments <= 0) {
-    return { totalPayable: 0, totalInterest: 0, emi: 0, schedule: [] };
-  }
-
+  if (!Number.isFinite(principal) || principal <= 0 || principal > 9999999999.99 ||
+      !Number.isFinite(interestRate) || interestRate < 0 || interestRate > 999.999 ||
+      !Number.isInteger(tenure) || tenure < 1 ||
+      !new Decimal(principal).equals(new Decimal(principal).toDecimalPlaces(2)) ||
+      !['flat', 'reducing_balance'].includes(interestType)) return empty;
+  const periods = { daily: 365, weekly: 52, biweekly: 26, monthly: 12 }[collectionFrequency];
+  if (!periods) return empty;
+  const days = { days: 1, weeks: 7, months: 30 }[tenurePeriod];
+  const periodDays = { daily: 1, weekly: 7, biweekly: 14, monthly: 30 }[collectionFrequency];
+  if (!days) return empty;
+  const installments = Math.ceil(tenure * days / periodDays);
+  if (installments < 1 || installments > 10000) return empty;
+  const principalCents = new Decimal(principal).mul(100).toNumber();
+  const rate = new Decimal(interestRate).div(100).div(periods);
+  const flatInterest = new Decimal(principal).mul(interestRate).mul(installments).div(100).div(periods).toDecimalPlaces(2).mul(100).toNumber();
+  const emi = rate.isZero() ? new Decimal(principal).div(installments)
+    : new Decimal(principal).mul(rate).div(new Decimal(1).minus(rate.plus(1).pow(-installments)));
+  const emiCents = emi.toDecimalPlaces(2).mul(100).toNumber();
+  const share = (cents: number, index: number) => Math.floor(cents / installments) + (index < cents % installments ? 1 : 0);
+  let balance = principalCents;
+  let interestSum = 0;
   const schedule: EMIScheduleItem[] = [];
-
-  if (interestType === 'flat') {
-    const totalInterest = principal * (interestRate / 100) * tenureInYears;
-    const totalPayable = principal + totalInterest;
-    const emi = totalPayable / installments;
-    
-    let balance = principal;
-    const principalPerEmi = principal / installments;
-    const interestPerEmi = totalInterest / installments;
-
-    for (let i = 1; i <= installments; i++) {
-      balance = Math.max(0, balance - principalPerEmi);
-      schedule.push({
-        installmentNumber: i,
-        principal: principalPerEmi,
-        interest: interestPerEmi,
-        total: emi,
-        balance: balance
-      });
-    }
-
-    return { totalPayable, totalInterest, emi, schedule };
-  } else {
-    // reducing_balance
-    let ratePerInstallment = 0;
-    if (collectionFrequency === 'daily') ratePerInstallment = (interestRate / 100) / 365;
-    else if (collectionFrequency === 'weekly') ratePerInstallment = (interestRate / 100) / 52;
-    else if (collectionFrequency === 'biweekly') ratePerInstallment = (interestRate / 100) / 26;
-    else if (collectionFrequency === 'monthly') ratePerInstallment = (interestRate / 100) / 12;
-
-    const r = ratePerInstallment;
-    const n = installments;
-    const emi = (principal * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
-    
-    let balance = principal;
-    let totalInterest = 0;
-
-    for (let i = 1; i <= installments; i++) {
-      const interestForPeriod = balance * r;
-      const principalForPeriod = emi - interestForPeriod;
-      totalInterest += interestForPeriod;
-      balance = Math.max(0, balance - principalForPeriod);
-
-      schedule.push({
-        installmentNumber: i,
-        principal: principalForPeriod,
-        interest: interestForPeriod,
-        total: emi,
-        balance: balance
-      });
-    }
-
-    const totalPayable = principal + totalInterest;
-
-    return { totalPayable, totalInterest, emi, schedule };
+  for (let index = 0; index < installments; index++) {
+    const interest = interestType === 'flat' ? share(flatInterest, index)
+      : new Decimal(balance).mul(rate).toDecimalPlaces(0).toNumber();
+    const principalPart = interestType === 'flat' ? share(principalCents, index)
+      : index === installments - 1 ? balance : Math.min(balance, Math.max(0, emiCents - interest));
+    balance -= principalPart;
+    interestSum += interest;
+    if (principalPart + interest > 999999999999) return empty;
+    schedule.push({ installmentNumber: index + 1, principal: principalPart / 100,
+      interest: interest / 100, total: (principalPart + interest) / 100, balance: balance / 100 });
   }
+  if (principalCents + interestSum > 999999999999) return empty;
+  return { totalPayable: (principalCents + interestSum) / 100, totalInterest: interestSum / 100,
+    emi: schedule[0].total, schedule };
 }

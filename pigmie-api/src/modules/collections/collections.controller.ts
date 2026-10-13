@@ -1,46 +1,94 @@
 import {
-  Controller, Get, Post, Param, Query, Body, UseGuards, HttpCode, HttpStatus, Res,
+  Controller,
+  Get,
+  Post,
+  Param,
+  Query,
+  Body,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+  Res,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { RecordAccessGuard } from '../../common/guards/record-access.guard';
+import { RecordAccess } from '../../common/decorators/record-access.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuditAction } from '../../common/decorators/audit-action.decorator';
 import { AuthenticatedUser } from '../../common/types/request-user.type';
 import { CollectionsService } from './collections.service';
-import { CreateCollectionDto, SyncCollectionsDto, ReverseCollectionDto, QueryCollectionDto } from './dto/collection.dto';
+import {
+  CreateCollectionDto,
+  SyncCollectionsDto,
+  ReverseCollectionDto,
+  QueryCollectionDto,
+} from './dto/collection.dto';
 
 @Controller('collections')
-@UseGuards(SupabaseAuthGuard, RolesGuard)
+@UseGuards(SupabaseAuthGuard, RolesGuard, RecordAccessGuard)
+@RecordAccess({ resource: 'collection' })
 export class CollectionsController {
   constructor(private readonly collectionsService: CollectionsService) {}
 
   @Get('due-today')
-  @Roles('org_admin', 'branch_manager', 'agent')
-  async getDueToday(@CurrentUser() user: AuthenticatedUser, @Query('date') date?: string) {
+  @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
+  async getDueToday(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('date') date?: string,
+  ) {
     return this.collectionsService.getDueToday(user.organizationId, user, date);
   }
 
   @Get()
   @Roles('org_admin', 'branch_manager', 'agent', 'accountant')
-  async findAll(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryCollectionDto) {
+  async findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: QueryCollectionDto,
+  ) {
     return this.collectionsService.findAll(user.organizationId, query, user);
   }
 
   @Post()
+  @RecordAccess({
+    resource: 'loan',
+    source: 'body',
+    field: 'loanId',
+    allowRecordedRetry: true,
+  })
   @Roles('org_admin', 'branch_manager', 'agent')
   @AuditAction('collection.record')
-  async record(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateCollectionDto) {
-    return this.collectionsService.recordCollection(user.organizationId, user.id, dto);
+  async record(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateCollectionDto,
+  ) {
+    return this.collectionsService.recordCollection(
+      user.organizationId,
+      user.id,
+      dto,
+    );
   }
 
   @Post('sync')
+  @RecordAccess({
+    resource: 'loan',
+    source: 'collections',
+    allowRecordedRetry: true,
+  })
   @HttpCode(HttpStatus.OK)
   @Roles('org_admin', 'branch_manager', 'agent')
   @AuditAction('collection.sync')
-  async sync(@CurrentUser() user: AuthenticatedUser, @Body() dto: SyncCollectionsDto) {
-    return this.collectionsService.syncCollections(user.organizationId, user.id, dto.collections);
+  async sync(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: SyncCollectionsDto,
+  ) {
+    return this.collectionsService.syncCollections(
+      user.organizationId,
+      user.id,
+      dto.collections,
+    );
   }
 
   @Post(':id/reverse')
@@ -52,7 +100,12 @@ export class CollectionsController {
     @Param('id') id: string,
     @Body() dto: ReverseCollectionDto,
   ) {
-    return this.collectionsService.reverseCollection(user.organizationId, id, user.id, dto.reason);
+    return this.collectionsService.reverseCollection(
+      user.organizationId,
+      id,
+      user.id,
+      dto.reason,
+    );
   }
 
   @Get(':id/receipt')
@@ -63,7 +116,10 @@ export class CollectionsController {
     @Param('id') id: string,
     @Res() res: Response,
   ) {
-    const buffer = await this.collectionsService.generateReceipt(user.organizationId, id);
+    const buffer = await this.collectionsService.generateReceipt(
+      user.organizationId,
+      id,
+    );
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': 'attachment; filename=receipt.pdf',
@@ -72,4 +128,3 @@ export class CollectionsController {
     res.end(buffer);
   }
 }
-

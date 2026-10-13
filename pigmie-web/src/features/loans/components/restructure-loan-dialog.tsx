@@ -44,8 +44,8 @@ export const RestructureLoanDialog: React.FC<RestructureLoanDialogProps> = ({ lo
       await restructureLoan.mutateAsync({ id: loan.id, data });
       setOpen(false);
       reset();
-    } catch (error) {
-      console.error('Failed to restructure loan:', error);
+    } catch {
+      console.error('Failed to restructure loan.');
     }
   };
 

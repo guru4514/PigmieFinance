@@ -48,7 +48,7 @@ export function CollectionReversalDialog({
       setReason('');
     },
     onError: (error: any) => {
-      console.error('Failed to reverse collection', error);
+      console.error('Failed to reverse collection.');
       toast.error((error?.response?.data?.error?.message || (error?.response?.data?.error?.message || error?.response?.data?.message)) || 'Failed to reverse collection');
     },
   });

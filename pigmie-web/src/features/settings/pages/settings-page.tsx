@@ -11,11 +11,11 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/sha
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Save, Building2, Bell, ShieldCheck, Loader2, KeyRound, Smartphone, LogOut } from 'lucide-react';
-import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
 import { Switch } from '@/shared/components/ui/switch';
 import { useAuth } from '@/shared/hooks/use-auth';
 import { RoleGate } from '@/shared/components/auth/role-gate';
 import { useTranslation } from 'react-i18next';
+import { LoadingSpinner } from '@/shared/components/ui/loading-spinner';
 
 const organizationSchema = z.object({
   name: z.string().min(2, 'Organization name is required'),
@@ -27,7 +27,7 @@ type OrganizationFormValues = z.infer<typeof organizationSchema>;
 
 export function SettingsPage() {
   const { t } = useTranslation();
-  useAuth();
+  const { isMfaVerified } = useAuth();
   const [activeTab, setActiveTab] = useState<'organization' | 'notifications' | 'security'>('organization');
   const queryClient = useQueryClient();
   
@@ -42,24 +42,6 @@ export function SettingsPage() {
     localStorage.setItem(key, String(val));
     toast.success('Preference saved locally');
   };
-
-  const [tfaSetup, setTfaSetup] = useState<any>(null);
-  const [tfaCode, setTfaCode] = useState('');
-  
-  const setup2Fa = useMutation({
-    mutationFn: () => apiClient.post('/auth/2fa/setup').then(res => res.data),
-    onSuccess: (data) => setTfaSetup(data),
-    onError: () => toast.error('Failed to setup 2FA'),
-  });
-
-  const enable2Fa = useMutation({
-    mutationFn: () => apiClient.post('/auth/2fa/enable', { code: tfaCode }).then(res => res.data),
-    onSuccess: () => {
-      toast.success('2FA enabled successfully');
-      setTfaSetup(null);
-    },
-    onError: () => toast.error('Failed to enable 2FA'),
-  });
 
   const handleResetPassword = async () => {
     try {
@@ -364,39 +346,8 @@ export function SettingsPage() {
                     <p className="text-sm text-muted-foreground mt-1">Add an extra layer of security to your account.</p>
                   </div>
                   
-                  {!tfaSetup ? (
-                    <Button onClick={() => setup2Fa.mutate()} disabled={setup2Fa.isPending} className="bg-primary/20 text-primary hover:bg-primary/30">
-                      {setup2Fa.isPending ? <LoadingSpinner className="w-4 h-4 mr-2" /> : null}
-                      Setup 2FA
-                    </Button>
-                  ) : (
-                    <div className="space-y-4 p-4 border border-border rounded-lg bg-muted/50">
-                      <p className="text-sm text-foreground/80">Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.), then enter the code below.</p>
-                      <div className="flex justify-center bg-white p-2 rounded w-max">
-                        <img 
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(tfaSetup.otpAuthUrl)}`} 
-                          alt="2FA QR Code" 
-                          className="w-32 h-32" 
-                        />
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        <p>Can't scan? Enter this secret manually:</p>
-                        <code className="block mt-1 p-2 bg-muted rounded text-foreground font-mono text-sm break-all">{tfaSetup.secret}</code>
-                      </div>
-                      <div className="flex gap-2 max-w-sm">
-                        <Input 
-                          placeholder="Enter 6-digit code" 
-                          value={tfaCode}
-                          onChange={(e) => setTfaCode(e.target.value)}
-                          className="bg-muted border-border"
-                        />
-                        <Button onClick={() => enable2Fa.mutate()} disabled={enable2Fa.isPending || tfaCode.length < 6}>
-                          {enable2Fa.isPending ? <LoadingSpinner className="w-4 h-4 mr-2" /> : null}
-                          Verify
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                  <p className="text-sm text-muted-foreground">{isMfaVerified ? 'Your authenticator is verified for this session. Authenticator checks are required for staff access.' : 'Verify your authenticator to continue.'}</p>
+                  <p className="text-xs text-muted-foreground">To replace a lost authenticator, contact your organization administrator for account recovery.</p>
                 </div>
 
                 <div className="h-px bg-muted" />

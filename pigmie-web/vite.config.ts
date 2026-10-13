@@ -6,66 +6,25 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // The staging launcher supplies all browser settings; do not load runtime .env files.
+  envDir: process.env.APP_ENV === 'staging' ? false : undefined,
   plugins: [
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         navigateFallback: '/index.html',
-        navigateFallbackAllowlist: [/^\/app/, /^\/portal/],
-        runtimeCaching: [
-          // Cache API responses for due-today (critical for agents)
-          {
-            urlPattern: /\/api\/v1\/collections\/due-today/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'due-today-cache',
-              expiration: { maxEntries: 10, maxAgeSeconds: 3600 },
-              networkTimeoutSeconds: 5,
-            },
-          },
-          // Cache customer list
-          {
-            urlPattern: /\/api\/v1\/customers/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'customers-cache',
-              expiration: { maxEntries: 50, maxAgeSeconds: 3600 },
-              networkTimeoutSeconds: 5,
-            },
-          },
-          // Cache loans list
-          {
-            urlPattern: /\/api\/v1\/loans/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'loans-cache',
-              expiration: { maxEntries: 50, maxAgeSeconds: 3600 },
-              networkTimeoutSeconds: 5,
-            },
-          },
-          // Cache dashboard summary
-          {
-            urlPattern: /\/api\/v1\/reports\/summary/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'dashboard-cache',
-              expiration: { maxEntries: 5, maxAgeSeconds: 1800 },
-              networkTimeoutSeconds: 5,
-            },
-          },
-          // Cache static assets (fonts, images)
-          {
-            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp|woff2?)$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'static-assets',
-              expiration: { maxEntries: 100, maxAgeSeconds: 86400 * 30 },
-            },
-          },
-        ],
+        navigateFallbackAllowlist: [/^\/app/, /^\/portal/, /^\/login$/, /^\/(setup|verify)-2fa$/],
+        cleanupOutdatedCaches: true,
+        importScripts: ['/push-worker.js'],
+        // Business responses must never fall back to an account-independent URL cache.
+        runtimeCaching: [{
+          urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/'),
+          handler: 'NetworkOnly',
+          options: { fetchOptions: { cache: 'no-store' } },
+        }],
       },
       manifest: {
         name: 'PigmieFinance',
@@ -85,7 +44,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(import.meta.dirname, './src'),
     },
   },
 });

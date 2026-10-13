@@ -51,8 +51,8 @@ export const NewLoanPage: React.FC = () => {
     try {
       await createLoan.mutateAsync(data);
       navigate('/app/loans');
-    } catch (error) {
-      console.error('Failed to create loan:', error);
+    } catch {
+      console.error('Failed to create loan.');
     }
   };
 

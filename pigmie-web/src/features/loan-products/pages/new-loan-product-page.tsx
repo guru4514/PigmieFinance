@@ -41,7 +41,7 @@ export const NewLoanProductPage = () => {
       maxAmount: 50000,
       minTenure: 30,
       maxTenure: 100,
-      processingFee: 1
+      processingFee: 0
     }
   });
 
@@ -49,8 +49,8 @@ export const NewLoanProductPage = () => {
     try {
       await createProduct.mutateAsync(data);
       navigate('/app/loan-products');
-    } catch (error) {
-      console.error('Failed to create product:', error);
+    } catch {
+      console.error('Failed to create product.');
     }
   };
 
@@ -125,9 +125,10 @@ export const NewLoanProductPage = () => {
                 <label className="text-sm font-medium text-foreground/80">Processing Fee (Flat ₹)</label>
                 <Input 
                   type="number"
-                  {...register('processingFee', { valueAsNumber: true })} 
+                  readOnly {...register('processingFee', { valueAsNumber: true })}
                   className="bg-muted border-border text-foreground" 
                 />
+                <p className="text-xs text-muted-foreground">Fees are unavailable while loan terms and fee accounting are being verified.</p>
               </div>
             </div>
 

@@ -6,11 +6,12 @@ import { App } from './App.tsx';
 import './index.css';
 import '@/shared/lib/i18n';
 import { initTheme } from '@/shared/lib/theme';
+import { offerAppUpdate } from '@/shared/lib/app-update';
 // @ts-ignore
 import { registerSW } from 'virtual:pwa-register';
 
 initTheme();
-registerSW({ immediate: true });
+const updateSW = registerSW({ immediate: true, onNeedRefresh: () => offerAppUpdate(() => updateSW(true)) });
 
 const queryClient = new QueryClient({
   defaultOptions: {

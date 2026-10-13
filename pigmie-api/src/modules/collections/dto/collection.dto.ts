@@ -1,11 +1,19 @@
-import { IsUUID, IsNumber, IsPositive, IsDateString, IsEnum, IsOptional, IsString, IsLatitude, IsLongitude, IsArray, ValidateNested } from 'class-validator';
+import {
+  IsUUID,
+  IsNumber,
+  IsPositive,
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsLatitude,
+  IsLongitude,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
-
-export enum CollectionMethodEnum {
-  cash = 'cash',
-  cheque = 'cheque',
-  other = 'other',
-}
+import { CollectionMethod as CollectionMethodEnum } from '@prisma/client';
+export { CollectionMethod as CollectionMethodEnum } from '@prisma/client';
 
 export class CreateCollectionDto {
   @IsUUID()
@@ -14,7 +22,7 @@ export class CreateCollectionDto {
   @IsUUID()
   loanId: string;
 
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @IsPositive()
   amount: number;
 

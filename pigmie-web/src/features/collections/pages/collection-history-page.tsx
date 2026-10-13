@@ -45,8 +45,8 @@ export function CollectionHistoryPage() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Failed to download receipt', error);
+    } catch {
+      console.error('Failed to download receipt.');
       alert('Failed to download receipt');
     }
   };

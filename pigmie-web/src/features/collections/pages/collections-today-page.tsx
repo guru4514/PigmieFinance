@@ -1,5 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { queueCollection, getPendingCount, processSyncQueue } from '@/shared/lib/offline-queue';
+import React, { useState, useMemo } from 'react';
+import { processSyncQueue, type CollectionInput } from '@/shared/lib/offline-queue';
+import { usePendingCollections } from '@/shared/hooks/use-pending-collections';
+import { readCollectionPhoto } from '@/shared/lib/collection-photo';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCollectionsToday, useRecordCollection } from '../hooks/use-collections';
 import { Card, CardContent } from '@/shared/components/ui/card';
 import { Badge } from '@/shared/components/ui/badge';
@@ -11,7 +14,6 @@ import { useAuth } from '@/shared/hooks/use-auth';
 import { openWhatsApp, generateReminderMessage } from '@/shared/lib/whatsapp';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '@/shared/lib/supabase';
 import { ReceiptModal, ReceiptCollection } from '@/features/collections/components/receipt-modal';
 
 const PresetAmountChip = ({ amount, selected, onClick }: { amount: number, selected: boolean, onClick: () => void }) => (
@@ -24,127 +26,81 @@ const PresetAmountChip = ({ amount, selected, onClick }: { amount: number, selec
   </Badge>
 );
 
-const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boolean }) => {
+const CollectionCard = ({ item, isAccountant, pendingAmount, pendingEvidenceAmount, queueUnavailable }: { item: any, isAccountant: boolean, pendingAmount: number, pendingEvidenceAmount: number, queueUnavailable: boolean }) => {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [customAmount, setCustomAmount] = useState<number | ''>(item.amountDue);
-  const { mutate: recordCollection, isPending } = useRecordCollection(item.loanId || item.id);
+  const { mutateAsync: recordCollection, isPending } = useRecordCollection(item.loanId || item.id);
   const isCollected = item.status === 'collected';
   const [photoFile, setPhotoFile] = React.useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = React.useState(false);
+  const submitting = React.useRef(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptCollection | null>(null);
 
   const handleCollect = async () => {
+    if (submitting.current || pendingAmount > 0 || pendingEvidenceAmount > 0 || queueUnavailable) return;
     if (!customAmount || customAmount <= 0) {
       toast.error('Please enter a valid amount');
       return;
     }
-    
-    let uploadedPhotoUrl = null;
-    
-    
-    let offlinePhotoBase64 = null;
-    if (photoFile) {
-      if (navigator.onLine) {
-        setIsUploading(true);
-        const fileName = `collections/${crypto.randomUUID()}.${photoFile.name.split('.').pop() || 'jpg'}`;
-        const { data: uploadData, error } = await supabase.storage
-          .from('collection-photos')
-          .upload(fileName, photoFile, {
-            contentType: photoFile.type,
-            upsert: false,
-          });
-        
-        if (!error && uploadData) {
-          const { data: urlData } = supabase.storage
-            .from('collection-photos')
-            .getPublicUrl(uploadData.path);
-          uploadedPhotoUrl = urlData.publicUrl;
-        }
-        setIsUploading(false);
-      } else {
-        // Convert to base64 for offline storage
-        offlinePhotoBase64 = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
-          reader.readAsDataURL(photoFile);
+    submitting.current = true;
+    setIsUploading(true);
+    try {
+      const payload: CollectionInput = {
+        clientGeneratedId: crypto.randomUUID(),
+        loanId: item.loanId || item.id,
+        amount: Number(customAmount),
+        collectionDate: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0],
+        collectedAt: new Date().toISOString(),
+        collectionMethod: 'cash',
+        ...(photoFile ? { offlinePhotoBase64: await readCollectionPhoto(photoFile) } : {}),
+      };
+      if (navigator.geolocation) {
+        const location = await new Promise<GeolocationPosition | null>(resolve => {
+          navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), { timeout: 5000, enableHighAccuracy: false });
         });
+        if (location) {
+          payload.latitude = location.coords.latitude;
+          payload.longitude = location.coords.longitude;
+        } else toast.warning('Location unavailable. Saving without GPS coordinates.');
       }
-    }
-
-
-    const payload: any = {
-      clientGeneratedId: crypto.randomUUID(),
-      loanId: item.loanId || item.id,
-      amount: Number(customAmount),
-      collectionDate: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0],
-      collectedAt: new Date().toISOString(),
-      collectionMethod: 'cash',
-      ...(uploadedPhotoUrl ? { photoUrl: uploadedPhotoUrl } : {}),
-      ...(offlinePhotoBase64 ? { offlinePhotoBase64 } : {})
-    };
-
-    const submitPayload = async (data: any) => {
-      if (!navigator.onLine) {
-        await queueCollection(data);
-        toast.success('Saved offline — will sync when back online');
-        setExpanded(false);
+      const result = await recordCollection(payload);
+      setExpanded(false);
+      if (result.status === 'pending') {
+        toast.info('Saved on this device. Pending sync — do not record this payment again.');
         return;
       }
-
-      recordCollection(data, {
-        onSuccess: (res: any) => {
-          toast.success(`Collected ₹${customAmount} from ${item.customerName}`);
-          setExpanded(false);
-          setReceiptData({
-            id: res?.id || res?.data?.id || 'pending',
-            amount: Number(customAmount),
-            collectionDate: data.collectionDate,
-            collectionMethod: 'cash',
-            customerName: item.customerName,
-            customerPhone: item.phone,
-            loanId: item.loanId || item.id,
-            outstandingBalance: (item.amountDue || 0) - Number(customAmount),
-          });
-          setShowReceipt(true);
-        },
-        onError: (err: any) => {
-          console.error('Collection error:', err?.response?.data);
-          const msg = Array.isArray(err?.response?.data?.message) 
-            ? err.response.data.message.join(', ') 
-            : err?.response?.data?.message || 'Failed to record collection';
-          toast.error(msg);
-        }
+      const recorded = result.acknowledgement.collection;
+      toast.success(`Collected ₹${recorded.amount} from ${item.customerName}`);
+      setReceiptData({
+        id: recorded.id,
+        receiptNumber: recorded.receiptNumber ?? undefined,
+        amount: recorded.amount,
+        collectionDate: recorded.collectionDate,
+        collectionMethod: recorded.collectionMethod,
+        customerName: item.customerName,
+        customerPhone: item.phone,
+        loanId: recorded.loanId,
       });
-    };
-
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          payload.latitude = pos.coords.latitude;
-          payload.longitude = pos.coords.longitude;
-          submitPayload(payload);
-        },
-        () => {
-          toast.warning('Location unavailable. Saving without GPS coordinates.');
-          submitPayload(payload);
-        },
-        { timeout: 5000, enableHighAccuracy: false }
-      );
-    } else {
-      submitPayload(payload);
+      setShowReceipt(true);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Could not save the collection. Please retry.');
+    } finally {
+      submitting.current = false;
+      setIsUploading(false);
     }
   };
-
   const presetAmounts = [item.amountDue, 100, 200, 500, 1000].filter((v, i, a) => a.indexOf(v) === i && v > 0).sort((a, b) => a - b);
 
   return (
     <Card className={`glassmorphism transition-all overflow-hidden ${isCollected ? 'bg-card/20 opacity-75' : 'bg-card/40 hover:bg-card/60'}`}>
       <div className={`h-1 w-full ${isCollected ? 'bg-emerald-500' : 'bg-amber-500'}`} />
       <CardContent className="p-4 sm:p-5">
+        {pendingAmount > 0 && <p role="status" className="mb-3 text-sm text-amber-600 dark:text-amber-400">₹{pendingAmount} saved on this device, pending sync. Do not collect this payment again.</p>}
+        {pendingEvidenceAmount > 0 && <p role="status" className="mb-3 text-sm text-amber-600 dark:text-amber-400">₹{pendingEvidenceAmount} payment confirmed. Its photo is still saved on this device for retry. Sync the photo before recording another payment.</p>}
         {/* Header Section */}
         <div 
           className={`flex justify-between items-start ${!isCollected && !isAccountant ? 'cursor-pointer' : ''}`} 
@@ -235,7 +191,7 @@ const CollectionCard = ({ item, isAccountant }: { item: any, isAccountant: boole
               <Button 
                 className="h-11 px-6 bg-emerald-600 hover:bg-emerald-700 text-foreground font-semibold shadow-sm"
                 onClick={(e) => { e.stopPropagation(); handleCollect(); }}
-                disabled={isPending || isUploading || !customAmount}
+                disabled={isPending || isUploading || !customAmount || pendingAmount > 0 || pendingEvidenceAmount > 0 || queueUnavailable}
               >
                 {isPending || isUploading ? t('collection.saving') : t('collection.collect')}
               </Button>
@@ -291,14 +247,13 @@ export function CollectionsTodayPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const { data: collectionsResponse, isLoading } = useCollectionsToday(selectedDate);
-  const [pendingCount, setPendingCount] = useState(0);
-
-  useEffect(() => {
-    getPendingCount().then(setPendingCount);
-  }, []);
+  const { owner, pendingCollections, legacyCount, queueError, queueLoading } = usePendingCollections();
+  const pendingCount = pendingCollections.length;
+  const [isSyncing, setIsSyncing] = useState(false);
+  const queryClient = useQueryClient();
   
   // The API returns an array directly, not a paginated { data: [] } object
-  const collectionsRaw = Array.isArray(collectionsResponse) ? collectionsResponse : collectionsResponse?.data || [];
+  const collectionsRaw = useMemo(() => Array.isArray(collectionsResponse) ? collectionsResponse : collectionsResponse?.data || [], [collectionsResponse]);
   
   const collections = useMemo(() => {
     return collectionsRaw.map((loan: any) => {
@@ -392,13 +347,28 @@ export function CollectionsTodayPage() {
             <span className="text-sm text-amber-600 dark:text-amber-400">
               {pendingCount} collection(s) pending sync
             </span>
-            <Button size="sm" variant="outline" onClick={async () => {
-              const synced = await processSyncQueue();
-              setPendingCount(prev => prev - synced);
-              toast.success(`Synced ${synced} collection(s)`);
+            <Button size="sm" variant="outline" disabled={isSyncing || !owner} onClick={async () => {
+              if (!owner) return;
+              setIsSyncing(true);
+              try {
+                const result = await processSyncQueue(owner);
+                if (result.synced > 0 || Object.keys(result.acknowledged).length > 0) {
+                  await queryClient.invalidateQueries({ queryKey: ['collections'] });
+                  await queryClient.invalidateQueries({ queryKey: ['loans'] });
+                  await queryClient.invalidateQueries({ queryKey: ['reports'] });
+                  toast.success(result.synced > 0 ? `Synced ${result.synced} collection(s)` : 'Payment confirmed. Photo delivery still needs retry.');
+                } else toast.info('No collections synced. Saved entries remain on this device; check the messages below.');
+              } catch (error: unknown) {
+                toast.error(error instanceof Error ? error.message : 'Sync failed. Your saved collections remain on this device.');
+              } finally { setIsSyncing(false); }
             }}>Sync Now</Button>
           </div>
         )}
+        {queueError && <p role="alert" className="text-sm text-destructive">{queueError}</p>}
+        {legacyCount > 0 && <p role="alert" className="text-sm text-amber-600 dark:text-amber-400">Older saved collections need account verification before they can sync. Contact your administrator and do not clear this device’s browser data.</p>}
+        {pendingCollections.filter(entry => entry.lastError).map(entry => (
+          <p key={entry.clientGeneratedId} role="alert" className="text-sm text-amber-600 dark:text-amber-400">{entry.paymentAcknowledgement ? 'Confirmed payment; photo pending' : 'Saved collection'} {entry.clientGeneratedId.slice(0, 8)}: {entry.lastError}</p>
+        ))}
 
         {/* Stats Grid — Option C */}
         <div className="grid grid-cols-4 gap-2">
@@ -473,7 +443,7 @@ export function CollectionsTodayPage() {
       ) : (
         <div className="space-y-4">
           {sortedCollections.map((item: any) => (
-            <CollectionCard key={item.id} item={item} isAccountant={isAccountant} />
+            <CollectionCard key={item.id} item={item} isAccountant={isAccountant} pendingAmount={pendingCollections.filter(entry => entry.loanId === item.loanId && !entry.paymentAcknowledgement).reduce((sum, entry) => sum + entry.amount, 0)} pendingEvidenceAmount={pendingCollections.filter(entry => entry.loanId === item.loanId && entry.paymentAcknowledgement).reduce((sum, entry) => sum + entry.amount, 0)} queueUnavailable={!!queueError || queueLoading} />
           ))}
         </div>
       )}

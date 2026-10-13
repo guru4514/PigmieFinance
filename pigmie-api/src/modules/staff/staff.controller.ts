@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { StaffService } from './staff.service';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { UpdateStaffDto } from './dto/update-staff.dto';
@@ -17,24 +28,36 @@ export class StaffController {
 
   @Get()
   @Roles('org_admin', 'branch_manager')
-  async findAll(@Query() query: QueryStaffDto, @CurrentUser() user: AuthenticatedUser) {
-    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
-    return this.staffService.findAll(user.organizationId, query, user.id, user.role === 'branch_manager');
+  async findAll(
+    @Query() query: QueryStaffDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (user.type !== 'staff')
+      throw new ForbiddenException('Only staff can access this endpoint');
+    return this.staffService.findAll(user.organizationId, query, user.id);
   }
 
   @Get(':id')
   @Roles('org_admin', 'branch_manager')
-  async findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
-    return this.staffService.findOne(user.organizationId, id, user.id, user.role === 'branch_manager');
+  async findOne(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (user.type !== 'staff')
+      throw new ForbiddenException('Only staff can access this endpoint');
+    return this.staffService.findOne(user.organizationId, id, user.id);
   }
 
   @Post()
   @Roles('org_admin')
   @AuditAction('staff.create')
-  async create(@Body() dto: CreateStaffDto, @CurrentUser() user: AuthenticatedUser) {
-    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
-    return this.staffService.create(user.organizationId, dto);
+  async create(
+    @Body() dto: CreateStaffDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (user.type !== 'staff')
+      throw new ForbiddenException('Only staff can access this endpoint');
+    return this.staffService.create(user.organizationId, dto, user.id);
   }
 
   @Patch(':id')
@@ -43,36 +66,23 @@ export class StaffController {
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateStaffDto,
-    @CurrentUser() user: AuthenticatedUser
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
-    
-    // Only org_admin can do general updates.
-    if (user.role === 'org_admin') {
-      return this.staffService.update(user.organizationId, id, dto);
-    }
-    
-    // Others can only patch their own phone
-    if (user.id === id) {
-      if (Object.keys(dto).some(key => key !== 'phone')) {
-        throw new ForbiddenException('You can only update your phone number');
-      }
-      if (dto.phone) {
-        return this.staffService.updateOwnPhone(user.organizationId, id, dto.phone);
-      }
-      return this.staffService.findOne(user.organizationId, id);
-    }
+    if (user.type !== 'staff')
+      throw new ForbiddenException('Only staff can access this endpoint');
 
-    throw new ForbiddenException('You do not have permission to update this staff member');
+    return this.staffService.update(user.organizationId, id, dto, user.id);
   }
 
   @Delete(':id')
   @Roles('org_admin')
   @AuditAction('staff.delete')
-  async remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    if (user.type !== 'staff') throw new ForbiddenException('Only staff can access this endpoint');
-    return this.staffService.remove(user.organizationId, id);
+  async remove(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (user.type !== 'staff')
+      throw new ForbiddenException('Only staff can access this endpoint');
+    return this.staffService.remove(user.organizationId, id, user.id);
   }
 }
-
-

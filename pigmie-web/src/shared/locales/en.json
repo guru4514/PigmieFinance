@@ -5,6 +5,8 @@
     "totalOutstanding": "Total Outstanding",
     "collectedToday": "Collected Today",
     "dueToday": "Due Today",
+    "dueFulfillment": "Today's Dues Paid",
+    "dueFulfillmentDescription": "Paid toward today's scheduled installments, including earlier payments.",
     "activeLoans": "Active Loans",
     "overdueAccounts": "Overdue Accounts",
     "par30": "PAR30",

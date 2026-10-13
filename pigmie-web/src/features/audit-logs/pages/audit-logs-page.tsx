@@ -22,8 +22,8 @@ export function AuditLogsPage() {
 
       const response = await api.get(`/audit-logs?${params.toString()}`);
       setLogs(response.data.data);
-    } catch (error) {
-      console.error('Failed to fetch audit logs', error);
+    } catch {
+      console.error('Failed to fetch audit logs.');
     } finally {
       setLoading(false);
     }

@@ -10,9 +10,10 @@ interface KPICardProps {
   trendLabel?: string;
   className?: string;
   valueClassName?: string;
+  description?: string;
 }
 
-export function KPICard({ title, value, icon: Icon, trend, trendLabel, className, valueClassName }: KPICardProps) {
+export function KPICard({ title, value, icon: Icon, trend, trendLabel, className, valueClassName, description }: KPICardProps) {
   return (
     <Card className={cn("overflow-hidden border-border glass relative group", className)}>
       <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -29,7 +30,7 @@ export function KPICard({ title, value, icon: Icon, trend, trendLabel, className
             {value}
           </h3>
         </div>
-        
+        {description && <p className="mt-2 text-xs text-muted-foreground">{description}</p>}
         {trend !== undefined && (
           <div className="mt-4 flex items-center text-sm">
             <span className={cn(
